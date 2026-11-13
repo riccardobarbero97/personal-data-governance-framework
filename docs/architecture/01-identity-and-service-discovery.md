@@ -1,6 +1,6 @@
 # Identity & Service Discovery
 
-**Status:** Draft v0.2  
+**Status:** Draft v0.3  
 **Scope:** Identity and Service Discovery  
 **Last updated:** November 2026  
 
@@ -8,1830 +8,486 @@
 
 ## 1. Purpose
 
-The first problem addressed by the framework is:
+The first problem addressed by the Personal Data Governance Framework is:
 
-> Given one or more digital identities provided by a user, which services and organizations may hold, or may have held, personal data related to that user?
+> Given one or more digital identities provided by a User and one or more explicitly authorized data sources, which digital Services appear to have or have had a Relationship with that User?
 
-The objective of this module is not to determine exactly what personal data each organization currently holds.
+The objective of this capability is not to determine exactly what personal data each Service currently holds.
 
-Its objective is to discover, normalize and document evidence of digital relationships between the user and external services.
+Its objective is to discover, normalize and document evidence of observable digital Relationships between the User and external Services.
 
-The framework builds an observed representation of the user's digital relationships rather than claiming to reconstruct an objective and complete digital footprint.
+The framework therefore builds an:
 
-The discovery process is based on the following conceptual model:
+> **Observed Digital Relationship Graph**
+
+rather than claiming to reconstruct an objective and complete digital footprint.
+
+The current Discovery architecture is:
 
 ```text
-Identity Seed
-     |
-     v
-Discovery Source
-     |
-     v
-Connector
-     |
-     v
-Observation
-     |
-     v
-Service Candidate Detection
-     |
-     v
-Entity Resolution
-     |
-     v
-Evidence Classification
-     |
-     v
-Evidence
-     |
-     v
+USER
+ |
+ +-- Identity Seeds
+ |
+ +-- Connected Sources
+         |
+         v
+      Connector
+         |
+         v
+     Observation
+       /       \
+      /         \
+     v           v
+Service        Evidence
+Candidate      Classification
+Detection          |
+     |             v
+     v          Evidence
+Candidate          |
+Identifiers        |
+     |             |
+     v             |
+Entity             |
+Resolution         |
+     |             |
+     v             |
+  Service ---------+
+         |
+         v
 Evidence Aggregation
-     |
-     v
+         |
+         v
+Evidence Aggregate
+         |
+         v
 Relationship Assessment
-     |
-     v
+         |
+         v
+Relationship
+         |
+         v
 Service Graph
 ```
 
-The output of this process becomes the starting point for subsequent modules that may:
+The output of Discovery becomes the starting point for subsequent framework capabilities that may:
 
-- determine how personal data can be obtained from identified services;
+- determine how personal data can be obtained from identified Services;
 - request or retrieve that data;
 - ingest and normalize returned information;
-- classify personal data;
+- identify and classify personal data;
 - construct a Personal Data Graph;
 - monitor changes;
-- help the user exercise available controls over personal information.
+- support User governance actions.
 
 This document focuses exclusively on **Identity and Service Discovery**.
 
 ---
 
-## 2. Design Principles
+# 2. Observed Footprint
 
-### 2.1 Evidence Before Inference
+The framework does not attempt to reconstruct absolute truth.
 
-The framework must distinguish between:
+It operates on information that can be observed through authorized sources.
 
-- what has been directly observed;
-- what has been interpreted from an observation;
-- what has been inferred from multiple pieces of evidence;
-- what has been confirmed;
-- what remains unknown.
-
-For example, detecting an account-verification email associated with a service may provide significant evidence that a relationship existed.
-
-It does not prove:
-
-- that the relationship still exists;
-- that an account is currently active;
-- what personal data the service currently holds;
-- that the evidence has been interpreted correctly.
-
-The framework must therefore preserve the evidence behind every conclusion.
-
----
-
-### 2.2 Unknown Is a Valid State
-
-The framework must not invent information to fill knowledge gaps.
-
-Unknown, unresolved and ambiguous states are valid outcomes.
-
-For example:
+Therefore:
 
 ```text
-Observed Domain: example.com
-Resolved Service: UNKNOWN
+Observed Footprint
+        !=
+Complete Footprint
 ```
 
-or:
+and:
 
 ```text
-Observation:
-"Important information about your account"
-
-Evidence Type:
-UNKNOWN
+Observed Relationship
+        !=
+Current Data Possession
 ```
 
-or:
+Every conclusion must remain relative to the information currently available to the framework.
+
+The architecture must preserve distinctions between:
 
 ```text
-Service: Spotify
-Relationship: DISCOVERED
-Personal Data Held: UNKNOWN
-```
-
-Absence of information must not be confused with absence of data.
-
-The framework should prefer uncertainty over fabricated certainty.
-
----
-
-### 2.3 Multiple Independent Discovery Sources
-
-No single Discovery Source should be considered sufficient to reconstruct a person's complete digital footprint.
-
-The architecture must support multiple independent discovery mechanisms.
-
-Examples may include:
-
-```text
-Email
-Password Manager
-Browser
-Identity Provider
-Manual Input
-Other Authorized Sources
-```
-
-These sources may provide different types and strengths of evidence.
-
-The same Service may eventually be supported by evidence originating from multiple independent sources.
-
----
-
-### 2.4 Explainability
-
-Every discovered Relationship should be traceable to the evidence supporting it.
-
-The user should be able to ask:
-
-> Why do you think I have or had a relationship with this Service?
-
-The framework should be able to explain:
-
-- which observations were collected;
-- how those observations were interpreted;
-- how identifiers were resolved;
-- what evidence was produced;
-- how the accumulated evidence contributed to the Relationship Assessment.
-
-Explainability should not require exposing more raw personal information than necessary.
-
----
-
-### 2.5 Local-First and Privacy by Design
-
-A framework intended to improve personal privacy must not unnecessarily become another centralized repository containing highly sensitive information about the user.
-
-Whenever technically practical:
-
-- raw personal data should be processed locally;
-- only the minimum required information should be persisted;
-- external transmission should require an explicit purpose;
-- credentials and authorization tokens should be isolated from discovered information;
-- external AI providers should not automatically receive raw personal data;
-- derived information should be preferred over unnecessary persistence of raw source data.
-
-Conceptually:
-
-```text
-Raw Source Data
-      |
-      v
-Local Processing
-      |
-      v
-Observations / Evidence
-      |
-      v
-Minimum Necessary Persistence
-```
-
----
-
-### 2.6 Progressive Permission
-
-Access to a Discovery Source must be capability-driven.
-
-Connecting a source must not automatically imply authorization to retrieve every category of information available from that source.
-
-The framework should request the minimum level of access required for the requested capability.
-
-If existing permissions are insufficient:
-
-1. the framework identifies the additional information required;
-2. explains why that information is required;
-3. requests the minimum additional permission;
-4. continues only if the user explicitly authorizes the operation.
-
-Conceptually:
-
-```text
-Minimum Permission
-        |
-        v
-Attempt Capability
-        |
-   +----+----+
-   |         |
-Enough    Insufficient
-   |         |
-   v         v
-Continue   Explain Need
-             |
-             v
-       Request Additional
-          Permission
-          /      \
-       allow     deny
-         |         |
-         v         v
-      Continue   Remain
-                Unresolved
-```
-
-Permission escalation must never occur silently.
-
----
-
-### 2.7 Preserve Provenance
-
-Normalization and interpretation must not destroy the relationship between derived information and its source.
-
-The framework should preserve sufficient provenance to determine:
-
-```text
-Source
-  |
-  v
-Observation
-  |
-  v
+Observed information
 Interpretation
-  |
-  v
+Resolved identity
 Evidence
-  |
-  v
-Relationship
+Relationship assessment
+Unknown information
 ```
 
-This is required for:
-
-- explainability;
-- auditing;
-- debugging;
-- user correction;
-- reclassification;
-- entity re-resolution;
-- future improvements to discovery logic.
+Uncertainty is a feature of the data model rather than a condition the framework attempts to hide.
 
 ---
 
-### 2.8 Deterministic Processing Before AI
+# 3. Core Architectural Boundaries
 
-AI should not replace deterministic software unnecessarily.
-
-Operations that can be performed reliably through explicit deterministic logic should remain deterministic.
-
-AI should primarily be considered for ambiguity, semantic interpretation and other cases where deterministic approaches are insufficient or excessively brittle.
-
-The general strategy is:
+The Discovery architecture is based on the following boundaries:
 
 ```text
-Input
-  |
-  v
-Deterministic Processing
-  |
-  +----------------+
-  |                |
-resolved        ambiguous
-  |                |
-  |                v
-  |          AI when appropriate
-  |                |
-  +-------+--------+
-          |
-          v
-        Result
-```
+SOURCE TYPE != PROVIDER
 
-AI should therefore be an optional capability rather than a foundational dependency of Service Discovery.
+PROVIDER != CONNECTED SOURCE
 
----
+CONNECTED SOURCE != CONNECTOR
 
-## 3. Identity Seed
+CONNECTED SOURCE != OBSERVATION
 
-An Identity Seed is an identifier or digital account declared by the user as belonging to them and used as a starting point for discovery.
-
-Possible Identity Seeds include:
-
-- email addresses;
-- phone numbers;
-- usernames;
-- Google accounts;
-- Apple accounts;
-- Microsoft accounts;
-- other supported digital identities.
-
-Conceptually:
-
-```json
-{
-  "id": "identity_001",
-  "type": "email",
-  "value": "user@example.com",
-  "verified": true
-}
-```
-
-A single person may provide multiple Identity Seeds.
-
-For example:
-
-```text
-User
- |
- +-- personal@gmail.com
- |
- +-- work@example.com
- |
- +-- oldmail@example.net
- |
- +-- +39XXXXXXXXXX
- |
- +-- username123
-```
-
-These identities may represent different portions of the same person's digital history.
-
----
-
-### 3.1 Identity Seeds Are Starting Points
-
-An Identity Seed is not necessarily information that should automatically be searched publicly on the Internet.
-
-Its primary purpose is to provide a starting point from which explicitly authorized discovery processes may begin.
-
-For example, a user may authorize a Connector to inspect an email account associated with one of their Identity Seeds.
-
-The framework may then use information available through that authorized source to discover possible relationships with external Services.
-
----
-
-## 4. Discovery Source
-
-A Discovery Source is a source from which the framework may obtain information relevant to discovering relationships between the user and external Services.
-
-Examples include:
-
-```text
-Email Provider
-Identity Provider
-Password Manager
-Browser
-Manual Input
-Other Authorized Source
-```
-
-Different Discovery Sources may provide different categories and strengths of information.
-
-A Discovery Source is conceptually distinct from the software component used to communicate with it.
-
-```text
-Discovery Source
-       |
-       v
-    Connector
-       |
-       v
-  Observations
-```
-
----
-
-### 4.1 Email
-
-Potential providers include:
-
-- Gmail;
-- Outlook;
-- other supported email providers.
-
-Email may contain observations associated with:
-
-- account creation;
-- account verification;
-- authentication;
-- password resets;
-- security notifications;
-- purchases;
-- invoices;
-- subscriptions;
-- payments;
-- newsletters;
-- privacy notifications;
-- account changes;
-- account deletion.
-
-Receiving an email must not automatically be interpreted as proof of an active account.
-
-Email is one Discovery Source among several and must not define the core architecture of the framework.
-
----
-
-### 4.2 Identity Providers
-
-Identity providers may expose relationships created through mechanisms such as:
-
-- Sign in with Google;
-- Sign in with Apple;
-- Microsoft identity;
-- OAuth;
-- OpenID Connect;
-- other supported authentication relationships.
-
-An authorized application relationship may provide evidence that the user established some form of relationship with an external Service.
-
----
-
-### 4.3 Password Managers
-
-A password manager may provide evidence that an account exists or existed for a particular Service.
-
-For example:
-
-```text
-Domain:
-netflix.com
-
-Username:
-personal@gmail.com
-```
-
-may constitute relatively significant evidence of a relationship with Netflix.
-
-Access to password-manager information must require explicit user authorization.
-
-The framework should not retrieve, import or persist actual passwords unless a future capability can demonstrate that doing so is strictly necessary.
-
-Service Discovery primarily requires evidence of the relationship, not the user's credentials.
-
----
-
-### 4.4 Browser Data
-
-A browser may provide relevant observations through signals such as:
-
-- browsing history;
-- frequently visited domains;
-- bookmarks;
-- login-related information;
-- locally stored site information;
-- other supported browser signals.
-
-However:
-
-```text
-Website Visit != Account Relationship
-```
-
-Browser observations alone may therefore indicate interaction without proving the existence of an account.
-
----
-
-### 4.5 Manual User Input
-
-The user must be able to manually declare relationships that automated discovery mechanisms cannot reconstruct.
-
-Example:
-
-```text
-"I had an account on example.com using another email address in 2018."
-```
-
-Manual input is necessary because no automated discovery mechanism can guarantee complete reconstruction of a person's digital history.
-
-Manual information should still retain provenance indicating that it was user-provided.
-
----
-
-### 4.6 Future Discovery Sources
-
-The architecture must allow additional Discovery Sources to be introduced without redesigning the core discovery pipeline.
-
-For example:
-
-```text
-                   Connector Interface
-                          |
-          +---------------+---------------+
-          |               |               |
-          v               v               v
-      Email           Browser       Password Manager
-     Connector       Connector          Connector
-          |               |               |
-          +---------------+---------------+
-                          |
-                          v
-                    Observations
-```
-
-Source-specific implementation details should remain inside the corresponding Connector whenever reasonably possible.
-
----
-
-## 5. Connector
-
-A Connector is a source-specific component responsible for communicating with a Discovery Source.
-
-Its responsibilities may include:
-
-- authorization;
-- source API interaction;
-- data retrieval;
-- pagination;
-- synchronization;
-- source-specific error handling;
-- translating source-specific information into framework Observations.
-
-Conceptually:
-
-```text
-External Source
-       |
-       v
-    Connector
-       |
-       v
-  Observations
-```
-
-The Connector forms a boundary between external systems and the framework's core domain logic.
-
-Downstream components should avoid depending directly on source-specific objects or APIs whenever reasonably possible.
-
-For example:
-
-```text
-Gmail API Objects
-       |
-       v
- GmailConnector
-       |
-       v
-Framework Observations
-```
-
-rather than:
-
-```text
-Gmail API Objects
-       |
-       +-----------------------------+
-       |              |              |
-       v              v              v
-Entity Resolver   Classifier   Relationship Engine
-```
-
-The first design allows source-specific behavior to remain isolated.
-
----
-
-### 5.1 Connector Authorization
-
-A Connector must not assume that source connectivity implies unrestricted access.
-
-Each capability should identify the minimum information it requires.
-
-The Connector should request only the authorization required to obtain that information.
-
-Authorization state and derived domain information must remain conceptually separate.
-
-For example:
-
-```text
-Revoke Source Access
-```
-
-is not necessarily equivalent to:
-
-```text
-Delete Existing Observations
-Delete Evidence
-Delete Relationships
-```
-
-Lifecycle rules for derived information must be defined separately.
-
----
-
-### 5.2 Connector Failure
-
-Failure of an external source must not corrupt previously valid domain information.
-
-Possible failures include:
-
-- authorization expiration;
-- permission denial;
-- network failure;
-- API unavailability;
-- rate limiting;
-- interrupted synchronization;
-- malformed or unexpected source responses.
-
-The framework must distinguish between:
-
-```text
-No information found
-```
-
-and:
-
-```text
-Source could not be completely analyzed
-```
-
-Incomplete discovery must not be presented as complete discovery.
-
----
-
-## 6. Observation
-
-An Observation represents information obtained from a Discovery Source before the framework assigns semantic meaning to it.
-
-For example:
-
-```text
-Source:
-Email
-
-Sender:
-no-reply@example.com
-
-Subject:
-Verify your email address
-
-Observed At:
-2026-01-01
-```
-
-is an Observation.
-
-The interpretation:
-
-```text
-ACCOUNT_VERIFICATION
-```
-
-is Evidence.
-
-Therefore:
-
-```text
 OBSERVATION != EVIDENCE
-```
 
-This distinction is fundamental.
+CANDIDATE != RESOLVED SERVICE
 
-Observations preserve what was detected.
+IDENTIFIER != SERVICE
 
-Evidence represents what the framework currently believes that Observation means.
+NORMALIZATION != RESOLUTION
 
-Separating the two allows future logic to:
+EVIDENCE != RELATIONSHIP
 
-- reclassify observations;
-- improve deterministic rules;
-- change AI models;
-- correct mistakes;
-- retry Entity Resolution;
-- preserve historical source provenance.
+RELATIONSHIP != ACCOUNT
 
----
+SERVICE != ORGANIZATION
 
-### 6.1 Observation Provenance
-
-An Observation should preserve sufficient information to identify:
-
-- the originating Discovery Source;
-- the Connector that produced it, where relevant;
-- the Identity Seed involved, where applicable;
-- when it was observed;
-- useful source identifiers;
-- relevant extracted attributes;
-- collection or synchronization context.
-
-The exact persistent schema remains an implementation decision.
-
----
-
-## 7. Service Candidate Detection
-
-Not every Observation indicates a relationship with a digital Service.
-
-For example, an email source may contain:
-
-- personal correspondence;
-- generic email-provider addresses;
-- mailing infrastructure;
-- communication from individual employees;
-- automated notifications;
-- service-related communication.
-
-Similarly, a browser source may contain websites the user visited only once without creating an account.
-
-Service Candidate Detection determines whether an Observation should enter the Service Discovery pipeline.
-
-Conceptually:
-
-```text
-Observation
-     |
-     v
-Candidate Detection
-    / \
-   /   \
- yes    no
-  |      |
-  v      v
-Entity   Not used for this
-Resolution capability
-```
-
-An Observation ignored for Service Discovery may still be useful to another capability.
-
-Candidate Detection therefore answers:
-
-> Is this Observation relevant to the current Service Discovery capability?
-
-It does not answer:
-
-> Is this Observation globally useful?
-
----
-
-## 8. Service
-
-A Service represents a normalized digital service or product with which the user may have or have had a relationship.
-
-Different technical identifiers may refer to the same Service.
-
-For example:
-
-```text
-spotify.com
-accounts.spotify.com
-open.spotify.com
-no-reply@spotify.com
-        |
-        v
-     Spotify
-```
-
-The framework must distinguish between:
-
-```text
-Technical Identifier
-```
-
-and:
-
-```text
-Service Identity
-```
-
-Therefore:
-
-```text
-DOMAIN != SERVICE
-```
-
-More generally, Service identity and Organization identity must not automatically be treated as equivalent.
-
-A company may operate multiple Services.
-
-A Service may:
-
-- use multiple domains;
-- operate under multiple brands;
-- change domains;
-- change ownership;
-- be renamed;
-- use third-party infrastructure.
-
-The exact model connecting Services, Brands, Organizations and legal data controllers remains to be defined.
-
----
-
-## 9. Entity Resolution
-
-Entity Resolution determines whether one or more observed identifiers correspond to the same underlying Service.
-
-Conceptually:
-
-```text
-Observed Identifiers
-        |
-        +-- spotify.com
-        |
-        +-- accounts.spotify.com
-        |
-        +-- no-reply@spotify.com
-        |
-        v
-Entity Resolution
-        |
-        v
-     Spotify
-```
-
-Possible resolution signals may include:
-
-- domains;
-- hostnames;
-- email addresses;
-- URLs;
-- display names;
-- known service aliases;
-- source-specific identifiers;
-- previously resolved entities;
-- other supporting information.
-
-The exact resolution mechanism is intentionally not defined at this stage.
-
----
-
-### 9.1 Resolution Provenance
-
-Entity Resolution must preserve the relationship between:
-
-```text
-Observed Identifier
-       |
-       v
-Normalized Identifier
-       |
-       v
-Resolved Service
-```
-
-A resolved Service must not destructively replace the original Observation.
-
-This allows the framework to support:
-
-- explainability;
-- re-resolution;
-- user correction;
-- improved normalization;
-- evolving service mappings;
-- debugging.
-
----
-
-### 9.2 Unresolved Entities
-
-Entity Resolution must be allowed to fail safely.
-
-For example:
-
-```json
-{
-  "observed_identifier": "example-service.net",
-  "resolved_service": null,
-  "resolution_status": "UNRESOLVED"
-}
-```
-
-An unresolved identity is preferable to an incorrect confident association.
-
----
-
-### 9.3 Shared Infrastructure
-
-Technical infrastructure does not always identify the Service with which the user has a relationship.
-
-Services may use third parties for:
-
-- email delivery;
-- authentication;
-- cloud hosting;
-- customer support;
-- analytics;
-- payment processing;
-- marketing.
-
-Entity Resolution must therefore avoid automatically converting infrastructure providers into user relationships without sufficient supporting evidence.
-
----
-
-## 10. Evidence
-
-Evidence represents the framework's semantic interpretation of an Observation in the context of Service Discovery.
-
-Conceptually:
-
-```text
-Observation
-     |
-     v
-Evidence Classification
-     |
-     v
-Evidence
-```
-
-For example:
-
-```text
-Observation:
-
-Subject:
-"Verify your email address"
-```
-
-may produce:
-
-```text
-Evidence:
-
-Type:
-ACCOUNT_VERIFICATION
-```
-
-The precise Evidence Taxonomy may vary as additional discovery scenarios are tested.
-
-The architecture requires that Evidence:
-
-- has a semantic type;
-- references its supporting Observation or Observations;
-- retains provenance;
-- may remain UNKNOWN;
-- can be aggregated with other Evidence;
-- can contribute to Relationship Assessment.
-
----
-
-### 10.1 Evidence Is Not Fact
-
-Evidence may be misleading or incomplete.
-
-Depending on the Discovery Source, an Observation may represent:
-
-- an old account;
-- a deleted account;
-- marketing communication;
-- phishing;
-- forwarded information;
-- a guest purchase;
-- activity by another person;
-- an incorrectly entered identity;
-- shared infrastructure;
-- technical noise.
-
-Therefore:
-
-```text
-EVIDENCE != CONFIRMED RELATIONSHIP
-```
-
-and:
-
-```text
 RELATIONSHIP != CURRENT DATA POSSESSION
 ```
 
 These distinctions are fundamental.
 
----
+They prevent:
 
-### 10.2 Evidence Provenance
-
-Evidence should preserve sufficient information to determine:
-
-```text
-Evidence
- |
- +-- Supporting Observation
- |
- +-- Discovery Source
- |
- +-- Evidence Type
- |
- +-- Classification Method
- |
- +-- Relevant Identity
- |
- +-- Relevant Service
- |
- +-- Temporal Information
-```
-
-The exact schema remains to be defined.
+- external systems from leaking into the core Domain Model;
+- collected information from being confused with interpretation;
+- technical identifiers from becoming canonical Services automatically;
+- Evidence from being treated as confirmed facts;
+- Relationships from being interpreted as proof of active accounts;
+- historical interaction from being mistaken for current data possession.
 
 ---
 
-## 11. Evidence Classification
+# 4. Design Principles
 
-The Evidence Classifier interprets Observations and assigns semantic Evidence categories.
+## 4.1 Evidence Before Inference
 
-Conceptually:
+The framework must distinguish between:
 
-```text
-Observation
-    |
-    v
-Evidence Classifier
-    |
-    v
-Evidence
-```
-
-The classifier may use different strategies.
-
-The initial architectural model is:
-
-```text
-                Observation
-                     |
-                     v
-            Deterministic Rules
-                     |
-               +-----+-----+
-               |           |
-           resolved     ambiguous
-               |           |
-               |           v
-               |      AI Classifier
-               |      when appropriate
-               |           |
-               +-----+-----+
-                     |
-                     v
-                  Evidence
-```
-
----
-
-### 11.1 Deterministic Classification
-
-Clear and stable patterns should be processed deterministically whenever practical.
-
-Advantages include:
-
-- predictable behavior;
-- explainability;
-- reproducibility;
-- testability;
-- lower computational cost;
-- reduced privacy exposure;
-- independence from external AI systems.
-
-Classification provenance should indicate that deterministic processing produced the result.
-
----
-
-### 11.2 AI-Assisted Classification
-
-AI may be introduced when deterministic processing cannot sufficiently resolve semantic ambiguity.
-
-Potential uses may include:
-
-- ambiguous natural-language observations;
-- multilingual interpretation;
-- complex semantic classification;
-- heterogeneous source formats;
-- cases where deterministic rules would become excessively brittle.
-
-AI should receive only the minimum information necessary for the specific task.
-
-AI-derived results must remain identifiable as such.
-
----
-
-### 11.3 Classification Failure
-
-Evidence Classification must not force a classification.
-
-If available information is insufficient:
-
-```text
-Evidence Type:
-UNKNOWN
-```
-
-is a valid result.
-
-The original Observation must remain available.
-
----
-
-## 12. Evidence Aggregation
-
-Individual Evidence items should not automatically create independent Relationships.
+- what has been observed;
+- what has been interpreted;
+- what has been resolved;
+- what has been inferred;
+- what has been confirmed by the User;
+- what remains unknown.
 
 For example:
 
 ```text
-100 observations concerning one Service
-```
+Observation:
+Subject = "Verify your email address"
 
-must not produce:
-
-```text
-100 independent Service Relationships
-```
-
-Instead:
-
-```text
-Observations
-     |
-     v
-Evidence
-     |
-     v
-Evidence Aggregation
-     |
-     v
-Service-Level Evidence
-```
-
-Aggregation may consider:
-
-- Evidence type;
-- Evidence frequency;
-- temporal information;
-- source diversity;
-- provenance;
-- duplicate detection;
-- conflicting Evidence.
-
-Frequency alone must not determine relationship strength.
-
-For example:
-
-```text
-1 strong account-related Evidence item
-```
-
-may communicate different information from:
-
-```text
-100 generic marketing Evidence items
-```
-
-The framework must preserve enough information for Relationship Assessment without prematurely assigning arbitrary weights.
-
----
-
-## 13. Relationship
-
-A Relationship represents the framework's current assessment that a particular Identity or user is or was associated with a Service.
-
-Relationship Assessment occurs after Evidence has been classified and aggregated.
-
-Therefore:
-
-```text
-EVIDENCE != RELATIONSHIP
-```
-
-The conceptual process is:
-
-```text
-Evidence A
-Evidence B
-Evidence C
-    |
-    v
-Evidence Aggregation
-    |
-    v
-Relationship Assessment
-    |
-    v
-Relationship
-```
-
-Potential relationship concepts may eventually include:
-
-```text
-UNKNOWN
-POSSIBLE
-PROBABLE
-CONFIRMED
-HISTORICAL
-REJECTED
-```
-
-These states remain provisional.
-
-Their exact semantics should be defined only after additional scenarios and empirical testing.
-
----
-
-### 13.1 Relationship Assessment
-
-Relationship Assessment answers:
-
-> What does the accumulated evidence suggest about the user's relationship with this Service?
-
-This is distinct from Evidence Classification, which answers:
-
-> What does this individual Observation mean?
-
-For example:
-
-```text
 Evidence:
-
 ACCOUNT_VERIFICATION
-PASSWORD_RESET
-SUBSCRIPTION
-PAYMENT
 ```
 
-may support a different assessment from:
+does not independently prove:
 
 ```text
-Evidence:
-
-MARKETING
-NEWSLETTER
+Account currently active
 ```
 
-The framework should analyze evidence collectively rather than treating all Evidence items as semantically equivalent.
+nor:
+
+```text
+Service currently stores personal data
+```
+
+Every derived conclusion must remain traceable to the Evidence that supports it.
 
 ---
 
-### 13.2 Historical Relationships
+## 4.2 Unknown Is a Valid State
 
-A Service may remain relevant even after the user's apparent active relationship has ended.
+The framework must not fabricate information to close knowledge gaps.
 
-For example:
-
-```text
-Account Creation
-      |
-      v
-Account Activity
-      |
-      v
-Account Deletion
-```
-
-still represents a historical digital relationship.
-
-Historical Relationships matter because:
-
-- data may remain subject to retention obligations;
-- previous transactions may still exist;
-- deletion evidence does not independently prove that all personal data has been erased;
-- historical relationships remain part of the user's observable digital footprint.
-
-Therefore:
+Valid outcomes include:
 
 ```text
-Current Relationship
+Candidate Status:
+UNKNOWN
+
+Resolution Status:
+UNRESOLVED
+
+Resolution Status:
+AMBIGUOUS
+
+Evidence Classification:
+UNKNOWN
+
+Relationship Status:
+UNKNOWN
+
+Temporal Status:
+UNKNOWN
 ```
 
-and:
+Insufficient information is not a system failure.
 
-```text
-Historical Relationship
-```
-
-must remain distinguishable concepts.
+It is a legitimate domain state.
 
 ---
 
-### 13.3 Temporal Information
+## 4.3 Multiple Independent Sources
 
-Relationship interpretation requires temporal context.
+No individual source can be considered sufficient to reconstruct the User's complete digital footprint.
 
-For example:
-
-```text
-2021 Account Creation
-2022 Purchase
-2023 Payment
-2024 Account Deletion
-```
-
-is different from:
+The framework must support multiple source categories such as:
 
 ```text
-2021 Account Creation
-2022 Purchase
-2025 Authentication
-2026 Security Notification
+Email
+Password Manager
+Browser
+Identity Provider
+Manual Input
+Future Authorized Sources
 ```
 
-The architecture should therefore preserve enough temporal information to eventually support concepts such as:
+and multiple concrete source instances simultaneously.
 
-```text
-First Observed
-Last Observed
-Evidence Timeline
-Historical State
-```
-
-The final temporal model remains to be defined.
-
----
-
-## 14. Multiple Evidence Sources
-
-Different Discovery Sources may independently provide Evidence related to the same Service.
-
-For example:
-
-```text
-                         +-- Email
-                         |
-User -------- Spotify --+-- Password Manager
-                         |
-                         +-- Identity Provider
-```
-
-Multiple independent sources may strengthen the basis for believing that a Relationship exists or existed.
-
-However:
-
-```text
-Multiple Sources != Proof of Current Data Possession
-```
-
-Source diversity should therefore contribute to Relationship Assessment without being interpreted as evidence about exactly what personal data a Service currently holds.
-
----
-
-## 15. Confidence
-
-Relationships may eventually carry a confidence assessment.
-
-Potential representations could include qualitative states such as:
-
-```text
-HIGH
-MEDIUM
-LOW
-```
-
-or a numerical model.
-
-However, the exact Confidence model remains intentionally undefined.
-
-Arbitrary formulas such as:
-
-```text
-registration evidence = +0.4
-password manager evidence = +0.5
-browser evidence = +0.1
-```
-
-would create false mathematical precision.
-
-Any Confidence model should be developed only after:
-
-- a stable Evidence taxonomy exists;
-- multiple real discovery scenarios have been tested;
-- false positives have been measured;
-- false negatives have been analyzed;
-- Evidence reliability has been evaluated;
-- combinations of independent sources have been tested;
-- the meaning and calibration of Confidence have been defined.
-
-A Confidence value must ultimately be explainable.
-
-Until then, the architecture should preserve the information necessary to introduce Confidence later without requiring it now.
-
----
-
-## 16. Discovery Engine
-
-The Discovery Engine coordinates the Identity and Service Discovery process.
-
-Given:
-
-- one or more Identity Seeds;
-- one or more authorized Discovery Sources;
-
-the Discovery Engine produces structured information describing Services with which the user may have or may have had Relationships.
-
----
-
-### 16.1 Responsibilities
-
-The Discovery Engine coordinates:
-
-```text
-Identity Seeds
-      |
-      v
-Connectors
-      |
-      v
-Observations
-      |
-      v
-Candidate Detection
-      |
-      v
-Entity Resolution
-      |
-      v
-Evidence Classification
-      |
-      v
-Evidence Aggregation
-      |
-      v
-Relationship Assessment
-      |
-      v
-Service Graph
-```
-
-Individual components should remain separable enough to allow their strategies and implementations to evolve independently.
-
----
-
-### 16.2 The Discovery Engine Must Not
-
-The Discovery Engine must not:
-
-- assume what personal data an organization currently holds;
-- automatically send privacy requests;
-- automatically delete accounts;
-- modify external user data;
-- claim that discovery is complete;
-- hide uncertainty;
-- silently escalate source permissions;
-- silently perform consequential external actions.
-
-These responsibilities belong to other components of the broader framework.
-
----
-
-### 16.3 High-Level Architecture
-
-```text
-                         USER
-                           |
-                           v
-                   Identity Manager
-                           |
-                           v
-                 Discovery Sources
-                           |
-           +---------------+---------------+
-           |               |               |
-           v               v               v
-       Connector       Connector       Connector
-           |               |               |
-           +---------------+---------------+
-                           |
-                           v
-                      Observations
-                           |
-                           v
-                Service Candidate Detection
-                           |
-                           v
-                   Entity Resolution
-                           |
-                           v
-                Evidence Classification
-                           |
-                           v
-                       Evidence
-                           |
-                           v
-                Evidence Aggregation
-                           |
-                           v
-               Relationship Assessment
-                           |
-                           v
-                     Service Graph
-```
-
-This architecture is intended to remain independent of any specific Discovery Source.
-
----
-
-## 17. Service Graph
-
-The output of Identity and Service Discovery contributes to an observed graph of Services and Relationships associated with the user.
-
-Conceptually:
-
-```text
-                   Evidence
-                      |
-                      v
-              +---------------+
-              |               |
-              v               v
-           Netflix           Spotify
-              ^               ^
-              |               |
-          Relationship     Relationship
-              ^               ^
-              |               |
-              +------ User ----+
-```
-
-Supporting Observations and Evidence may originate from multiple Discovery Sources.
-
-The Service Graph should ultimately answer questions such as:
-
-> Which Services appear to have or have had a relationship with me?
-
-and:
-
-> Why was this Service discovered?
-
-The Service Graph does not claim to describe what personal data each Service currently possesses.
-
----
-
-### 17.1 Service Graph and Personal Data Graph
-
-The framework distinguishes between:
-
-#### Service Graph
-
-Answers:
-
-> Which Services appear connected to me?
-
-#### Personal Data Graph
-
-Will eventually answer:
-
-> Which personal data does each Service actually appear to hold about me?
-
-The Service Graph provides a foundation for later Personal Data Acquisition and Personal Data Understanding capabilities.
-
----
-
-## 18. Expected Output
-
-After discovery, the framework should eventually be capable of representing information such as:
+Example:
 
 ```text
 User
  |
- +-- Service A
- |     |
- |     +-- Observed Identifiers
- |     |
- |     +-- Supporting Evidence
- |     |
- |     +-- First Observed
- |     |
- |     +-- Last Observed
- |     |
- |     +-- Relationship Assessment
- |     |
- |     +-- Personal Data Held: UNKNOWN
+ +-- Personal Gmail
  |
- +-- Service B
-       |
-       +-- Observed Identifiers
-       |
-       +-- Supporting Evidence
-       |
-       +-- Relationship Assessment
-       |
-       +-- Personal Data Held: UNKNOWN
+ +-- Old Gmail
+ |
+ +-- Work Outlook
+ |
+ +-- iCloud Mail
+ |
+ +-- Proton Mail
+ |
+ +-- Password Manager A
+ |
+ +-- Password Manager B
 ```
 
-The exact persistent representation is intentionally undefined at this stage.
+Evidence originating from these sources may eventually converge on the same canonical Service.
 
-The important requirement is traceability:
+---
+
+## 4.4 Provider Independence
+
+Core Discovery components must not depend on one particular provider.
+
+The target model is:
 
 ```text
-Source
-   |
-   v
-Observation
-   |
-   v
-Evidence
-   |
-   v
-Aggregated Evidence
-   |
-   v
-Relationship Assessment
-   |
-   v
-Service
+Gmail --------- GmailConnector --------+
+                                       |
+Outlook ------- OutlookConnector ------+
+                                       |
+iCloud -------- ICloudConnector -------+--> Observations
+                                       |          |
+Proton -------- ProtonConnector -------+          v
+                                       |    Discovery Core
+PasswordMgr --- PasswordConnector -----+
 ```
 
-The output represents an **Observed Digital Relationship Graph**.
-
-It does not represent a complete map of the user's personal data.
+Provider-specific behavior should remain behind Connectors whenever reasonably possible.
 
 ---
 
-## 19. Privacy and Security Requirements
+## 4.5 Explainability
 
-Identity and Service Discovery may process exceptionally sensitive information, including:
+The framework should be able to answer:
 
-- email metadata;
-- potentially email content;
-- account relationships;
-- browsing information;
-- authentication relationships;
-- personal identifiers;
-- password-manager metadata;
-- historical digital activity.
+> Why do you think I have or had a Relationship with this Service?
 
-This creates a fundamental architectural constraint:
+The explanation should be reconstructable through:
 
-> A privacy framework must not solve one privacy problem by creating a larger centralized privacy problem.
+```text
+Connected Source
+      |
+      v
+Observation
+      |
+      v
+Interpretation / Resolution
+      |
+      v
+Evidence
+      |
+      v
+Evidence Aggregate
+      |
+      v
+Relationship Assessment
+```
 
----
-
-### 19.1 Data Minimization
-
-Only information necessary for a requested capability should be collected.
-
-The existence of technical access to information does not independently justify collecting it.
-
----
-
-### 19.2 Least Privilege
-
-Connectors should request the narrowest permissions capable of supporting the requested capability.
-
-Broad authorization should not be requested merely to simplify implementation or support hypothetical future capabilities.
+Explainability should not require exposing irrelevant raw personal information.
 
 ---
 
-### 19.3 Progressive Permission
+## 4.6 Local-First
 
-If lower-privilege information is insufficient, additional access should be requested only when:
-
-1. a specific capability requires it;
-2. the required information can be explained;
-3. the requested access is limited to what is necessary;
-4. the user explicitly authorizes the operation.
-
----
-
-### 19.4 Local-First Processing
+The framework must avoid becoming another centralized repository containing the User's complete digital life.
 
 Where technically practical:
 
 ```text
-Raw Source Data
-       |
-       v
- Local Processing
-       |
-       v
-Structured Observation
-       |
-       v
-Structured Evidence
-       |
-       v
+External Source
+      |
+      v
+Privileged Connector
+      |
+      v
+Minimize
+      |
+      v
+Observation
+      |
+      v
+Local Discovery Processing
+      |
+      v
+Evidence / Relationship
+      |
+      v
 Minimum Necessary Persistence
 ```
 
-Raw mailbox contents, complete browser histories, credentials or exported datasets should not be transmitted to external infrastructure by default.
+Sensitive source information should remain local whenever practical.
 
 ---
 
-### 19.5 External Processing
+## 4.7 Progressive Permission
 
-If information must leave the local environment, the architecture should make clear:
+Source access must be capability-driven.
+
+Connecting a source must not automatically grant every framework capability access to all information available from that source.
+
+The general model is:
 
 ```text
-What data leaves the environment
-Why it is required
-Where it is sent
-How it is processed
-What authorization permits it
+Capability
+    |
+    v
+Required Information
+    |
+    v
+Minimum Required Permission
 ```
 
-External processing must be deliberate rather than implicit.
-
----
-
-### 19.6 AI Implications
-
-The same principles apply to AI-assisted processing.
-
-The framework must not assume that raw personal information can be sent to an external AI provider.
-
-The AI layer should eventually support interchangeable strategies such as:
+If existing information is insufficient:
 
 ```text
-Deterministic Rules
-Local Model
-Self-Hosted Model
-Remote Model
-User-Provided Provider
-```
-
-The framework should remain independent of a single AI provider.
-
-Privacy requirements may determine which AI strategy can be used for a specific operation.
-
----
-
-### 19.7 Credential Isolation
-
-Authorization credentials and access tokens must remain isolated from discovery information wherever reasonably possible.
-
-Evidence Stores or Service Graph components should not require direct access to source credentials merely to interpret previously collected information.
-
----
-
-### 19.8 Revocation and Data Lifecycle
-
-Source authorization and derived information lifecycle are related but distinct concerns.
-
-For example:
-
-```text
-Revoke Connector Authorization
-Delete Connector Credentials
-Delete Cached Source Data
-Delete Observations
-Delete Evidence
-Delete Relationships
-```
-
-are not necessarily the same operation.
-
-The exact lifecycle and deletion semantics remain to be defined by the broader privacy and security architecture.
-
----
-
-## 20. AI Architecture within Discovery
-
-AI may provide value to specific components of the Discovery Engine.
-
-Potential applications include:
-
-- Evidence Classification;
-- Entity Resolution;
-- ambiguous natural-language interpretation;
-- heterogeneous data extraction;
-- multilingual interpretation;
-- reasoning across conflicting Evidence.
-
-However, AI is not the Discovery Engine itself.
-
-The architecture should therefore resemble:
-
-```text
-Discovery Component
-        |
-        +-- Deterministic Strategy
-        |
-        +-- AI-Assisted Strategy
-        |
-        +-- UNKNOWN / unresolved fallback
-```
-
-rather than:
-
-```text
-All Source Data
+Current Permission
       |
       v
-     LLM
-      |
-      v
-Final Answer
+Attempt Capability
+    /         \
+ enough     insufficient
+   |             |
+   v             v
+continue     explain need
+                 |
+                 v
+           User decision
+            /       \
+         allow      deny
+           |          |
+           v          v
+        continue     remain
+                   unresolved
 ```
 
-The latter approach would reduce:
+No component may silently escalate provider permissions.
+
+---
+
+## 4.8 Preserve Provenance
+
+Derived information must not destructively replace source information.
+
+Conceptually:
+
+```text
+Source Record
+      |
+      v
+Observation
+      |
+      v
+Candidate Identifier
+      |
+      v
+Normalized Identifier
+      |
+      v
+Resolved Service
+```
+
+and:
+
+```text
+Observation
+      |
+      v
+Evidence
+      |
+      v
+Evidence Aggregate
+      |
+      v
+Relationship Assessment
+```
+
+must remain traceable.
+
+Provenance enables:
 
 - explainability;
-- determinism;
-- privacy control;
-- testability;
-- graceful degradation.
+- debugging;
+- auditability;
+- User correction;
+- reclassification;
+- re-resolution;
+- Policy evolution;
+- Service merge and split operations.
 
 ---
 
-### 20.1 AI for Ambiguity
+## 4.9 Deterministic First
+
+Operations that can be reliably implemented deterministically should remain deterministic.
+
+Examples include:
+
+```text
+email-address parsing
+URL parsing
+hostname extraction
+domain normalization
+known mapping lookup
+Evidence counting
+temporal sorting
+rule-based classification
+```
 
 The preferred pattern is:
 
 ```text
-Deterministic Logic
+Deterministic Processing
         |
    +----+----+
    |         |
 resolved   ambiguous
    |         |
    |         v
-   |       AI
+   |     AI when justified
    |         |
    +----+----+
         |
@@ -1839,931 +495,2700 @@ resolved   ambiguous
       Result
 ```
 
-This principle should evolve based on empirical measurements rather than assumptions.
+AI is an optional strategy available to components.
 
-If testing demonstrates that AI provides measurable value in other areas, the architecture may evolve accordingly.
+AI is not the Discovery architecture itself.
 
 ---
 
-### 20.2 Graceful Degradation
+# 5. Identity Seed
 
-Core Service Discovery must not require AI availability.
+An `IdentitySeed` represents a digital identity explicitly declared by the User and used as a starting point for Discovery.
 
-If an AI capability is:
-
-- disabled;
-- unavailable;
-- unsupported;
-- rejected by the user;
-- incompatible with privacy requirements;
-
-the deterministic pipeline should continue operating.
-
-Unresolved information may remain:
+Possible examples include:
 
 ```text
-UNKNOWN
+email address
+phone number
+username
+Google account
+Apple account
+Microsoft account
 ```
-
-rather than preventing the whole pipeline from operating.
-
----
-
-## 21. Non-Goals
-
-### 21.1 Complete Discovery
-
-The framework cannot guarantee discovery of every organization holding data about the user.
-
-Therefore:
-
-```text
-Observed Footprint != Complete Footprint
-```
-
-Discovery coverage is inherently incomplete.
-
----
-
-### 21.2 Current Data Possession
-
-Historical evidence of a Relationship does not prove that a Service currently stores personal data.
-
-For example:
-
-```text
-Account verification evidence from 2018
-```
-
-may support the conclusion that a relationship existed in 2018.
-
-It does not establish what information the Service stores today.
-
----
-
-### 21.3 Perfect Accuracy
-
-Discovery may produce:
-
-- false positives;
-- false negatives;
-- unresolved entities;
-- ambiguous Evidence;
-- conflicting Evidence;
-- incorrect classifications.
-
-The system must explicitly support uncertainty and correction.
-
----
-
-### 21.4 Public Internet Discovery
-
-Searching the public Internet for occurrences of:
-
-- phone numbers;
-- email addresses;
-- names;
-- usernames;
-- leaked information;
-- public profiles;
-
-represents a different technical problem.
-
-It should not be silently mixed with authorized Service Discovery.
-
----
-
-### 21.5 Personal Data Acquisition
-
-This document does not define how personal data should be requested or retrieved from identified Services.
 
 Conceptually:
 
 ```text
-Service Discovered
+IdentitySeed
+
+id
+type
+value
+verification_status
+```
+
+A User may define multiple Identity Seeds.
+
+Example:
+
+```text
+User
+ |
+ +-- personal@gmail.com
+ |
+ +-- oldmail@example.net
+ |
+ +-- user@outlook.com
+ |
+ +-- +39XXXXXXXXXX
+ |
+ +-- username123
+```
+
+An observed identifier must not automatically become a verified Identity Seed.
+
+Therefore:
+
+```text
+OBSERVED IDENTITY IDENTIFIER
+              !=
+VERIFIED IDENTITY SEED
+```
+
+---
+
+# 6. SourceType
+
+`SourceType` describes the general category of a source.
+
+Initial examples include:
+
+```text
+EMAIL
+PASSWORD_MANAGER
+BROWSER
+IDENTITY_PROVIDER
+MANUAL
+```
+
+The vocabulary must remain extensible.
+
+`EMAIL` describes a source category.
+
+It does not describe a specific provider or User connection.
+
+---
+
+# 7. Provider
+
+`Provider` represents the external product, platform or organization through which a source is accessed.
+
+Conceptually:
+
+```text
+EMAIL
+ |
+ +-- Google / Gmail
+ +-- Microsoft / Outlook
+ +-- Apple / iCloud Mail
+ +-- Proton / Proton Mail
+```
+
+and:
+
+```text
+PASSWORD_MANAGER
+ |
+ +-- Provider A
+ +-- Provider B
+```
+
+Provider capabilities may differ even when their SourceType is the same.
+
+The Discovery Core must therefore not infer available capabilities solely from SourceType.
+
+---
+
+# 8. ConnectedSource
+
+A `ConnectedSource` represents a specific source instance connected or authorized by the User.
+
+Examples include:
+
+```text
+Personal Gmail
+Old Gmail
+Work Outlook
+Personal Proton Mail
+Primary Password Manager
+Archived Password Manager
+Browser Profile
+```
+
+Conceptually:
+
+```text
+ConnectedSource
+
+id
+source_type
+provider
+connector_reference
+display_name
+external_account_reference
+connection_state
+authorization_state
+```
+
+This representation remains conceptual.
+
+---
+
+## 8.1 Multiple Source Instances
+
+The architecture must support:
+
+```text
+                    GmailConnector
+                    /            \
+                   /              \
+                  v                v
+         Personal Gmail        Old Gmail
+```
+
+Both use the same Connector implementation but remain independent Connected Sources.
+
+Each may have independent:
+
+- authorization;
+- permissions;
+- synchronization;
+- revocation;
+- collection history;
+- Observations.
+
+---
+
+## 8.2 ConnectedSource Is Not IdentitySeed
+
+Example:
+
+```text
+IdentitySeed:
+personal@gmail.com
+
+ConnectedSource:
+Personal Gmail
+```
+
+These concepts may be related but remain different.
+
+A password-manager ConnectedSource may contain information associated with several Identity Seeds.
+
+---
+
+## 8.3 ConnectedSource Lifecycle
+
+A ConnectedSource may move through states conceptually equivalent to:
+
+```text
+authorization pending
+connected
+authorization expired
+permission insufficient
+revoked
+disconnected
+error
+```
+
+The final state model remains implementation-dependent.
+
+Disconnecting one source must not implicitly disconnect another source using the same Connector.
+
+---
+
+# 9. Connector
+
+A `Connector` isolates provider-specific integration logic.
+
+Conceptually:
+
+```text
+ConnectedSource
        |
        v
-How Can I Obtain My Data?
+    Connector
        |
-       +-- API
-       |
-       +-- Data Export
-       |
-       +-- Privacy Portal
-       |
-       +-- Access Request
-       |
-       +-- Other Mechanism
+       v
+Provider System
 ```
 
-This belongs to a subsequent framework capability.
-
----
-
-### 21.6 Final Confidence Model
-
-This document does not define a final Confidence algorithm.
-
-Confidence must be derived from empirical evidence rather than arbitrary weighting.
-
----
-
-### 21.7 Final Persistent Schema
-
-Examples in this document are conceptual.
-
-They must not be interpreted as the final:
-
-- database schema;
-- object model;
-- API schema;
-- graph representation;
-- class hierarchy.
-
-These should be defined after additional architecture validation.
-
----
-
-## 22. Architectural Boundaries
-
-The current architecture establishes the following fundamental distinctions.
-
-### 22.1 Source Is Not Connector
+and:
 
 ```text
-SOURCE != CONNECTOR
+Provider System
+       |
+       v
+Connector
+       |
+       v
+Observation
 ```
 
-A Source is the external system or information source.
+Connector responsibilities may include:
 
-A Connector is the component that communicates with it.
+- authorization;
+- provider API interaction;
+- capability discovery;
+- permission analysis;
+- pagination;
+- synchronization;
+- provider-specific error handling;
+- source-format normalization;
+- minimization;
+- Observation creation.
 
 ---
 
-### 22.2 Source Is Not Observation
+## 9.1 Connector as Security Boundary
+
+A Connector is also a privileged security boundary.
+
+The preferred model is:
 
 ```text
-SOURCE != OBSERVATION
+Highly Sensitive Source
+         |
+         v
+      Connector
+         |
+    +----+----+
+    |         |
+ required   unnecessary
+   data      sensitive
+    |         data
+    |          |
+    v          X
+Observation
 ```
 
-A Source contains or exposes information.
+For example, a password-manager Connector may encounter:
 
-An Observation represents specific information obtained from that Source.
+```text
+title
+username
+URI
+password
+OTP seed
+recovery codes
+```
+
+while Service Discovery requires only:
+
+```text
+title
+username
+URI
+```
+
+Secrets unnecessary for Discovery should not cross the Connector boundary.
 
 ---
 
-### 22.3 Observation Is Not Evidence
+# 10. Connector Capabilities
+
+Connectors should explicitly advertise supported capabilities.
+
+The framework must not assume:
+
+```text
+SourceType EMAIL
+       ->
+all email capabilities available
+```
+
+Examples of capability concepts may include:
+
+```text
+SERVICE_DISCOVERY_METADATA
+CONTENT_COLLECTION
+ATTACHMENT_COLLECTION
+INCREMENTAL_SYNC
+```
+
+Capabilities should describe meaningful framework behavior rather than unnecessarily mirror provider-specific APIs.
+
+---
+
+# 11. Observation
+
+An `Observation` represents source-derived information obtained from one ConnectedSource before semantic interpretation.
+
+Therefore:
 
 ```text
 OBSERVATION != EVIDENCE
 ```
 
-An Observation represents what was detected.
-
-Evidence represents the framework's interpretation of that Observation.
-
----
-
-### 22.4 Evidence Is Not Relationship
+The preferred representation is:
 
 ```text
-EVIDENCE != RELATIONSHIP
+Observation
+ |
+ +-- Common Envelope
+ |
+ +-- Typed Payload
 ```
 
-Evidence represents supporting information.
-
-A Relationship is assessed from one or more Evidence items.
-
----
-
-### 22.5 Domain Is Not Service
+Conceptually:
 
 ```text
-DOMAIN != SERVICE
-```
+Observation
 
-A technical identifier such as a domain may contribute to identifying a Service, but it must not automatically be treated as the Service itself.
+id
+connected_source_id
+observation_type
+schema_version
+source_reference
+observed_at
+collected_at
+temporal_semantics
+payload
+```
 
 ---
 
-### 22.6 Service Is Not Organization
+## 11.1 Common Envelope
+
+The common envelope preserves framework-wide semantics such as:
+
+```text
+ConnectedSource provenance
+Observation type
+Schema version
+Source reference
+Temporal information
+```
+
+---
+
+## 11.2 Typed Payload
+
+Different source structures should use different typed payloads.
+
+Examples:
+
+```text
+EMAIL_MESSAGE_METADATA v1
+
+PASSWORD_MANAGER_ENTRY_METADATA v1
+
+BROWSER_VISIT v1
+```
+
+The architecture should avoid both:
+
+```text
+one huge flat object with hundreds of optional fields
+```
+
+and:
+
+```text
+arbitrary untyped JSON
+```
+
+---
+
+## 11.3 Provider-Neutral Observation Types
+
+Equivalent source semantics from different providers should use the same Observation Type where possible.
+
+For example:
+
+```text
+Gmail --------+
+              |
+Outlook ------+
+              |
+iCloud -------+--> EMAIL_MESSAGE_METADATA
+              |
+Proton -------+
+```
+
+rather than:
+
+```text
+GMAIL_MESSAGE
+OUTLOOK_MESSAGE
+ICLOUD_MESSAGE
+PROTON_MESSAGE
+```
+
+unless concrete semantic differences justify different types.
+
+---
+
+## 11.4 Temporal Semantics
+
+A timestamp is not sufficient without its meaning.
+
+For example:
+
+```text
+Email:
+MESSAGE_TIME
+```
+
+and:
+
+```text
+Password Manager:
+SOURCE_RECORD_MODIFIED
+```
+
+must not automatically be interpreted identically.
+
+Therefore temporal values must preserve:
+
+```text
+timestamp
++
+temporal_semantics
+```
+
+---
+
+# 12. Service Candidate Detection
+
+Not every Observation represents information relevant to Service Discovery.
+
+Candidate Detection determines:
+
+> Should this Observation participate in Service Discovery?
+
+Candidate outcomes are conceptually:
+
+```text
+CANDIDATE
+NOT_CANDIDATE
+UNKNOWN
+```
+
+`UNKNOWN` is valid.
+
+---
+
+## 12.1 Candidate Is Not Resolved
+
+A Candidate may exist even when the Service cannot be identified.
+
+Therefore:
+
+```text
+CANDIDATE != RESOLVED
+```
+
+Example:
+
+```text
+Password Manager Entry:
+old-service.example
+
+Candidate:
+YES
+
+Resolution:
+UNRESOLVED
+```
+
+---
+
+## 12.2 Candidate Identifiers
+
+Candidate Detection may extract simple technical identifiers needed for Entity Resolution.
+
+Examples include:
+
+```text
+DOMAIN
+HOSTNAME
+URL
+EMAIL_DOMAIN
+SOURCE_SPECIFIC_IDENTIFIER
+```
+
+The current architecture does not require a separate Identifier Extractor.
+
+If identifier extraction becomes independently complex in future scenarios, this decision may be revisited.
+
+---
+
+# 13. ServiceIdentifier
+
+A `ServiceIdentifier` represents a technical identifier potentially associated with a Service.
+
+Examples include:
+
+```text
+spotify.com
+accounts.spotify.com
+https://accounts.spotify.com/login
+no-reply@spotify.com
+provider-specific application ID
+```
+
+Therefore:
+
+```text
+IDENTIFIER != SERVICE
+```
+
+A Service may have many identifiers.
+
+An identifier may also be insufficient to uniquely identify one Service.
+
+---
+
+# 14. Entity Resolution
+
+Entity Resolution determines whether Candidate Identifiers correspond to a canonical Service.
+
+Conceptually:
+
+```text
+CandidateIdentifier
+      |
+      v
+EntityResolver
+      |
+  +---+---------+
+  |             |
+  v             v
+Resolved     Unresolved
+  |
+  v
+Service
+```
+
+An additional state is required for competing plausible mappings:
+
+```text
+AMBIGUOUS
+```
+
+The minimum resolution model is therefore:
+
+```text
+RESOLVED
+UNRESOLVED
+AMBIGUOUS
+```
+
+---
+
+## 14.1 Normalization Is Not Resolution
+
+For example:
+
+```text
+accounts.spotify.com
+       |
+       v
+spotify.com
+```
+
+may be normalization.
+
+While:
+
+```text
+spotify.com
+       |
+       v
+Spotify
+```
+
+is Entity Resolution.
+
+Therefore:
+
+```text
+NORMALIZATION != RESOLUTION
+```
+
+Both should remain explainable.
+
+---
+
+## 14.2 Cross-Source Resolution
+
+Identifiers from multiple sources should be able to resolve to the same Service.
+
+Example:
+
+```text
+Personal Gmail
+      |
+      v
+spotify.com
+      |
+      +----------------+
+                       |
+                       v
+                    Spotify
+                       ^
+                       |
+      +----------------+
+      |
+accounts.spotify.com
+      ^
+      |
+Password Manager
+```
+
+The framework must not create provider-specific copies of canonical Services.
+
+---
+
+## 14.3 Shared Infrastructure
+
+Technical infrastructure may belong to an intermediary rather than the Service relevant to the User.
+
+Examples include:
+
+```text
+email delivery provider
+payment provider
+customer-support platform
+cloud provider
+CDN
+identity infrastructure
+```
+
+The Resolver must not automatically convert every observed infrastructure provider into the discovered Service.
+
+`UNRESOLVED` or `AMBIGUOUS` may be preferable.
+
+---
+
+## 14.4 Service Registry
+
+Entity Resolution requires access to some concept of known canonical Services and their identifiers.
+
+Conceptually:
+
+```text
+Service Registry
+
+Service
+   |
+   +-- Identifier
+   +-- Identifier
+   +-- Identifier
+```
+
+The architecture recognizes the need for Service Registry semantics.
+
+However, Draft v0.3 does not yet define:
+
+- Service Registry persistence;
+- Service creation workflow;
+- Service merge workflow;
+- Service split workflow;
+- registry ownership.
+
+These remain implementation and domain-design questions.
+
+The Entity Resolver must not silently absorb all Service Registry lifecycle responsibilities.
+
+---
+
+# 15. Service
+
+A `Service` represents a canonical digital Service with which the User may have or have had a Relationship.
+
+Examples include:
+
+```text
+Spotify
+GitHub
+Netflix
+Amazon
+```
+
+A Service is distinct from:
+
+```text
+domain
+URL
+email sender
+ConnectedSource
+Provider
+Organization
+Account
+```
+
+---
+
+## 15.1 Service Granularity
+
+The canonical granularity of Service remains deliberately unresolved.
+
+For example:
+
+```text
+Google
+Google Account
+Gmail
+```
+
+may represent different levels of abstraction.
+
+The framework must not define service identity implicitly through technical identifiers alone.
+
+Service granularity should be validated against real data and later framework capabilities.
+
+---
+
+## 15.2 Service Is Not Organization
+
+A Service may be operated by an Organization.
+
+One Organization may operate multiple Services.
+
+Therefore:
 
 ```text
 SERVICE != ORGANIZATION
 ```
 
-A Service may belong to an Organization.
+The future model may require:
 
-An Organization may operate multiple Services.
+```text
+Service
+Brand
+Organization
+Legal Data Controller
+```
 
-The exact model connecting them remains unresolved.
+but Draft v0.3 does not yet formalize them.
 
 ---
 
-### 22.7 Relationship Is Not Current Data Possession
+# 16. Evidence Classification
 
-```text
-RELATIONSHIP != CURRENT DATA POSSESSION
-```
-
-Evidence that a relationship exists or existed does not establish which personal information a Service currently stores.
-
----
-
-## 23. Conceptual End-to-End Flow
-
-The broader project vision remains:
-
-```text
-USER
- |
- v
-IDENTITY SEEDS
- |
- v
-DISCOVERY
- |
- v
-SERVICE GRAPH
- |
- v
-DATA ACQUISITION
- |
- v
-DATA INGESTION
- |
- v
-PERSONAL DATA UNDERSTANDING
- |
- v
-PERSONAL DATA GRAPH
- |
- v
-MONITORING
- |
- v
-GOVERNANCE ACTIONS
-```
-
-This document currently defines the Discovery portion in greater detail:
-
-```text
-IDENTITY SEEDS
-      |
-      v
-DISCOVERY SOURCES
-      |
-      v
-CONNECTORS
-      |
-      v
-OBSERVATIONS
-      |
-      v
-SERVICE CANDIDATE DETECTION
-      |
-      v
-ENTITY RESOLUTION
-      |
-      v
-EVIDENCE CLASSIFICATION
-      |
-      v
-EVIDENCE
-      |
-      v
-EVIDENCE AGGREGATION
-      |
-      v
-RELATIONSHIP ASSESSMENT
-      |
-      v
-SERVICE GRAPH
-```
-
-The remaining framework components will be designed separately.
-
----
-
-## 24. Failure Model
-
-The Discovery architecture should assume that components can fail independently.
-
-Examples include:
-
-```text
-Connector Failure
-Observation Collection Failure
-Candidate Detection Failure
-Entity Resolution Failure
-Classification Failure
-AI Unavailability
-Partial Source Analysis
-Conflicting Evidence
-```
-
-Failure should degrade gracefully whenever possible.
-
-For example:
-
-```text
-Entity Resolution Failure
-        |
-        v
-UNRESOLVED
-```
-
-rather than inventing a Service.
-
-Similarly:
-
-```text
-Classification Failure
-        |
-        v
-UNKNOWN
-```
-
-rather than forcing an Evidence type.
-
-And:
-
-```text
-AI Unavailable
-        |
-        v
-Continue Deterministic Processing
-```
-
-rather than failing the entire Discovery Engine.
-
----
-
-## 25. Reprocessing and Evolution
-
-Discovery logic will evolve.
-
-Entity-resolution mappings may improve.
-
-Evidence classifications may change.
-
-New deterministic rules may be added.
-
-AI models may improve or be replaced.
-
-Service identities may change.
-
-The architecture should therefore support controlled reprocessing where practical.
+Evidence Classification interprets the semantic meaning of an Observation.
 
 Conceptually:
 
 ```text
-Preserved Observation
-        |
-        +------> Classifier v1
-        |             |
-        |             v
-        |         Evidence v1
-        |
-        +------> Classifier v2
-                      |
-                      v
-                  Evidence v2
+Observation
+      |
+      v
+EvidenceClassifier
+      |
+      v
+Evidence
 ```
 
-Similarly:
+The classifier may return:
 
 ```text
-Observed Identifier
-        |
-        +------> Resolver v1
-        |
-        +------> Resolver v2
+CLASSIFIED
 ```
 
-This requirement reinforces the need to preserve provenance and avoid destructive normalization.
+or:
+
+```text
+UNKNOWN
+```
+
+while technical processing failures remain separate.
 
 ---
 
-## 26. User Correction
+## 16.1 Evidence Taxonomy
 
-Automated discovery will not always be correct.
+Examples currently validated through scenarios include:
 
-The architecture should therefore allow for future user correction.
+```text
+ACCOUNT_CREATION
+ACCOUNT_VERIFICATION
+AUTHENTICATION
+PASSWORD_RESET
+SECURITY_NOTIFICATION
+PURCHASE
+INVOICE
+SUBSCRIPTION
+PAYMENT
+ACCOUNT_UPDATE
+ACCOUNT_DELETION
+MARKETING
+NEWSLETTER
+PRIVACY_NOTICE
+PASSWORD_MANAGER_ENTRY
+```
+
+This is not yet a final taxonomy.
+
+Evidence Types must eventually belong to a controlled and versionable taxonomy.
+
+Equivalent semantics from different providers should map to the same Evidence Type where possible.
+
+---
+
+## 16.2 Multiple Evidence Items
+
+One Observation may produce zero, one or multiple Evidence items.
+
+For example:
+
+```text
+Your subscription was renewed and your payment was successful
+```
+
+may justify:
+
+```text
+SUBSCRIPTION
+PAYMENT
+```
+
+when each semantic classification is independently supported.
+
+The classifier must not generate implied Evidence merely because categories commonly co-occur.
+
+---
+
+## 16.3 Deterministic Classification
+
+Explicit rules should be preferred when they reliably classify the Observation.
 
 Examples include:
 
 ```text
-"This is not the same Service."
-
-"I never had an account here."
-
-"These two Services are actually the same."
-
-"This Relationship was historical."
-
-"This Observation belongs to someone else."
+"Verify your email address"
+      ->
+ACCOUNT_VERIFICATION
 ```
 
-The exact correction mechanism is not defined in Draft v0.2.
-
-However, preserving Observations, Evidence and resolution provenance is necessary to support it later.
-
-User-provided corrections should themselves retain provenance rather than silently rewriting historical observations.
-
----
-
-## 27. Measurement and Validation
-
-Discovery quality cannot be evaluated only by counting detected Services.
-
-Future implementations should support evaluation of outcomes such as:
+or:
 
 ```text
-True Positive
-False Positive
-False Negative
-Unresolved
-Misclassified Evidence
-Incorrect Entity Resolution
+"Reset your password"
+      ->
+PASSWORD_RESET
 ```
 
-Relevant measurements may eventually include:
-
-- precision;
-- recall;
-- Evidence Classification accuracy;
-- Entity Resolution accuracy;
-- UNKNOWN rate;
-- deterministic-rule coverage;
-- incremental value provided by AI;
-- source-specific reliability.
-
-These measurements should be introduced when sufficiently representative test data exists.
-
-The architecture should not assign arbitrary accuracy targets before empirical evaluation.
+AI is reserved for ambiguity where it provides measurable value.
 
 ---
 
-## 28. Open Questions
+## 16.4 Evidence and Service Resolution Are Independent
 
-The following questions remain deliberately unresolved.
+Evidence Classification and Entity Resolution are parallel concerns.
 
-### Identity
+Therefore valid states include:
 
-- Which Identity Seed types should be supported?
-- How should Identity Seeds be verified?
-- How should multiple identities belonging to the same person be correlated?
-- Should identities ever be automatically discovered?
+```text
+Service:
+UNRESOLVED
 
-### Discovery Sources
+Evidence:
+PAYMENT
+```
 
-- Which Discovery Sources should be implemented first?
-- What source-specific permissions are required?
-- How should partial discovery be represented?
-- How should source synchronization work?
-- Which sources can operate entirely locally?
+and:
 
-### Connectors
+```text
+Service:
+Spotify
 
-- What should the common Connector interface expose?
-- How should Connector capabilities be advertised?
-- How should permission requirements be represented?
-- How should incremental synchronization work?
-- How should Connector state be persisted?
+Evidence:
+UNKNOWN
+```
 
-### Observations
-
-- What is the minimum common Observation representation?
-- Which source-specific fields should remain outside the common model?
-- Which Observations should be persisted?
-- How long should Observations be retained?
-- When can raw source information be safely discarded?
-
-### Service Candidate Detection
-
-- Should candidate detection use source-specific or shared strategies?
-- How should personal communication be distinguished from Service interactions?
-- How should technical intermediaries be excluded?
-
-### Entity Resolution
-
-- How should multiple domains resolve to one Service?
-- How should multiple Services belonging to one Organization be represented?
-- How should Brands and parent Organizations be represented?
-- Should a Service and its legal data controller be separate entities?
-- Which information should be used for resolution?
-- Should external datasets be used?
-- When should AI assist Entity Resolution?
-
-### Evidence
-
-- What common Evidence categories are required across Discovery Sources?
-- Which Evidence categories should remain source-specific?
-- How should conflicting Evidence be represented?
-- How should malicious or misleading Evidence be detected?
-
-### Relationships
-
-- How should active, historical and unknown Relationships be represented?
-- When can a Relationship be considered confirmed?
-- How should deleted accounts be represented?
-- How should multiple identities relating to the same Service be represented?
-
-### Confidence
-
-- Is a numerical Confidence score necessary?
-- Would qualitative states provide better explainability?
-- How should Confidence be calibrated?
-- How should Confidence change over time?
-- How should contradictory Evidence affect Confidence?
-
-### Privacy
-
-- Which processing must occur locally?
-- Which information should be persisted?
-- How long should Observations and Evidence be retained?
-- How should authorization tokens be isolated?
-- What should happen to derived information when a Connector is disconnected?
-- What information, if any, may be sent to external AI providers?
-
-### AI
-
-- Where does AI provide measurable value over deterministic logic?
-- Which tasks benefit from an LLM?
-- Which tasks should remain deterministic?
-- How should local and remote AI strategies be interchangeable?
-- How should AI-generated interpretations remain explainable?
-- How should AI model changes affect historical classifications?
-
-### Reprocessing
-
-- When should historical Observations be reclassified?
-- When should entity resolution be rerun?
-- How should derived information be versioned?
-- What happens when new logic produces a different conclusion?
-
-### User Correction
-
-- Which framework conclusions should users be able to correct?
-- Should user corrections override automated conclusions?
-- How should corrections affect future classification and resolution?
-- How should correction provenance be represented?
-
-### Completeness
-
-- How can discovery coverage be measured when the complete set of Relationships is fundamentally unknown?
-- How should partial scans be communicated?
-- How should the framework communicate incompleteness to users?
+The architecture must not force one process to wait for successful completion of the other when that dependency is unnecessary.
 
 ---
 
-## 29. Decision Log
+# 17. Parallel Discovery Branches
 
-### D-001 - Discovery Is Evidence-Based
+Draft v0.3 explicitly models Entity Resolution and Evidence Classification as parallel semantic branches.
 
-A detected Service does not imply that it currently holds personal data.
+```text
+                     Observation
+                     /         \
+                    /           \
+                   v             v
+       Candidate Detection    Evidence Classification
+                   |             |
+                   v             v
+          CandidateIdentifier  Evidence
+                   |
+                   v
+           Entity Resolution
+                   |
+                   v
+                Service
+                   \             /
+                    \           /
+                     v         v
+                 Evidence Aggregation
+```
 
-Discovery identifies evidence of possible current or historical Relationships.
+This replaces the earlier simplified sequential representation.
+
+The two branches may complete independently before their results are combined.
 
 ---
 
-### D-002 - Multiple Discovery Sources
+# 18. Evidence
+
+`Evidence` represents a semantic interpretation supported by one or more Observations.
+
+Therefore:
+
+```text
+EVIDENCE != FACT
+```
+
+An Evidence item such as:
+
+```text
+ACCOUNT_VERIFICATION
+```
+
+means:
+
+> Available source information was interpreted as account-verification Evidence.
+
+It does not mean:
+
+> The User definitely has a currently active account.
+
+---
+
+## 18.1 Evidence Provenance
+
+Evidence should remain traceable to:
+
+```text
+Supporting Observation
+ConnectedSource
+Evidence Type
+Classification Method
+Classifier Version
+Relevant Service if resolved
+Relevant Identity if known
+Temporal information
+```
+
+---
+
+## 18.2 Evidence Lifecycle
+
+Classification logic may evolve.
+
+Example:
+
+```text
+Observation
+    |
+    +--> Classifier v1
+    |        |
+    |        v
+    |     MARKETING
+    |
+    +--> Classifier v2
+             |
+             v
+       PRIVACY_NOTICE
+```
+
+The architecture must not treat both classifications as simultaneous current semantic facts merely because both are historically preserved.
+
+The Domain Model therefore requires explicit Evidence lifecycle semantics.
+
+Conceptually:
+
+```text
+EvidenceStatus
+
+ACTIVE
+SUPERSEDED
+REJECTED
+```
+
+### ACTIVE
+
+The Evidence represents the currently accepted interpretation.
+
+### SUPERSEDED
+
+The Evidence remains preserved for provenance but has been replaced by a newer accepted interpretation.
+
+### REJECTED
+
+The Evidence interpretation has been explicitly invalidated or rejected and must not participate in current Relationship Assessment.
+
+Exact transition rules remain to be defined.
+
+Historical provenance must remain preserved.
+
+---
+
+# 19. Evidence Aggregation
+
+Evidence Aggregation structures multiple Evidence items associated with the same discovery context.
+
+Conceptually:
+
+```text
+Evidence
+Evidence
+Evidence
+    |
+    v
+EvidenceAggregator
+    |
+    v
+EvidenceAggregate
+```
+
+The primary grouping boundary is the canonical Service where available.
+
+---
+
+## 19.1 Service-Level Aggregation
+
+Example:
+
+```text
+Spotify
+ |
+ +-- ACCOUNT_VERIFICATION
+ +-- SUBSCRIPTION
+ +-- PAYMENT
+ +-- PASSWORD_MANAGER_ENTRY
+```
+
+Evidence frequencies, source provenance, Identity references and temporal information may be summarized.
+
+---
+
+## 19.2 Preserve Identity Information
+
+Service-level aggregation must not erase relevant Identity references.
+
+Example:
+
+```text
+Spotify
+ |
+ +-- Evidence
+ |      identity: personal@example.com
+ |
+ +-- Evidence
+        identity: oldmail@example.net
+```
+
+This does not automatically imply:
+
+```text
+two Spotify Accounts
+```
+
+Account remains a separate candidate concept.
+
+---
+
+## 19.3 Source Diversity
+
+The Aggregate should preserve independently:
+
+```text
+ConnectedSource diversity
+SourceType diversity
+Provider diversity
+Evidence frequency
+```
+
+For example:
+
+```text
+150 marketing emails from one Gmail account
+```
+
+is structurally different from:
+
+```text
+1 account-verification email
++
+1 password-manager entry
+```
+
+The Aggregator describes those differences.
+
+It does not assign Relationship strength.
+
+---
+
+## 19.4 Evidence Frequency Is Descriptive
+
+Therefore:
+
+```text
+100 MARKETING
+```
+
+does not automatically outweigh:
+
+```text
+1 ACCOUNT_VERIFICATION
+```
+
+Frequency is descriptive.
+
+Semantic importance belongs to Relationship Assessment.
+
+---
+
+## 19.5 Unresolved Evidence
+
+Evidence must not disappear when Entity Resolution fails.
+
+Conceptually:
+
+```text
+Evidence:
+PAYMENT
+
+Identifier:
+unknown.example
+
+Service:
+UNRESOLVED
+```
+
+remains valid Discovery information.
+
+It should remain available for later re-resolution.
+
+---
+
+## 19.6 Aggregate Is Derived State
+
+An Evidence Aggregate is derived state.
+
+Therefore:
+
+```text
+Evidence Aggregate
+        |
+        v
+rebuildable
+        |
+        v
+from active Evidence
+```
+
+where source Evidence remains available.
+
+A materialized Aggregate must not become the only source of provenance.
+
+---
+
+# 20. Relationship
+
+A `Relationship` represents the framework's current assessment that a meaningful digital Relationship exists or existed between the User and a Service.
+
+The core relationship is therefore:
+
+```text
+USER
+  |
+  v
+RELATIONSHIP
+  |
+  v
+SERVICE
+```
+
+Relevant Identity Seeds remain associated with and preserved inside the Relationship context.
+
+---
+
+## 20.1 Why Relationship Is User-Oriented
+
+The primary user-facing question is:
+
+> Which Services appear connected to me?
+
+Therefore User-Service is the primary Relationship perspective.
+
+However, Identity information remains important for questions such as:
+
+> Which Services were associated with `oldmail@example.net`?
+
+A Relationship may therefore preserve:
+
+```text
+Identity References
+```
+
+without requiring separate Relationship entities for every Identity at this stage.
+
+---
+
+## 20.2 Relationship Is Not Account
+
+The framework may discover Relationships through:
+
+```text
+account Evidence
+guest purchases
+newsletter subscriptions
+privacy communications
+historical interactions
+browser activity
+other authorized sources
+```
+
+Therefore:
+
+```text
+RELATIONSHIP != ACCOUNT
+```
+
+`Account` remains a candidate Domain Concept rather than a requirement for basic Discovery.
+
+---
+
+# 21. RelationshipStatus
+
+Relationship support and temporal interpretation are separate dimensions.
+
+Draft v0.3 therefore introduces:
+
+```text
+RelationshipStatus
+```
+
+with an initial conceptual model:
+
+```text
+UNKNOWN
+OBSERVED
+ESTABLISHED
+REJECTED
+```
+
+---
+
+## 21.1 UNKNOWN
+
+Available Evidence is insufficient to justify a meaningful Relationship conclusion.
+
+This does not prove that no Relationship exists.
+
+---
+
+## 21.2 OBSERVED
+
+Interaction or communication with the Service has been observed, but available Evidence does not justify a stronger Relationship conclusion.
+
+Possible examples may include:
+
+```text
+marketing
+newsletter
+privacy communication
+browser visits
+```
+
+depending on future validated assessment policy.
+
+---
+
+## 21.3 ESTABLISHED
+
+Available Evidence provides a justified basis for concluding that a meaningful Relationship existed.
+
+The exact Evidence combinations required for `ESTABLISHED` remain subject to empirical validation.
+
+Draft v0.3 does not define arbitrary fixed weights.
+
+---
+
+## 21.4 REJECTED
+
+Available information or explicit User correction establishes that the apparent Relationship should not currently be attributed to the User.
+
+A rejection requires provenance.
+
+Weak Evidence alone must not automatically produce `REJECTED`.
+
+---
+
+# 22. TemporalStatus
+
+Temporal interpretation is represented separately through:
+
+```text
+TemporalStatus
+```
+
+with an initial conceptual model:
+
+```text
+UNKNOWN
+CURRENTLY_OBSERVED
+HISTORICAL
+```
+
+---
+
+## 22.1 UNKNOWN
+
+The framework cannot safely determine whether the Relationship is current or historical.
+
+This may be a common state.
+
+---
+
+## 22.2 CURRENTLY_OBSERVED
+
+Recent Evidence indicates ongoing observable interaction.
+
+This must not automatically mean:
+
+```text
+Active Account Confirmed
+```
+
+For example, recent marketing communication may represent ongoing communication without proving account activity.
+
+---
+
+## 22.3 HISTORICAL
+
+Available Evidence supports that a meaningful Relationship existed in the past, while current continuation is not established or Evidence indicates that it ended.
+
+Example:
+
+```text
+2021 ACCOUNT_VERIFICATION
+2022 PAYMENT
+2024 ACCOUNT_DELETION
+```
+
+may eventually support:
+
+```text
+RelationshipStatus:
+ESTABLISHED
+
+TemporalStatus:
+HISTORICAL
+```
+
+---
+
+# 23. RelationshipStatus and TemporalStatus Are Independent
+
+The architecture must allow combinations such as:
+
+```text
+ESTABLISHED + HISTORICAL
+```
+
+```text
+ESTABLISHED + UNKNOWN
+```
+
+```text
+OBSERVED + CURRENTLY_OBSERVED
+```
+
+This replaces the earlier flat conceptual state model that mixed:
+
+```text
+POSSIBLE
+PROBABLE
+CONFIRMED
+HISTORICAL
+```
+
+into one dimension.
+
+---
+
+# 24. Relationship Assessment
+
+Relationship Assessment interprets an Evidence Aggregate.
+
+Conceptually:
+
+```text
+Evidence Aggregate
+       |
+       v
+RelationshipAssessor
+       |
+       v
+RelationshipStatus
++
+TemporalStatus
++
+Evidence Basis
++
+Reason Codes
++
+Warnings
+```
+
+The assessment should use explicit, explainable and versionable policy.
+
+---
+
+## 24.1 No Arbitrary Weighting
+
+Draft v0.3 does not define formulas such as:
+
+```text
+ACCOUNT_VERIFICATION = 0.8
+PASSWORD_MANAGER_ENTRY = 0.9
+MARKETING = 0.1
+```
+
+Such values would imply calibration that does not yet exist.
+
+---
+
+## 24.2 Evidence Semantics Matter
+
+Relationship Assessment should consider:
+
+```text
+Evidence Types
+Evidence chronology
+SourceType diversity
+ConnectedSource diversity
+Identity references
+Conflicts
+User corrections
+```
+
+without collapsing them into an arbitrary score.
+
+---
+
+## 24.3 Conflicting Evidence
+
+Evidence may conflict.
+
+Example:
+
+```text
+2024 ACCOUNT_DELETION
+2026 AUTHENTICATION
+```
+
+The framework must not fabricate an explanation.
+
+Possible assessment:
+
+```text
+RelationshipStatus:
+ESTABLISHED
+
+TemporalStatus:
+UNKNOWN
+
+Warning:
+CONFLICTING_TEMPORAL_EVIDENCE
+```
+
+---
+
+# 25. No Numerical Confidence in Initial Discovery
+
+Numerical Confidence is explicitly excluded from the initial Discovery Domain Model.
+
+The framework should initially prefer:
+
+```text
+RelationshipStatus
+TemporalStatus
+Evidence Basis
+Source Diversity
+Timeline
+Reason Codes
+Warnings
+```
+
+over:
+
+```text
+confidence = 0.87
+```
+
+Confidence may be reconsidered later only if:
+
+- its semantics are explicitly defined;
+- representative validation data exists;
+- calibration is possible;
+- it provides measurable value to the User.
+
+This applies similarly to Candidate Detection, Entity Resolution, Evidence Classification and Relationship Assessment.
+
+Explicit states are preferred over uncalibrated numerical pseudo-precision.
+
+---
+
+# 26. Historical Relationships
+
+Historical Relationships remain part of the User's observed digital footprint.
+
+Therefore:
+
+```text
+HISTORICAL
+      !=
+REMOVE FROM SERVICE GRAPH
+```
+
+A historical Service may still matter because:
+
+- transaction records may remain;
+- legal retention may apply;
+- residual personal data may exist;
+- backups may exist;
+- later Personal Data Acquisition may still be relevant.
+
+Historical Relationship does not imply:
+
+```text
+no personal data remains
+```
+
+---
+
+# 27. Account
+
+`Account` remains a candidate Domain Concept.
+
+It may eventually be useful for representing:
+
+```text
+Service:
+Spotify
+
+Account A:
+personal@example.com
+
+Account B:
+oldmail@example.net
+```
+
+Potential use cases include:
+
+- multiple accounts with one Service;
+- historical accounts;
+- shared accounts;
+- migrated accounts;
+- multiple identities.
+
+However, the current Discovery pipeline does not require Account.
+
+Relationships can exist without conventional accounts.
+
+Therefore:
+
+```text
+Account = CANDIDATE DOMAIN CONCEPT
+```
+
+in Draft v0.3.
+
+---
+
+# 28. Multiple Sources and Cross-Source Evidence
+
+Evidence from different Connected Sources may contribute to one canonical Relationship.
+
+Example:
+
+```text
+                       Spotify
+                          |
+                    Relationship
+                    /           \
+                   /             \
+                  v               v
+          Email Evidence     Password Manager
+                                 Evidence
+```
+
+The framework should preserve source provenance while avoiding provider-specific Service duplication.
+
+---
+
+# 29. Multi-Provider Email
+
+Multiple email providers should enter the same semantic Discovery pipeline.
+
+Conceptually:
+
+```text
+Gmail ----------+
+                |
+Outlook --------+
+                |
+iCloud Mail ----+--> EMAIL_MESSAGE_METADATA
+                |             |
+Proton Mail ----+             v
+                       Candidate Detection
+                               +
+                       Evidence Classification
+```
+
+Provider-specific APIs and authorization remain behind their Connectors.
+
+---
+
+# 30. Evidence Reprocessing
+
+Observation preservation enables later reclassification.
+
+```text
+Observation
+    |
+    +--> Classifier v1
+    |         |
+    |         v
+    |     Evidence v1
+    |
+    +--> Classifier v2
+              |
+              v
+          Evidence v2
+```
+
+Evidence lifecycle ensures that historical interpretations can remain preserved without both automatically contributing to the current Relationship.
+
+---
+
+# 31. Entity Re-Resolution
+
+Similarly:
+
+```text
+ServiceIdentifier
+      |
+      +--> Resolver v1
+      |       |
+      |       v
+      |   UNRESOLVED
+      |
+      +--> Resolver v2
+              |
+              v
+           Service
+```
+
+must be possible without automatically retrieving source information again where preserved minimized information is sufficient.
+
+---
+
+# 32. Re-Aggregation
+
+Changes to Evidence or Service Resolution may require rebuilding aggregates.
+
+Triggers may include:
+
+```text
+new Evidence
+Evidence deletion
+Evidence reclassification
+Evidence status change
+Entity re-resolution
+Service merge
+Service split
+Identity reassociation
+ConnectedSource removal
+aggregation policy change
+```
+
+Because Aggregates are derived state, they should remain rebuildable.
+
+---
+
+# 33. Relationship Reassessment
+
+Relationship assessments must also remain recalculable.
+
+Triggers may include:
+
+```text
+Evidence Aggregate change
+User correction
+assessment policy change
+Service merge
+Service split
+Identity association change
+ConnectedSource data removal
+```
+
+Assessment policy should remain explicit and versionable.
+
+---
+
+# 34. User Correction
+
+The framework must support future User correction without destructive rewriting of source provenance.
+
+Examples include:
+
+```text
+"This identifier does not belong to Spotify."
+
+"These two Services are the same."
+
+"These two Services are different."
+
+"This Relationship does not belong to me."
+
+"This was a guest purchase."
+
+"This Relationship is historical."
+```
+
+Corrections themselves require provenance.
+
+---
+
+# 35. Service Graph
+
+The output of Discovery is a Service Graph representing observed and assessed Relationships.
+
+Conceptually:
+
+```text
+                         USER
+                          |
+            +-------------+-------------+
+            |                           |
+            v                           v
+      Relationship                Relationship
+            |                           |
+            v                           v
+        Spotify                       GitHub
+            |                           |
+            v                           v
+      Evidence Basis             Evidence Basis
+```
+
+The graph should answer:
+
+> Which Services appear to have or have had a Relationship with me?
+
+and:
+
+> Why does the framework believe that?
+
+It does not answer:
+
+> Exactly what personal data does each Service currently possess?
+
+That belongs to later capabilities.
+
+---
+
+# 36. Service Graph Is Not Absolute Truth
+
+Every Service Graph Relationship remains grounded in:
+
+```text
+Observed Evidence
+        +
+Assessment Policy
+        +
+Assessment Provenance
+```
+
+The graph represents current framework knowledge.
+
+It must not be presented as a complete external truth.
+
+---
+
+# 37. Privacy and Security Requirements
+
+Identity and Service Discovery may process highly sensitive information including:
+
+- email metadata;
+- potentially email content;
+- account-related Evidence;
+- browsing information;
+- authentication relationships;
+- personal identifiers;
+- password-manager metadata;
+- historical digital activity.
+
+A privacy framework must not solve one privacy problem by creating another.
+
+---
+
+## 37.1 Data Minimization
+
+Only information necessary for the requested capability should be collected and propagated.
+
+Technical availability does not independently justify collection.
+
+---
+
+## 37.2 Connector Minimization Boundary
+
+The Connector must minimize provider-specific information before it enters the common Discovery Core where technically practical.
+
+Source secrets unnecessary for Discovery must remain outside normal Observations.
+
+---
+
+## 37.3 Least Privilege
+
+Connectors should request the narrowest access capable of supporting the selected capability.
+
+Access should not be broadened merely for implementation convenience.
+
+---
+
+## 37.4 Local Processing
+
+The following should remain local where technically practical:
+
+```text
+Observation processing
+Candidate Detection
+Identifier normalization
+Entity Resolution
+Rule-based Evidence Classification
+Evidence Aggregation
+Relationship Assessment
+```
+
+Remote processing should be deliberate and justified.
+
+---
+
+## 37.5 Credentials
+
+Provider credentials and authorization tokens must remain isolated from downstream Discovery components.
+
+Components processing preserved Observations must not need provider credentials merely to reinterpret existing information.
+
+---
+
+# 38. AI Architecture
+
+AI may contribute to selected Discovery strategies.
+
+Potential areas include:
+
+```text
+ambiguous Evidence Classification
+ambiguous Entity Resolution
+multilingual semantic interpretation
+complex explanation generation
+future conflict analysis
+```
+
+The architecture remains AI-provider independent.
+
+---
+
+## 38.1 AI Is a Strategy
+
+The correct abstraction is:
+
+```text
+Discovery Component
+      |
+      +-- Deterministic Strategy
+      |
+      +-- AI-Assisted Strategy
+      |
+      +-- UNKNOWN / UNRESOLVED fallback
+```
+
+not:
+
+```text
+All User Data
+      |
+      v
+     LLM
+      |
+      v
+Discovery Result
+```
+
+---
+
+## 38.2 Graceful Degradation
+
+If AI is unavailable:
+
+```text
+deterministic processing continues
+```
+
+and unresolved states remain explicit.
+
+Basic Discovery must not depend on AI availability.
+
+---
+
+# 39. Failure Model
+
+Each component may fail independently.
+
+Technical failures must remain separate from uncertainty states.
+
+For example:
+
+```text
+Connector failure
+       !=
+No Observations Found
+```
+
+```text
+Detector failure
+       !=
+NOT_CANDIDATE
+```
+
+```text
+Resolver failure
+       !=
+UNRESOLVED
+```
+
+```text
+Classifier failure
+       !=
+UNKNOWN
+```
+
+```text
+Aggregator failure
+       !=
+EMPTY
+```
+
+```text
+Assessor failure
+       !=
+RelationshipStatus UNKNOWN
+```
+
+This distinction is required across the Discovery pipeline.
+
+---
+
+# 40. Collection Completeness
+
+The absence of Evidence must not be interpreted as complete absence of a Relationship unless relevant source collection completed successfully.
+
+Conceptually:
+
+```text
+No Evidence Found
+       !=
+Source Analysis Incomplete
+```
+
+Partial source coverage should remain visible to downstream assessment and User explanations.
+
+---
+
+# 41. Non-Goals
+
+## 41.1 Complete Discovery
+
+The framework cannot guarantee discovery of every Service holding personal information about the User.
+
+```text
+Observed Footprint != Complete Footprint
+```
+
+---
+
+## 41.2 Current Data Possession
+
+Discovery does not establish which personal information a Service currently possesses.
+
+---
+
+## 41.3 Account Verification
+
+Discovery does not universally prove that a conventional Account exists.
+
+---
+
+## 41.4 Personal Data Acquisition
+
+Discovery does not retrieve the User's full personal dataset from Services.
+
+That belongs to later framework capabilities.
+
+---
+
+## 41.5 Public Internet Discovery
+
+Searching the public Internet for leaked information, public profiles or occurrences of identifiers is a separate technical capability.
+
+---
+
+## 41.6 Final Service Ontology
+
+Draft v0.3 does not define a universal taxonomy connecting:
+
+```text
+Service
+Product
+Brand
+Organization
+Legal Data Controller
+```
+
+---
+
+## 41.7 Numerical Confidence
+
+Numerical Confidence is outside the initial Discovery model.
+
+---
+
+## 41.8 Final Persistence Design
+
+This architecture does not define:
+
+```text
+database technology
+graph database
+SQL schema
+file format
+API representation
+object-relational mapping
+```
+
+---
+
+# 42. End-to-End Discovery Architecture
+
+The current Identity and Service Discovery architecture is:
+
+```text
+                               USER
+                                |
+               +----------------+----------------+
+               |                                 |
+               v                                 v
+        IDENTITY SEEDS                    CONNECTED SOURCES
+                                                  |
+                                                  v
+                                             CONNECTOR
+                                                  |
+                                                  v
+                                             OBSERVATION
+                                              /       \
+                                             /         \
+                                            v           v
+                               SERVICE CANDIDATE      EVIDENCE
+                                   DETECTION       CLASSIFICATION
+                                      |                 |
+                                      v                 v
+                                CANDIDATE            EVIDENCE
+                                IDENTIFIERS             |
+                                      |                 |
+                                      v                 |
+                               ENTITY RESOLUTION        |
+                                      |                 |
+                              +-------+-------+         |
+                              |               |         |
+                              v               v         |
+                           SERVICE        UNRESOLVED     |
+                              |              CONTEXT    |
+                              |               |         |
+                              +-------+-------+---------+
+                                      |
+                                      v
+                              EVIDENCE AGGREGATION
+                                      |
+                                      v
+                               EVIDENCE AGGREGATE
+                                      |
+                                      v
+                             RELATIONSHIP ASSESSMENT
+                                      |
+                                      v
+                                 RELATIONSHIP
+                                      |
+                                      v
+                                 SERVICE GRAPH
+```
+
+This architecture is the baseline for the first executable Discovery implementation.
+
+---
+
+# 43. Architecture Decisions
+
+## D-001 - Discovery Is Evidence-Based
+
+A discovered Service does not imply that it currently holds personal data.
+
+Discovery identifies observable Evidence of possible current or historical Relationships.
+
+---
+
+## D-002 - Multiple Discovery Sources
 
 No single Discovery Source defines the framework.
 
-The architecture must support multiple independent sources producing information that can contribute to the same Service Relationship.
+Multiple source types and source instances must be able to contribute to the same canonical Service Relationship.
 
 ---
 
-### D-003 - Unknown Is a Valid State
+## D-003 - Unknown Is a Valid State
 
-Missing, ambiguous or unresolved information must be represented explicitly rather than inferred without sufficient Evidence.
+Unknown, ambiguous and unresolved information must remain explicitly representable.
 
-This applies to:
-
-- unresolved Services;
-- unknown Evidence classifications;
-- uncertain Relationships;
-- incomplete source analysis.
+The system must not fabricate certainty to remove incomplete states.
 
 ---
 
-### D-004 - Local-First
+## D-004 - Local-First
 
-Raw personal information should be processed locally whenever technically practical.
-
-External transmission must have an explicit purpose.
+Raw and sensitive personal information should be processed locally whenever technically practical.
 
 ---
 
-### D-005 - Explainability
+## D-005 - Explainability
 
-Every discovered Relationship should be traceable to the Evidence supporting it.
-
-The framework should be able to explain why a Service was discovered without unnecessarily exposing unrelated raw personal information.
+Every Relationship should remain explainable through its supporting Evidence and provenance.
 
 ---
 
-### D-006 - Discovery and Acquisition Are Separate Concerns
+## D-006 - Discovery and Acquisition Are Separate
 
-Discovering that a Relationship exists and obtaining personal data held by a Service are distinct framework responsibilities.
-
----
-
-### D-007 - Commercial Licensing
-
-The project is intended to be freely available for permitted non-commercial use.
-
-Commercial use will require a separate commercial license from the copyright holder.
-
-Final licensing terms will be established before the first public release.
+Discovering a Service Relationship and obtaining personal data from that Service are separate framework capabilities.
 
 ---
 
-### D-008 - Provider-Independent AI
+## D-007 - Commercial Licensing
 
-The framework must not depend on one particular AI model or provider.
+The project is intended to allow permitted non-commercial use without a commercial license.
 
-AI capabilities should eventually support interchangeable strategies, including:
-
-- local models;
-- self-hosted models;
-- remote providers;
-- user-provided providers;
-- deterministic alternatives where appropriate.
+Commercial use will require separate licensing terms established before public release.
 
 ---
 
-### D-009 - AI Is Not a Substitute for Deterministic Components
+## D-008 - Provider-Independent AI
 
-AI should be introduced when it provides measurable value for ambiguity, semantic interpretation, classification, extraction, reasoning or adaptation.
-
-Operations that can be reliably performed deterministically should remain deterministic.
+The framework must not depend on one specific AI model or provider.
 
 ---
 
-### D-010 - Progressive Permission
+## D-009 - AI Does Not Replace Reliable Deterministic Processing
 
-Connectors should request the minimum level of access required to perform a capability.
-
-Access to more sensitive information should be requested only when lower-privilege data is insufficient and the user explicitly authorizes the operation.
+Deterministic operations should remain deterministic when they reliably solve the problem.
 
 ---
 
-### D-011 - AI for Ambiguity
+## D-010 - Progressive Permission
 
-Deterministic processing should be preferred when information can be reliably interpreted using explicit logic.
+Connectors must request the minimum access required for a capability.
 
-AI-assisted processing should primarily be used when deterministic processing cannot adequately resolve ambiguity and when the required input is available within the user's authorized permission boundary.
-
----
-
-### D-012 - Preserve Source Provenance
-
-Derived Service information must remain traceable to the Observations and Evidence from which it was produced.
-
-Normalization, classification, aggregation and Entity Resolution must not destroy the provenance required to explain, correct or reprocess derived information.
+Additional access requires explicit User authorization.
 
 ---
 
-### D-013 - Observation and Evidence Are Separate Concepts
+## D-011 - AI for Ambiguity
 
-Information collected from a Source must be represented independently from the framework's semantic interpretation of that information.
+AI should primarily address ambiguity that cannot be adequately resolved through deterministic logic.
 
-Therefore:
+---
+
+## D-012 - Preserve Source Provenance
+
+Derived information must remain traceable to its source Observations and processing history.
+
+---
+
+## D-013 - Observation and Evidence Are Separate
 
 ```text
 OBSERVATION != EVIDENCE
 ```
 
-This separation allows classification logic to evolve without destroying source provenance.
+Source-derived information must remain distinct from semantic interpretation.
 
 ---
 
-### D-014 - Evidence and Relationship Are Separate Concepts
-
-Individual Evidence describes the meaning of one or more Observations.
-
-A Relationship represents an assessment based on aggregated Evidence.
-
-Therefore:
+## D-014 - Evidence and Relationship Are Separate
 
 ```text
 EVIDENCE != RELATIONSHIP
 ```
 
-Relationship Assessment must not be conflated with Evidence Classification.
+Relationship Assessment operates on aggregated Evidence.
 
 ---
 
-### D-015 - Domain and Service Are Separate Concepts
-
-Technical identifiers such as domains, URLs or email addresses must not automatically be treated as canonical Service identities.
-
-Therefore:
+## D-015 - Identifier and Service Are Separate
 
 ```text
-DOMAIN != SERVICE
+IDENTIFIER != SERVICE
 ```
 
-Mapping observed identifiers to Services belongs to Entity Resolution.
+Technical identifiers must not automatically become canonical Services.
 
 ---
 
-### D-016 - Core Discovery Must Degrade Gracefully
+## D-016 - Core Discovery Degrades Gracefully
 
-Failure or unavailability of optional capabilities, including AI, must not prevent deterministic portions of Service Discovery from operating.
-
-Unresolved states should remain explicit rather than causing fabricated conclusions.
+Failure or absence of optional capabilities, including AI, must not prevent deterministic Discovery from operating.
 
 ---
 
-## 30. Validation Status
+## D-017 - Multiple Connected Source Instances
 
-Draft v0.2 incorporates architectural findings from the first concrete design scenario:
+A User may connect multiple independent source instances, including multiple instances using the same Provider and Connector implementation.
+
+Each ConnectedSource has an independent lifecycle.
+
+---
+
+## D-018 - Connector Is a Data-Minimization Boundary
+
+Connectors must minimize provider-specific information before exposing Observations to the common Discovery Core where technically practical.
+
+Information unnecessary for the requested capability should not cross the Connector boundary.
+
+---
+
+## D-019 - Observation Types Are Provider-Neutral Where Possible
+
+Equivalent source semantics from different providers should use the same Observation Type where their framework semantics are compatible.
+
+Provider identity should not unnecessarily leak into downstream Discovery logic.
+
+---
+
+## D-020 - Entity Resolution and Evidence Classification Are Independent
+
+Entity Resolution and Evidence Classification are parallel Discovery concerns.
+
+Either may succeed while the other remains unresolved.
+
+For example:
+
+```text
+Service:
+UNRESOLVED
+
+Evidence:
+PAYMENT
+```
+
+is valid.
+
+Likewise:
+
+```text
+Service:
+Spotify
+
+Evidence:
+UNKNOWN
+```
+
+is valid.
+
+---
+
+## D-021 - Evidence Aggregates Are Derived State
+
+Evidence Aggregates must remain reconstructable from authoritative Evidence where that Evidence is retained.
+
+Aggregates must not become the sole source of Discovery provenance.
+
+---
+
+## D-022 - Relationship Support and Temporal Status Are Separate
+
+Relationship support and temporal interpretation must be represented independently.
+
+The initial model is:
+
+```text
+RelationshipStatus:
+UNKNOWN
+OBSERVED
+ESTABLISHED
+REJECTED
+```
+
+and:
+
+```text
+TemporalStatus:
+UNKNOWN
+CURRENTLY_OBSERVED
+HISTORICAL
+```
+
+---
+
+## D-023 - No Numerical Confidence in Initial Discovery Model
+
+The initial Discovery Domain Model does not require numerical Confidence scores.
+
+Explicit states, Evidence basis, provenance, temporal information, source diversity and reason codes should be evaluated before introducing calibrated Confidence.
+
+---
+
+# 44. Open Questions
+
+The following questions remain intentionally unresolved.
+
+## Identity
+
+- How are newly observed identity identifiers suggested to the User?
+- Must every new Identity Seed be explicitly confirmed?
+- How are historical identities represented?
+- How should aliases be represented?
+
+## ConnectedSource
+
+- What exact connection states are required?
+- Should authorization state and connection state remain separate?
+- Where should synchronization state live?
+- How should local files and manual sources be represented?
+
+## Connector
+
+- How are Connector implementations registered?
+- Which capabilities belong to the common vocabulary?
+- How is secure credential storage implemented?
+- How is synchronization state persisted?
+
+## Observation
+
+- Which Observation Types are required for the first implementation?
+- Which payload schema mechanism should be used?
+- Which Observations should be persisted?
+- When may sensitive Observations remain ephemeral?
+- Is `CollectionRun` required for synchronization and coverage tracking?
+
+## Candidate Detection
+
+- What initial reason-code taxonomy is required?
+- Which reference data is necessary?
+- When, if ever, should AI assist Candidate Detection?
+- Will identifier extraction remain part of Candidate Detection?
+
+## Entity Resolution
+
+- What is the initial Service Registry?
+- Who creates a new canonical Service?
+- How are Service mappings updated?
+- How are Service merge and split operations managed?
+- Which external reference datasets, if any, are appropriate?
+- When should AI assist Entity Resolution?
+
+## Service
+
+- What is the canonical Service granularity?
+- How should `Google`, `Google Account` and `Gmail` be represented?
+- How should product, Service, Brand and Organization eventually relate?
+- How should historical rebranding be represented?
+
+## Evidence
+
+- What is the minimum initial Evidence taxonomy?
+- Which Evidence Types are source-independent?
+- Which source-specific types are justified?
+- What are the exact EvidenceStatus transition rules?
+- How should reclassification history be stored?
+- How should User-corrected Evidence interact with automated Evidence?
+
+## Aggregation
+
+- What constitutes duplicate semantic Evidence?
+- How should unresolved aggregation contexts be persisted?
+- Which temporal conflict rules are useful?
+- Should Evidence Aggregates be materialized or computed on demand?
+
+## Relationship
+
+- Are `UNKNOWN`, `OBSERVED`, `ESTABLISHED`, `REJECTED` sufficient?
+- Are `UNKNOWN`, `CURRENTLY_OBSERVED`, `HISTORICAL` sufficient temporal states?
+- Which Evidence combinations justify `ESTABLISHED`?
+- How should Evidence independence be defined?
+- How should User confirmation affect RelationshipStatus?
+
+## Account
+
+- Should Account become a first-class Domain Entity?
+- How should multiple accounts with one Service be represented?
+- How should shared accounts be represented?
+- How should guest purchases be represented if Account is introduced?
+
+## Organization
+
+- When should Organization become a Domain Entity?
+- How should legal data controllers relate to Services?
+- Is Organization Resolution a separate capability?
+
+## Coverage
+
+- Should collection coverage become a formal domain or application concept?
+- How should partial source coverage be exposed to Relationship Assessment?
+- Should a `CollectionRun` model be introduced?
+
+## Privacy
+
+- Which Observations may be persisted?
+- What are retention rules?
+- How are external account identifiers protected?
+- Which Observation Types may be sent to remote AI?
+- How does deletion propagate through derived state?
+
+## AI
+
+- Which unresolved cases demonstrate measurable improvement from AI?
+- Which tasks should remain entirely deterministic?
+- How should local and remote AI policies be represented?
+- How are AI model changes reflected in reprocessing provenance?
+
+---
+
+# 45. Validation Status
+
+Draft v0.3 has been consolidated against:
 
 ```text
 SCN-001
 Gmail Service Discovery
 ```
 
-The scenario validated several concepts already present in Draft v0.1, including:
-
-- evidence-based discovery;
-- multiple Discovery Sources;
-- Entity Resolution;
-- uncertainty;
-- explainability;
-- local-first processing;
-- provider-independent AI.
-
-It also exposed architectural concepts that required explicit representation in Draft v0.2:
-
-- Connectors as source-specific boundaries;
-- Observations as distinct from Evidence;
-- Service Candidate Detection;
-- Evidence Classification;
-- Evidence Aggregation;
-- Relationship Assessment;
-- Progressive Permission;
-- explicit provenance preservation;
-- deterministic-first classification;
-- AI for ambiguity;
-- graceful degradation;
-- temporal awareness;
-- support for reprocessing.
-
-The architecture remains provisional.
-
-A single source scenario is not sufficient to establish that the model is truly source-independent.
-
----
-
-## 31. Next Design Exercise
-
-The next architecture validation exercise should use a Discovery Source that is structurally different from email.
-
-The objective is not yet to add another product feature.
-
-The objective is to test whether the abstractions introduced in Draft v0.2 remain valid when the source does not consist of email messages.
-
-A candidate scenario is:
+and:
 
 ```text
 SCN-002
 Password Manager Service Discovery
 ```
 
-Conceptually:
+as well as the first software-contract cycle:
 
 ```text
-Password Manager
-       |
-       v
-Password Manager Connector
-       |
-       v
-Credential Metadata Observation
-       |
-       v
-Service Candidate Detection
-       |
-       v
-Entity Resolution
-       |
-       v
-Evidence Classification
-       |
-       v
-Evidence Aggregation
-       |
-       v
-Relationship Assessment
-       |
-       v
-Service Graph
+Connector Contract
+
+Observation Contract
+
+Service Candidate Detector Contract
+
+Entity Resolver Contract
+
+Evidence Classifier Contract
+
+Evidence Aggregator Contract
+
+Relationship Assessor Contract
 ```
 
-The scenario should specifically test:
+The two scenarios demonstrated that the core Discovery architecture can represent structurally different sources.
 
-- whether `Connector` is sufficiently source-independent;
-- whether the `Observation` abstraction works for non-email information;
-- whether Evidence Classification remains useful;
-- whether the distinction between technical identifier and Service remains valid;
-- whether Progressive Permission works for highly sensitive sources;
-- whether secret values such as passwords can remain completely outside the discovery pipeline;
-- whether the same Service can eventually receive Evidence from independent sources;
-- whether the current Relationship model remains valid.
+The contract cycle further validated:
 
-Findings from this scenario should be used to determine whether Draft v0.2 can remain unchanged or requires another architectural revision before software interfaces are finalized.
+```text
+ConnectedSource
+provider independence
+typed Observations
+parallel Entity Resolution and Evidence Classification
+explicit uncertainty states
+cross-source Service convergence
+Evidence aggregation
+Relationship reassessment
+deterministic-first processing
+Progressive Permission
+Source provenance
+```
+
+and exposed additional concepts now incorporated into Draft v0.3:
+
+```text
+EvidenceStatus
+RelationshipStatus
+TemporalStatus
+Aggregate as derived state
+Connector minimization boundary
+```
 
 ---
 
-## 32. Path Toward Implementation
+# 46. Maturity Assessment
 
-Implementation should not begin by building the entire framework.
+The following concepts are now considered sufficiently stable for implementation-oriented design:
 
-The current design process is:
+```text
+ConnectedSource
+
+Connector boundary
+
+Observation envelope
+
+Typed Observation payloads
+
+Service Candidate Detection
+
+ServiceIdentifier
+
+Entity Resolution states
+
+Evidence Classification boundary
+
+Evidence Aggregation boundary
+
+Relationship Assessment boundary
+
+Progressive Permission
+
+Provider independence
+
+Provenance
+
+Local-first processing
+
+UNKNOWN / UNRESOLVED / AMBIGUOUS states
+
+RelationshipStatus / TemporalStatus separation
+```
+
+The following concepts remain intentionally provisional:
+
+```text
+Account
+
+Organization
+
+Service granularity
+
+Service Registry lifecycle
+
+Evidence taxonomy details
+
+Evidence lifecycle transition rules
+
+CollectionRun
+
+Persistence model
+
+Service Graph technology
+
+Confidence
+
+advanced AI usage
+```
+
+---
+
+# 47. Path Toward Implementation
+
+Draft v0.3 completes the first architecture consolidation cycle.
+
+The project progression is now:
 
 ```text
 Architecture v0.1
        |
        v
-Scenario 001
-Gmail Service Discovery
+SCN-001 Gmail
        |
        v
 Architecture v0.2
        |
        v
-Additional Source-Independent
-Architecture Validation
+SCN-002 Password Manager
        |
        v
-Domain Model
+Domain Model v0.2
        |
        v
-Software Interfaces
+Software Contracts v0.1
        |
        v
-Vertical MVP
+Consistency Review
        |
        v
-Measurement
+Architecture v0.3
+       |
+       v
+Domain Model v0.3
+       |
+       v
+Contract Alignment
+       |
+       v
+Implementation Model
+       |
+       v
+Vertical Discovery MVP
+       |
+       v
+Empirical Validation
        |
        v
 Architecture Refinement
 ```
 
-Once the architecture has survived sufficiently different scenarios, the next implementation steps should define:
+The next design task is therefore not another abstract architecture document.
 
-1. the minimum Domain Model;
-2. Connector interfaces;
-3. Observation representation;
-4. Entity Resolution interfaces;
-5. Evidence Classification interfaces;
-6. Evidence Aggregation;
-7. Relationship Assessment;
-8. persistence boundaries;
-9. privacy and permission boundaries.
+The next step is to update the Discovery Domain Model so that it formally incorporates the cross-cutting findings already established in Draft v0.3.
 
-Only then should a source-specific vertical implementation be used to validate the complete pipeline in executable software.
-
----
-
-## 33. Future Documents
-
-This document defines only the Identity and Service Discovery portion of the framework.
-
-The broader design documentation is currently expected to evolve approximately as follows:
+In particular, Domain Model v0.3 should incorporate:
 
 ```text
-docs/
-|
-+-- architecture/
-|   |
-|   +-- 01-identity-and-service-discovery.md
-|   |
-|   +-- 02-personal-data-acquisition.md
-|   |
-|   +-- 03-personal-data-model.md
-|   |
-|   +-- 04-personal-data-graph.md
-|   |
-|   +-- 05-ai-and-agent-architecture.md
-|   |
-|   +-- 06-privacy-and-security-architecture.md
-|   |
-|   +-- 07-continuous-monitoring-and-governance.md
-|
-+-- scenarios/
+Relationship
     |
-    +-- 001-gmail-service-discovery.md
-    |
-    +-- 002-...
+    +-- User reference
+    +-- Service reference
+    +-- RelationshipStatus
+    +-- TemporalStatus
+    +-- Identity references
+    +-- Evidence basis
+    +-- Assessment provenance
 ```
 
-These filenames and boundaries remain provisional.
+and:
 
-They should evolve based on concrete architectural requirements rather than being considered fixed in advance.
+```text
+Evidence
+    |
+    +-- EvidenceStatus
+         |
+         +-- ACTIVE
+         +-- SUPERSEDED
+         +-- REJECTED
+```
+
+Once these concepts are reflected consistently in the Domain Model, the seven existing software contracts should receive only the terminology and dependency alignment necessary to match the consolidated architecture.
+
+No new processing component should be introduced unless implementation design or new empirical scenarios demonstrate that it is required.
