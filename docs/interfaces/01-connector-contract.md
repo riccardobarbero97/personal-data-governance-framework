@@ -3,8 +3,8 @@
 **Status:** Draft v0.1  
 **Scope:** Identity and Service Discovery  
 **Last updated:** November 2026  
-**Related Architecture:** `docs/architecture/01-identity-and-service-discovery.md`  
-**Related Domain Model:** `docs/domain/01-discovery-domain-model.md`  
+**Related Architecture:** `docs/architecture/01-identity-and-service-discovery.md` - Draft v0.3  
+**Related Domain Model:** `docs/domain/01-discovery-domain-model.md` - Draft v0.3  
 **Validated Against:** `SCN-001 Gmail Service Discovery`, `SCN-002 Password Manager Service Discovery`
 
 ---
@@ -15,7 +15,16 @@ This document defines the initial software contract for Connectors used by the I
 
 A Connector isolates provider-specific integration logic from the common Discovery Core.
 
-The objective is to allow the framework to support multiple source types, multiple providers and multiple connected source instances without requiring provider-specific logic inside downstream discovery components.
+The objective is to allow the framework to support:
+
+- multiple SourceTypes;
+- multiple Providers;
+- multiple ConnectedSource instances;
+- multiple instances using the same Connector implementation;
+- capability-specific permissions;
+- independent source lifecycles;
+
+without requiring provider-specific logic inside downstream Discovery components.
 
 Conceptually:
 
@@ -44,60 +53,86 @@ ICloudMailConnector
 ProtonMailConnector
 PasswordManagerConnector
 BrowserConnector
+IdentityProviderConnector
 ```
 
 All compatible Connectors should expose a common behavioral contract while remaining free to implement provider-specific authorization, retrieval and synchronization internally.
 
 ---
 
-# 2. Design Goal
+## 2. Design Goal
 
 The Discovery Core should not need to know:
 
 ```text
 How Gmail authentication works
+
 How Microsoft authentication works
+
 How a password manager stores records
-Which API a provider exposes
-How pagination works
+
+Which API a Provider exposes
+
+How provider pagination works
+
 How provider-specific tokens are refreshed
-Which provider-specific object represents a message
-Which provider-specific object represents a credential entry
+
+Which provider object represents a message
+
+Which provider object represents a credential entry
+
+How provider-specific synchronization state is encoded
 ```
 
-Instead, the core should be able to ask a Connector questions such as:
+Instead, the Discovery Core should be able to ask a Connector questions such as:
 
 ```text
 Who are you?
 
+What SourceType and Provider do you support?
+
 What capabilities do you support?
 
-What permissions do you require?
+What permissions does a capability require?
 
-Are you currently authorized?
+What is the authorization state of this ConnectedSource?
 
-Collect observations for this capability.
+Collect Observations for this capability.
 
-What was the result?
+Was collection complete?
 
 Can collection continue later?
+
+What errors or warnings occurred?
 ```
 
 The Connector Contract defines this boundary.
 
 ---
 
-# 3. Architectural Position
+## 3. Architectural Position
 
-A Connector exists between an external Discovery Source and the common Discovery Domain.
+A Connector exists between a particular ConnectedSource and an external Provider.
 
 ```text
-DISCOVERY SOURCE
+CONNECTED SOURCE
        |
        v
     CONNECTOR
        |
-       | Provider boundary
+       v
+EXTERNAL PROVIDER
+```
+
+Information returned by the Provider crosses the Connector boundary only after source-specific selection, normalization and minimization.
+
+```text
+EXTERNAL PROVIDER
+       |
+       v
+    CONNECTOR
+       |
+       | Provider and security boundary
        |
        v
    OBSERVATIONS
@@ -108,7 +143,7 @@ DISCOVERY CORE
 
 The Connector is responsible for communicating with the external source.
 
-The Discovery Core is responsible for interpreting the Observations.
+The Discovery Core is responsible for interpreting the resulting Observations.
 
 Therefore:
 
@@ -116,48 +151,55 @@ Therefore:
 CONNECTOR != DISCOVERY ENGINE
 ```
 
-and:
-
 ```text
-CONNECTOR != EVIDENCE CLASSIFIER
+CONNECTOR != SERVICE CANDIDATE DETECTOR
 ```
-
-and:
 
 ```text
 CONNECTOR != ENTITY RESOLVER
 ```
 
-The Connector should not absorb responsibilities belonging to downstream discovery components merely because it has access to the source.
+```text
+CONNECTOR != EVIDENCE CLASSIFIER
+```
+
+```text
+CONNECTOR != RELATIONSHIP ASSESSOR
+```
+
+The Connector must not absorb downstream responsibilities merely because it has privileged access to the source.
 
 ---
 
-# 4. Core Responsibilities
+## 4. Core Responsibilities
 
 A Connector should be responsible for the following categories of behavior:
 
 ```text
 Identity
-Capabilities
+Capability Discovery
 Authorization
-Permissions
+Permission Analysis
 Collection
-Minimization
+Source Interaction
+Representation Normalization
+Data Minimization
 Observation Creation
 Synchronization
 Error Reporting
 Revocation
+Disconnection
 ```
 
-Not every provider will support every behavior in the same way.
+Not every Provider supports every operation in the same way.
 
-The contract must allow providers to declare unsupported capabilities explicitly.
+The contract must therefore allow unsupported capabilities to be represented explicitly.
 
 ---
 
-# 5. Connector Identity
+## 5. Connector Identity
 
-Every Connector implementation must identify itself.
+Every Connector implementation must identify itself through a descriptor.
 
 Conceptually:
 
@@ -165,7 +207,7 @@ Conceptually:
 ConnectorDescriptor
 
 - connector_id
-- connector_type
+- source_type
 - provider
 - version
 ```
@@ -173,37 +215,58 @@ ConnectorDescriptor
 Example:
 
 ```text
-connector_id: gmail
-connector_type: EMAIL
-provider: GOOGLE
-version: 1
+connector_id:
+gmail
+
+source_type:
+EMAIL
+
+provider:
+GOOGLE
+
+version:
+1
 ```
 
-Another Connector might expose:
+Another Connector may expose:
 
 ```text
-connector_id: outlook
-connector_type: EMAIL
-provider: MICROSOFT
-version: 1
+connector_id:
+outlook
+
+source_type:
+EMAIL
+
+provider:
+MICROSOFT
+
+version:
+1
 ```
 
-A password-manager Connector might expose:
+A password-manager Connector may expose:
 
 ```text
-connector_id: password-manager-x
-connector_type: PASSWORD_MANAGER
-provider: PROVIDER_X
-version: 1
+connector_id:
+password-manager-x
+
+source_type:
+PASSWORD_MANAGER
+
+provider:
+PROVIDER_X
+
+version:
+1
 ```
 
-The exact enumeration of providers is not yet defined.
+The exact Provider vocabulary remains open.
 
 ---
 
-# 6. Connector Type
+## 6. SourceType
 
-The Connector should expose the category of Discovery Source it supports.
+The Connector must expose the general SourceType it supports.
 
 Initial categories may include:
 
@@ -217,7 +280,7 @@ MANUAL
 
 These categories must remain extensible.
 
-Provider names and source types must not be conflated.
+Provider names and SourceTypes must not be conflated.
 
 For example:
 
@@ -225,9 +288,9 @@ For example:
 GMAIL
 ```
 
-is not a source type.
+is not a SourceType.
 
-It is a provider-specific implementation of:
+It is a provider-specific product or integration associated with:
 
 ```text
 EMAIL
@@ -236,26 +299,26 @@ EMAIL
 Conceptually:
 
 ```text
-Source Type
+SourceType
     |
     +-- EMAIL
     |     |
-    |     +-- Gmail
-    |     +-- Outlook
-    |     +-- iCloud Mail
-    |     +-- Proton Mail
+    |     +-- GmailConnector
+    |     +-- OutlookConnector
+    |     +-- ICloudMailConnector
+    |     +-- ProtonMailConnector
     |
     +-- PASSWORD_MANAGER
           |
-          +-- Provider A
-          +-- Provider B
+          +-- ProviderAConnector
+          +-- ProviderBConnector
 ```
 
 ---
 
-# 7. Connector Instance
+## 7. Connector Implementation and ConnectedSource
 
-A Connector implementation and a Connector instance are different concepts.
+A Connector implementation and a ConnectedSource are different concepts.
 
 For example:
 
@@ -263,7 +326,7 @@ For example:
 GmailConnector
 ```
 
-represents provider-specific integration behavior.
+represents reusable provider-specific integration behavior.
 
 The User may connect:
 
@@ -277,32 +340,32 @@ and:
 oldaddress@gmail.com
 ```
 
-using the same Connector implementation.
+through the same Connector implementation.
 
 Conceptually:
 
 ```text
-                 GmailConnector
-                    /       \
-                   /         \
-                  v           v
-        Connection A       Connection B
-        user@gmail.com     old@gmail.com
+                    GmailConnector
+                    /            \
+                   /              \
+                  v                v
+         ConnectedSource A   ConnectedSource B
+         Personal Gmail      Old Gmail
 ```
 
-The software design must therefore support multiple active instances of the same Connector implementation.
+The software design must support multiple simultaneously active Connected Sources using the same Connector implementation.
 
-A provider-specific Connector must not assume:
+A Connector must not assume:
 
 ```text
-one provider = one user connection
+one Provider = one User connection
 ```
 
 ---
 
-# 8. Connected Source Identity
+## 8. ConnectedSource Identity
 
-Each authorized source instance should have an internal framework identifier.
+Every connected or authorized source instance must have an internal framework identifier.
 
 Conceptually:
 
@@ -310,12 +373,14 @@ Conceptually:
 ConnectedSource
 
 - id
-- connector_id
+- user_reference
+- connector_reference
 - source_type
 - provider
 - display_name
 - external_account_reference
-- state
+- connection_state
+- authorization_state
 ```
 
 Example:
@@ -324,7 +389,7 @@ Example:
 id:
 source_001
 
-connector_id:
+connector_reference:
 gmail
 
 source_type:
@@ -342,15 +407,23 @@ user@gmail.com
 
 This example is conceptual.
 
-Sensitive external identifiers may require minimization or protection in the persistent implementation.
+Sensitive external identifiers may require:
+
+- minimization;
+- encryption;
+- hashing;
+- indirect secure references;
+- restricted persistence.
+
+The Domain Model is the authoritative source for the `ConnectedSource` definition.
 
 ---
 
-# 9. Capabilities
+## 9. Capabilities
 
 A Connector must explicitly advertise the capabilities it supports.
 
-The Discovery Core must not infer capabilities based only on provider type.
+The Discovery Core must not infer capabilities based only on SourceType or Provider.
 
 Conceptually:
 
@@ -358,10 +431,10 @@ Conceptually:
 get_capabilities()
 ```
 
-could return capabilities such as:
+may return capabilities such as:
 
 ```text
-COLLECT_METADATA
+SERVICE_DISCOVERY_METADATA
 COLLECT_CONTENT
 COLLECT_ATTACHMENTS
 INCREMENTAL_SYNC
@@ -370,15 +443,15 @@ SEARCH
 REVOCATION
 ```
 
-However, capabilities should describe meaningful framework operations rather than mirror provider APIs unnecessarily.
+Capabilities should represent meaningful framework operations rather than mirror provider APIs unnecessarily.
 
 ---
 
 ## 9.1 Why Capability Discovery Matters
 
-Two email Connectors may support different functionality.
+Two email Connectors may expose different capabilities.
 
-Conceptually:
+Example:
 
 ```text
 GmailConnector
@@ -389,7 +462,7 @@ incremental sync        YES
 attachments             OPTIONAL
 ```
 
-while another provider could expose:
+while another Provider may expose:
 
 ```text
 ProviderConnector
@@ -403,18 +476,19 @@ attachments             NO
 The Discovery Engine must therefore ask:
 
 ```text
-Does this Connector support the capability?
+Does this Connector support the requested capability
+for this ConnectedSource?
 ```
 
-rather than assuming:
+rather than assume:
 
 ```text
-This is email, therefore this operation exists.
+This is EMAIL, therefore every email operation exists.
 ```
 
 ---
 
-# 10. Capability Descriptor
+## 10. Capability Descriptor
 
 A capability should expose enough information for the framework to reason about its availability and requirements.
 
@@ -445,37 +519,45 @@ METADATA
 
 requires_user_authorization:
 true
+
+supports_incremental_collection:
+true
 ```
 
-The precise structure remains implementation-dependent.
+The exact implementation remains open.
+
+Capability availability may need to be evaluated for a specific ConnectedSource rather than only for the Connector implementation.
 
 ---
 
-# 11. Progressive Permission Contract
+## 11. Progressive Permission Contract
 
-Connectors must support the architectural principle of Progressive Permission.
+Connectors must support Progressive Permission.
 
-The Discovery Core should be able to determine:
+The framework should be able to determine:
 
 ```text
 Capability
      |
      v
-Required Data
+Required Information
      |
      v
 Required Permission
 ```
 
-before requesting unnecessary access.
+before requesting unnecessary source access.
 
 Conceptually:
 
 ```text
-get_permission_requirements(capability)
+get_permission_requirements(
+    connected_source,
+    capability
+)
 ```
 
-should allow the framework to understand what additional access is required.
+should allow the application to understand what access is required.
 
 ---
 
@@ -492,7 +574,7 @@ REVOKED
 UNKNOWN
 ```
 
-The final enumeration remains to be defined.
+The final enumeration remains open.
 
 ---
 
@@ -507,49 +589,51 @@ collect()
    |
    v
 Existing Permission Sufficient?
-       /        \
-     yes         no
-      |           |
-      v           v
-  continue     return
-              PERMISSION_REQUIRED
-                   |
-                   v
-             Discovery Core
-                   |
-                   v
-                User
+       /          \
+     yes           no
+      |             |
+      v             v
+  continue      return
+                PERMISSION_REQUIRED
+                     |
+                     v
+              Application Layer
+                     |
+                     v
+                    User
 ```
 
-The Connector reports the requirement.
+The Connector reports the permission requirement.
 
-The application decides how to present the request to the User.
+The application layer decides how to explain and request it.
+
+The Connector does not autonomously authorize broader access.
 
 ---
 
-# 12. Authorization Boundary
+## 12. Authorization Boundary
 
-Connectors are responsible for provider-specific authorization mechanics.
+Connectors are responsible for Provider-specific authorization mechanics.
 
-Examples may eventually include:
+Possible mechanisms include:
 
 ```text
 OAuth 2.0
 API Tokens
 Local Application Authorization
-File Access
 Operating-System Permission
+File Access
 Provider-Specific Authorization
 ```
 
-These are implementation details of individual Connectors.
-
-The common contract should expose authorization state without forcing the Discovery Core to understand provider-specific authentication flows.
+The common contract should expose authorization state without requiring the Discovery Core to understand provider-specific authentication flows.
 
 Conceptually:
 
 ```text
-get_authorization_status()
+get_authorization_status(
+    connected_source
+)
 ```
 
 may return:
@@ -563,16 +647,21 @@ INSUFFICIENT
 ERROR
 ```
 
+Connection state and authorization state may remain separate Domain concepts.
+
 ---
 
-# 13. Authorization Request
+## 13. Authorization Request
 
 A Connector should be able to describe the authorization required for a capability before access is requested.
 
 Conceptually:
 
 ```text
-prepare_authorization(capability)
+prepare_authorization(
+    connected_source,
+    capability
+)
 ```
 
 should produce information sufficient for the application layer to explain:
@@ -584,20 +673,24 @@ Why is it required?
 
 Which capability needs it?
 
+What information may be collected?
+
 What sensitivity level is involved?
+
+Does existing authorization already cover it?
 ```
 
-The Connector Contract should not assume that every authorization flow is OAuth-based.
+The Connector Contract must not assume that every authorization flow is OAuth-based.
 
 ---
 
-# 14. Credentials
+## 14. Credentials
 
-Authentication credentials belong to the Connector boundary.
+Authentication credentials belong to the Connector and secure credential-storage boundary.
 
-Downstream components must not require direct access to provider credentials.
+Downstream Discovery components must not require direct access to provider credentials.
 
-Conceptually:
+The intended architecture is:
 
 ```text
                       +--> access token
@@ -614,20 +707,20 @@ External Provider
       |
       +--> access token --> Discovery Core
       |
-      +--> raw source data --> Discovery Core
+      +--> raw source object --> Discovery Core
 ```
 
-Credential storage and secret-management implementation remain outside the current contract.
+Credential storage and secret-management implementation remain outside this contract.
 
 The boundary requirement is:
 
-> Components consuming Observations should not need provider credentials merely to process previously collected information.
+> Components consuming preserved Observations must not require provider credentials merely to process or reinterpret those Observations.
 
 ---
 
-# 15. Collection Request
+## 15. Collection Request
 
-The Discovery Core should collect information through an explicit Collection Request.
+Information collection must occur through an explicit, capability-specific request.
 
 Conceptually:
 
@@ -637,20 +730,30 @@ CollectionRequest
 - connected_source_id
 - capability
 - permission_context
-- cursor
+- continuation
 - limit
 - options
 ```
 
 Not every field is necessarily required in the final implementation.
 
-The important principle is that collection should be intentional and capability-specific.
+The important principles are:
+
+```text
+Collection is intentional.
+
+Collection targets exactly one ConnectedSource.
+
+Collection is capability-specific.
+
+Collection does not mean "retrieve everything."
+```
 
 ---
 
-# 16. Collect Operation
+## 16. Collect Operation
 
-The central Connector behavior is conceptually:
+The central Connector operation is conceptually:
 
 ```text
 collect(request)
@@ -658,27 +761,37 @@ collect(request)
 CollectionResult
 ```
 
-The Connector receives a request describing the capability to execute.
+The Connector receives a request describing:
+
+- the ConnectedSource;
+- the capability;
+- the current authorization or permission context;
+- optional continuation information;
+- collection-specific options.
 
 It returns:
 
 ```text
 Observations
 +
-Collection State
+Collection Status
 +
-Errors / Warnings
+Warnings
++
+Errors
 +
 Continuation Information
++
+Collection Metadata
 ```
 
-It should not return raw provider objects directly to the Discovery Core.
+The Connector must not return raw provider objects directly to the Discovery Core.
 
 ---
 
-# 17. Observation Contract
+## 17. Observation Contract
 
-The primary output of successful Connector collection is one or more framework Observations.
+The primary successful output of collection is one or more framework Observations.
 
 Conceptually:
 
@@ -697,70 +810,82 @@ CollectionResult
 
 The Connector translates provider-specific information into the common Observation boundary.
 
+Every resulting Observation must reference exactly one ConnectedSource.
+
 ---
 
 ## 17.1 Common Observation Envelope
 
-The exact Observation schema remains part of Domain Model refinement.
-
-However, Connectors should produce an envelope conceptually containing:
+The Observation Contract defines the common envelope as conceptually containing:
 
 ```text
 Observation
 
 - id
 - connected_source_id
-- source_reference
 - observation_type
+- schema_version
+- source_reference
 - observed_at
 - collected_at
-- attributes
-- provenance
+- temporal_semantics
+- payload
 ```
 
-The Connector should not be required to convert all source-specific information into a single universal flat schema.
+The Connector must not force all source structures into one universal flat representation.
 
-Instead:
+The preferred direction is:
 
 ```text
 Common Observation Envelope
           +
-Source-Specific Attributes
+Typed Source-Specific Payload
 ```
-
-is currently the preferred direction.
 
 ---
 
-# 18. Source Reference
+## 18. Source Reference
 
-Observations should retain a source reference where this can be done safely.
+Observations should retain a stable source reference where technically possible and safe.
 
-Examples:
+Examples include:
 
 ```text
 Gmail message identifier
+
+Outlook message reference
+
 Password-manager record identifier
+
 Browser-history entry identifier
 ```
 
-This may allow:
+A source reference may support:
 
 - deduplication;
 - incremental synchronization;
+- source updates;
 - reprocessing;
-- traceability;
-- source updates.
+- debugging;
+- traceability.
 
-The source reference should not expose unnecessary secrets.
+Source references must not expose unnecessary secrets.
+
+The safe identity context is normally:
+
+```text
+ConnectedSourceId
+        +
+SourceReference
+```
+
+rather than SourceReference alone.
 
 ---
 
-# 19. Observation Minimization
+## 19. Observation Minimization
 
 A Connector must minimize information before creating Observations where reasonably possible.
-
-The intended pattern is:
 
 ```text
 Provider Object
@@ -775,33 +900,33 @@ Required              Unnecessary
 Information           Sensitive Data
  |                       |
  v                       X
-Observation             discarded /
-                        isolated
+Observation            discarded,
+                       isolated or
+                       never retrieved
 ```
 
-A password-manager Connector provides the clearest example:
+A password-manager Connector provides a clear example:
 
 ```text
 Record
  |
- +-- title ---------+
- +-- username ------+--> Observation
- +-- URI -----------+
+ +-- title ----------+
+ +-- username -------+--> Observation
+ +-- URI ------------+
  |
- +-- password ------X
- +-- OTP seed ------X
- +-- recovery code -X
+ +-- password -------X
+ +-- OTP seed -------X
+ +-- recovery code --X
+ +-- private key ----X
 ```
 
-The Discovery Core should not receive secrets it does not need.
+The Discovery Core must not receive secrets it does not need.
 
 ---
 
-# 20. Collection Result
+## 20. Collection Result
 
 Collection must return more than a list of Observations.
-
-The Discovery Engine needs to know whether the operation was complete.
 
 Conceptually:
 
@@ -815,6 +940,8 @@ CollectionResult
 - errors
 - collection_metadata
 ```
+
+The Discovery Engine must be able to determine whether collection was complete.
 
 ---
 
@@ -834,7 +961,7 @@ CANCELLED
 
 The final enumeration remains open.
 
-This is important because:
+This distinction is required because:
 
 ```text
 observations = []
@@ -854,7 +981,7 @@ The Connector could not complete collection.
 
 ---
 
-# 21. Partial Collection
+## 21. Partial Collection
 
 Connectors must represent partial processing explicitly.
 
@@ -865,7 +992,7 @@ Example:
 
 4,000 processed
 
-remote API unavailable
+Provider API became unavailable
 ```
 
 The correct result is:
@@ -885,15 +1012,15 @@ observations:
 4,000 records
 ```
 
-The Discovery Core must be able to distinguish incomplete source coverage from absence of evidence.
+The Discovery Core must distinguish incomplete source coverage from absence of Evidence.
 
 ---
 
-# 22. Continuation
+## 22. Continuation
 
-Large sources may require incremental retrieval.
+Large sources may require incremental retrieval or pagination.
 
-The Connector should be able to provide opaque continuation information.
+The Connector should provide opaque continuation information.
 
 Conceptually:
 
@@ -907,7 +1034,7 @@ continuation:
 <opaque connector state>
 ```
 
-followed later by:
+followed by:
 
 ```text
 CollectionRequest
@@ -916,22 +1043,20 @@ continuation:
 <opaque connector state>
 ```
 
-The Discovery Core should not need to interpret provider-specific pagination tokens.
-
-This permits:
+The Discovery Core must not need to interpret:
 
 ```text
 Gmail page tokens
 Microsoft continuation links
-provider-specific cursors
-local-file offsets
+Provider-specific cursors
+Local file offsets
 ```
 
-to remain internal to Connector implementations.
+These details should remain internal to the relevant Connector or synchronization layer.
 
 ---
 
-# 23. Incremental Synchronization
+## 23. Incremental Synchronization
 
 Some Connectors may support incremental synchronization.
 
@@ -947,18 +1072,18 @@ Synchronization State
 Later Collection
        |
        v
-Only New / Changed Information
+Only New or Changed Information
 ```
 
-A Connector that supports this capability should expose it explicitly.
+A Connector supporting this capability should advertise it explicitly.
 
-The common contract must not assume that all providers support incremental synchronization.
+The common contract must not assume that every Provider supports incremental synchronization.
 
 ---
 
 ## 23.1 Synchronization State
 
-Provider-specific synchronization state should ideally remain opaque to the Discovery Core.
+Provider-specific synchronization state should remain opaque to the Discovery Core where practical.
 
 Conceptually:
 
@@ -968,13 +1093,21 @@ SyncState
 connector-owned opaque value
 ```
 
-This prevents provider-specific concepts from leaking into the common domain.
+This prevents Provider-specific synchronization concepts from leaking into the common Discovery Domain.
+
+The future application model must determine whether synchronization state belongs to:
+
+- ConnectedSource;
+- Connector-owned storage;
+- a synchronization repository;
+- a CollectionRun record;
+- another application component.
 
 ---
 
-# 24. Idempotency
+## 24. Idempotency
 
-Repeated collection should not create uncontrolled duplicate Observations.
+Repeated collection must not create uncontrolled duplicate Observations.
 
 For the same source record:
 
@@ -984,23 +1117,15 @@ collect()
 collect()
 ```
 
-should not necessarily produce:
-
-```text
-Observation A
-Observation B
-Observation C
-```
-
-as unrelated domain facts.
+should not produce three unrelated Domain facts when the Provider is exposing the same unchanged record.
 
 Connectors should provide stable source references where supported.
 
-Deduplication responsibilities may ultimately be shared between:
+Deduplication responsibility may ultimately be shared between:
 
 ```text
 Connector
-Observation Store
+Observation Repository
 Synchronization Layer
 ```
 
@@ -1008,9 +1133,9 @@ The exact ownership remains open.
 
 ---
 
-# 25. Error Contract
+## 25. Error Contract
 
-Connector errors should be represented in provider-independent categories where possible.
+Connector errors should be represented using provider-independent categories where practical.
 
 Potential common errors include:
 
@@ -1027,34 +1152,27 @@ TEMPORARY_FAILURE
 PERMANENT_FAILURE
 ```
 
-Provider-specific diagnostic information may also be retained separately for debugging.
+Provider diagnostics may be preserved separately for debugging.
 
-The Discovery Core should not need to understand:
+The Discovery Core should not need to understand Provider-specific error codes to know that:
 
-```text
-Google-specific error codes
-Microsoft-specific exceptions
-Password-manager-specific errors
-```
-
-to know that collection was rate-limited or authorization expired.
+- authorization expired;
+- access was revoked;
+- collection was rate-limited;
+- the source was unavailable;
+- the capability was unsupported.
 
 ---
 
-# 26. Errors vs Domain Uncertainty
+## 26. Errors vs Domain Uncertainty
 
-Connector errors and discovery uncertainty are different.
-
-For example:
+Connector errors and Domain uncertainty are different.
 
 ```text
-Connector:
-Could not access source
+Connector could not access source
 ```
 
-is a Connector failure.
-
-Whereas:
+is a Connector or collection failure.
 
 ```text
 Observation collected successfully
@@ -1063,11 +1181,9 @@ but Service could not be identified
 
 is an Entity Resolution outcome.
 
-Similarly:
-
 ```text
 Observation collected successfully
-but meaning is ambiguous
+but meaning could not be determined
 ```
 
 is an Evidence Classification outcome.
@@ -1080,36 +1196,43 @@ CONNECTOR ERROR
 UNRESOLVED ENTITY
       !=
 UNKNOWN EVIDENCE
+      !=
+UNKNOWN RELATIONSHIP
 ```
 
-This separation prevents integration failures from being incorrectly represented as domain uncertainty.
+This prevents integration failures from being represented as Domain uncertainty.
 
 ---
 
-# 27. Unsupported Capabilities
+## 27. Unsupported Capabilities
 
-A Connector must be allowed to say:
+A Connector must be allowed to report:
 
 ```text
 UNSUPPORTED
 ```
 
-For example, one email provider may allow metadata-based discovery but not expose an appropriate incremental synchronization mechanism.
+For example, a Provider may support metadata-based Service Discovery but not:
 
-The framework should degrade according to the capability actually available.
+- content collection;
+- attachment collection;
+- incremental synchronization;
+- revocation through the integration.
 
-A Connector should not fake support for a capability merely to conform to the interface.
+The framework must adapt to capabilities actually available.
+
+A Connector must not pretend to support a capability merely to conform to the interface.
 
 ---
 
-# 28. Revocation
+## 28. Revocation
 
-The Connector should support detecting or processing revocation where technically possible.
+The Connector should detect or process source-authorization revocation where technically possible.
 
 Conceptually:
 
 ```text
-CONNECTED
+AUTHORIZED
     |
     v
 REVOKED
@@ -1123,7 +1246,13 @@ new collection
 
 must stop.
 
-However, revocation must not automatically imply:
+However:
+
+```text
+Revoke Authorization
+```
+
+must not automatically mean:
 
 ```text
 Delete Observations
@@ -1131,43 +1260,35 @@ Delete Evidence
 Delete Relationships
 ```
 
-Those are separate lifecycle decisions.
+These are separate lifecycle decisions.
 
 ---
 
-# 29. Disconnect
+## 29. Disconnect
 
-The application should be able to disconnect a specific Connected Source.
+The application must be able to disconnect one particular ConnectedSource.
 
 Example:
 
 ```text
 User
 
-+-- Gmail A        KEEP
-+-- Gmail B        DISCONNECT
-+-- Outlook        KEEP
++-- Personal Gmail     KEEP
++-- Old Gmail          DISCONNECT
++-- Work Outlook       KEEP
 ```
 
-The framework must therefore manage connection lifecycle per source instance rather than per Connector implementation.
+The framework must manage connection lifecycle per ConnectedSource rather than per Connector implementation.
 
-Disconnecting:
+Disconnecting `Old Gmail` must not disconnect:
 
-```text
-Gmail B
-```
-
-must not disconnect:
-
-```text
-Gmail A
-```
-
-or every source using the `GmailConnector`.
+- Personal Gmail;
+- Work Outlook;
+- every source using GmailConnector.
 
 ---
 
-# 30. Multiple Connector Instances
+## 30. Multiple Connected Sources
 
 The contract must support:
 
@@ -1197,13 +1318,13 @@ PasswordManagerConnector
       +-- ConnectedSource E
 ```
 
-All resulting Observations enter the same Discovery Core.
+All resulting Observations enter the same provider-independent Discovery Core.
 
 ---
 
-# 31. Provider Independence
+## 31. Provider Independence
 
-Downstream discovery components should receive framework concepts rather than provider-specific representations.
+Downstream components should receive framework concepts rather than provider-specific representations.
 
 The desired architecture is:
 
@@ -1234,13 +1355,18 @@ elif provider == Proton:
 
 throughout the Discovery Engine.
 
-Provider branching should remain concentrated primarily inside Connector implementations and Connector registration/configuration.
+Provider branching should remain concentrated primarily inside:
+
+- Connector implementations;
+- Connector registration;
+- Provider configuration;
+- authorization adapters.
 
 ---
 
-# 32. Capability-Specific Collection
+## 32. Capability-Specific Collection
 
-The Connector Contract should not expose one unrestricted operation conceptually equivalent to:
+The Connector Contract must not expose one unrestricted operation equivalent to:
 
 ```text
 give_me_everything()
@@ -1252,7 +1378,7 @@ Instead:
 collect(capability)
 ```
 
-should express what the framework is trying to accomplish.
+must express the framework purpose.
 
 For example:
 
@@ -1260,64 +1386,84 @@ For example:
 SERVICE_DISCOVERY_METADATA
 ```
 
-may justify different access from a future capability such as:
+may justify different information and permissions from:
 
 ```text
 PERSONAL_DATA_ACQUISITION
 ```
 
-even when both use the same external provider.
+even if both capabilities use the same Provider and ConnectedSource.
 
-This is necessary for Progressive Permission.
+This is necessary for Progressive Permission and data minimization.
 
 ---
 
-# 33. Connector Contract Summary
+## 33. Connector Contract Summary
 
-The initial conceptual interface is:
+The initial conceptual Connector interface includes:
 
 ```text
 Connector
 
 + get_descriptor()
-+ get_capabilities()
-+ get_authorization_status()
-+ get_permission_requirements(capability)
-+ prepare_authorization(capability)
+
++ get_capabilities(connected_source)
+
++ get_authorization_status(connected_source)
+
++ get_permission_requirements(
+      connected_source,
+      capability
+  )
+
++ prepare_authorization(
+      connected_source,
+      capability
+  )
+
 + collect(request)
-+ disconnect()
+
++ disconnect(connected_source)
 ```
 
-Some Connectors may additionally support:
+Some Connectors may also support:
 
 ```text
-+ refresh_authorization()
-+ incremental_collect()
-+ revoke()
++ refresh_authorization(connected_source)
+
++ revoke(connected_source)
 ```
 
-Whether these remain independent operations or become part of broader commands will be determined during implementation design.
+Incremental collection should normally be expressed through capability and request context rather than requiring an entirely separate Provider-specific interface.
+
+The exact method structure will be finalized during implementation design.
 
 ---
 
-# 34. Conceptual Contract
+## 34. Conceptual Contract
 
-A language-independent representation of the contract is:
+A language-independent representation is:
 
 ```text
 interface Connector {
 
     ConnectorDescriptor getDescriptor()
 
-    CapabilitySet getCapabilities()
+    CapabilitySet getCapabilities(
+        ConnectedSource connectedSource
+    )
 
-    AuthorizationStatus getAuthorizationStatus()
+    AuthorizationStatus getAuthorizationStatus(
+        ConnectedSource connectedSource
+    )
 
     PermissionRequirements getPermissionRequirements(
+        ConnectedSource connectedSource,
         Capability capability
     )
 
     AuthorizationRequest prepareAuthorization(
+        ConnectedSource connectedSource,
         Capability capability
     )
 
@@ -1325,17 +1471,19 @@ interface Connector {
         CollectionRequest request
     )
 
-    DisconnectResult disconnect()
+    DisconnectResult disconnect(
+        ConnectedSource connectedSource
+    )
 }
 ```
 
-This is intentionally pseudocode.
+This is pseudocode.
 
-It is not yet the final Python interface.
+It is not the final Python interface.
 
 ---
 
-# 35. Collection Contract
+## 35. Collection Contract
 
 Conceptually:
 
@@ -1357,19 +1505,19 @@ CollectionResult
         +-- Warnings
         |
         +-- Errors
+        |
+        +-- Collection Metadata
 ```
 
-At no point should the common Discovery Engine require raw provider-specific API objects.
+At no point should the common Discovery Engine require raw Provider-specific API objects.
 
 ---
 
-# 36. Security Invariants
-
-The Connector Contract should enforce the following invariants.
+## 36. Security Invariants
 
 ### CON-INV-001
 
-A Connector must not expose source credentials to downstream discovery components.
+A Connector must not expose source credentials to downstream Discovery components.
 
 ---
 
@@ -1387,13 +1535,13 @@ A Connector must not report a partial collection as complete.
 
 ### CON-INV-004
 
-Source-specific errors should not be confused with domain uncertainty.
+Source-specific errors must not be confused with Domain uncertainty.
 
 ---
 
 ### CON-INV-005
 
-A Connector should minimize source data before producing Observations where reasonably possible.
+A Connector should minimize source information before producing Observations where technically practical.
 
 ---
 
@@ -1411,13 +1559,13 @@ A Connector must preserve enough source provenance to support traceability where
 
 ### CON-INV-008
 
-Multiple instances of the same Connector implementation must coexist independently.
+Multiple Connected Sources using the same Connector implementation must coexist independently.
 
 ---
 
 ### CON-INV-009
 
-Disconnecting one Connected Source must not implicitly disconnect another Connected Source using the same provider.
+Disconnecting one ConnectedSource must not implicitly disconnect another ConnectedSource using the same Provider or Connector.
 
 ---
 
@@ -1429,7 +1577,7 @@ The absence of returned Observations must not be interpreted as complete absence
 
 ### CON-INV-011
 
-Provider-specific pagination and synchronization details should not leak into the common Discovery Domain unless they have meaningful domain semantics.
+Provider-specific pagination and synchronization details should not leak into the common Discovery Domain unless they have meaningful framework semantics.
 
 ---
 
@@ -1439,7 +1587,43 @@ The Discovery Core must not depend on one specific Connector implementation.
 
 ---
 
-# 37. Gmail Example
+### CON-INV-013
+
+Every collection request must identify exactly one ConnectedSource.
+
+---
+
+### CON-INV-014
+
+Every Observation produced by a Connector must reference the ConnectedSource from which it originated.
+
+---
+
+### CON-INV-015
+
+A Connector must not assign canonical Service conclusions.
+
+---
+
+### CON-INV-016
+
+A Connector must not assign final Evidence semantics unless a future source-specific contract explicitly demonstrates that doing so is required and does not violate the common Discovery boundaries.
+
+---
+
+### CON-INV-017
+
+A Connector must not assign Relationship conclusions.
+
+---
+
+### CON-INV-018
+
+Connector minimization must preserve the information required by the requested capability while excluding unnecessary sensitive information.
+
+---
+
+## 37. Gmail Example
 
 Conceptually:
 
@@ -1451,52 +1635,67 @@ Connect Gmail
 GmailConnector
       |
       v
-getCapabilities()
+Create or select:
+ConnectedSource = Personal Gmail
+      |
+      v
+getCapabilities(
+    Personal Gmail
+)
       |
       v
 SERVICE_DISCOVERY_METADATA supported
       |
       v
-getPermissionRequirements()
+getPermissionRequirements(
+    Personal Gmail,
+    SERVICE_DISCOVERY_METADATA
+)
       |
       v
 Minimum Gmail authorization
       |
       v
-User Authorizes
+User authorizes
       |
       v
 collect(
-    SERVICE_DISCOVERY_METADATA
+    connected_source = Personal Gmail,
+    capability = SERVICE_DISCOVERY_METADATA
 )
       |
       v
 Gmail API
       |
       v
-Connector Minimization
+Connector selection,
+normalization and minimization
       |
       v
-Observations
+EMAIL_MESSAGE_METADATA Observations
       |
       v
 Discovery Core
 ```
 
-The Discovery Core processes Gmail Observations without depending directly on Gmail API objects.
+The Discovery Core processes the resulting Observations without depending directly on Gmail API objects.
 
 ---
 
-# 38. Second Email Provider Example
+## 38. Additional Email Provider Example
 
-A second email provider should fit the same architecture:
+A second email provider fits the same architecture:
 
 ```text
 User chooses:
-Connect Additional Email Provider
+Connect Outlook
       |
       v
-ProviderConnector
+OutlookConnector
+      |
+      v
+ConnectedSource:
+Work Outlook
       |
       v
 getCapabilities()
@@ -1505,7 +1704,7 @@ getCapabilities()
 getPermissionRequirements()
       |
       v
-Provider-Specific Authorization
+Microsoft-specific authorization
       |
       v
 collect(
@@ -1513,20 +1712,22 @@ collect(
 )
       |
       v
-Provider API / Integration
+Microsoft API
       |
       v
-Observations
+EMAIL_MESSAGE_METADATA Observations
       |
       v
 Same Discovery Core
 ```
 
-The differences remain primarily inside the Connector.
+Gmail and Outlook may produce the same ObservationType when their normalized framework semantics are compatible.
+
+Provider differences remain primarily inside the respective Connectors.
 
 ---
 
-# 39. Password Manager Example
+## 39. Password Manager Example
 
 Conceptually:
 
@@ -1538,47 +1739,47 @@ Connect Password Manager
 PasswordManagerConnector
       |
       v
+ConnectedSource:
+Primary Vault
+      |
+      v
 getCapabilities()
       |
       v
 SERVICE_DISCOVERY_METADATA
       |
       v
-Permission Analysis
+Permission analysis
       |
       v
-Metadata Access
+Authorized metadata access
       |
       v
 Password Manager
       |
       v
-Connector Minimization
-   /           \
-metadata       secrets
-  |              |
-  v              X
+Connector minimization
+   /             \
+metadata         secrets
+  |                 |
+  v                 X
 Observation
   |
   v
 Discovery Core
 ```
 
-The same `collect()` contract is therefore usable for structurally different Discovery Sources.
+The same collection contract is therefore usable for structurally different sources.
+
+The password value, OTP seed and recovery codes do not enter ordinary Service Discovery Observations.
 
 ---
 
-# 40. ConnectedSource Finding
+## 40. ConnectedSource Alignment
 
-Designing the Connector Contract provides stronger evidence that the candidate Domain Concept:
+`ConnectedSource` is now a Core Domain Entity.
 
-```text
-ConnectedSource
-```
-
-is necessary.
-
-The system must distinguish between:
+The distinction between:
 
 ```text
 Connector Implementation
@@ -1587,64 +1788,81 @@ Connector Implementation
 and:
 
 ```text
-A particular source instance connected by a User.
+A particular source instance connected by a User
 ```
 
-Without this distinction, the framework cannot cleanly represent:
+is part of the consolidated Discovery Domain Model.
 
-- multiple Gmail accounts;
-- multiple email providers;
+This distinction is required to support:
+
+- multiple accounts using the same Provider;
+- multiple Providers of the same SourceType;
 - multiple password managers;
-- independent authorization states;
-- independent synchronization states;
+- independent authorization state;
+- independent permission state;
+- independent synchronization state;
+- per-source collection;
 - per-source revocation;
-- per-source collection history.
+- per-source disconnection;
+- Observation provenance.
 
-Therefore this document recommends promoting:
-
-```text
-ConnectedSource
-```
-
-from:
+Conceptually:
 
 ```text
-Candidate Domain Concept
+Connector Implementation
+        |
+        +-- ConnectedSource A
+        |
+        +-- ConnectedSource B
+        |
+        +-- ConnectedSource C
 ```
 
-to:
+The Connector represents provider-specific integration behavior.
 
-```text
-Core Domain Concept
-```
+The ConnectedSource represents a particular source instance connected by the User.
 
-subject to final review of the Discovery Domain Model.
+This is no longer a candidate finding.
+
+It is a consolidated Domain dependency.
 
 ---
 
-# 41. Proposed ConnectedSource Concept
+## 41. ConnectedSource Contract Dependency
+
+The Connector Contract depends on the `ConnectedSource` Core Domain Entity defined by the Discovery Domain Model.
+
+A Connector must operate on one specific ConnectedSource context when performing source-specific operations.
 
 Conceptually:
 
 ```text
 ConnectedSource
-
-- id
-- connector_id
-- source_type
-- provider
-- display_name
-- external_account_reference
-- authorization_state
-- connection_state
-- created_at
+      |
+      v
+Connector
+      |
+      v
+Collection
 ```
 
-Synchronization state may or may not belong directly to this entity.
+The Connector may use ConnectedSource information such as:
 
-Secret authorization material must not be stored directly as ordinary ConnectedSource attributes.
+```text
+internal source identity
+SourceType
+Provider
+connector reference
+external account reference
+connection state
+authorization state
+```
 
-Instead:
+subject to data-minimization and security requirements.
+
+Authorization credentials remain outside ordinary ConnectedSource Domain attributes.
+
+The preferred boundary is:
 
 ```text
 ConnectedSource
@@ -1656,196 +1874,238 @@ Credential Reference
 Secure Credential Storage
 ```
 
-should be considered during security architecture design.
+not:
+
+```text
+ConnectedSource
+ |
+ +-- access_token
+ +-- refresh_token
+ +-- password
+```
+
+The Domain Model is authoritative for ConnectedSource structure and lifecycle semantics.
+
+The Connector Contract defines how Connector behavior consumes that source context.
 
 ---
 
-# 42. Open Questions
+## 42. Open Questions
 
-## Connector Registration
+### Connector Registration
 
-- How are available Connector implementations discovered?
+- How are Connector implementations discovered?
 - Static registration?
 - Plugin registry?
 - Dependency injection?
 - Package-based discovery?
 - Another mechanism?
+- How are Connector versions selected?
 
 This should be decided during application architecture design.
 
----
+### ConnectedSource
 
-## ConnectedSource
-
-- Should `ConnectedSource` now be promoted into the core Domain Model?
-- Which authorization state belongs in the domain?
-- Which state belongs exclusively inside the Connector implementation?
+- Which authorization states belong in the Domain Model?
+- Which states belong exclusively inside the Connector implementation?
 - How should external account identifiers be protected?
+- Where should opaque synchronization state be stored?
+- How should locally imported sources be represented?
+- How should manual sources be represented when no external authorization exists?
 
----
-
-## Capabilities
+### Capabilities
 
 - What is the minimum capability vocabulary?
-- Should capabilities represent technical operations or user-facing framework capabilities?
-- Can Connectors dynamically enable and disable capabilities?
+- Should capabilities represent technical operations or User-facing framework capabilities?
+- Can Connectors dynamically enable or disable capabilities?
+- Can capability availability differ between Connected Sources using the same Connector?
+- How are capability versions managed?
 
----
+### Permissions
 
-## Permissions
-
-- What is the common representation of provider-specific permissions?
+- What is the common representation of Provider-specific permissions?
 - Should the core understand concrete OAuth scopes?
-- Should the Connector expose only an abstract sensitivity level?
-- How should permission changes over time be handled?
+- Should Connectors expose abstract framework permission requirements?
+- How should permission changes over time be represented?
+- How are capability-specific permission upgrades explained to the User?
 
----
+### Authorization
 
-## Authorization
-
-- Which parts of authorization belong to the Connector?
+- Which authorization responsibilities belong to the Connector?
 - Which belong to the application UI?
-- How should browser redirects or local authorization flows be represented?
-- How should authorization failures be surfaced?
+- How are browser redirects represented?
+- How are local authorization flows represented?
+- How are authorization failures surfaced?
+- Which component owns secure credential storage?
 
----
+### Observations
 
-## Observations
+- Which Observation Types belong to the initial implementation?
+- How are typed payloads represented?
+- How are payload schemas registered?
+- How are schema versions negotiated?
+- Should producer Connector ID and version be mandatory Observation provenance?
 
-- What exact common structure should every Connector produce?
-- How should typed source-specific attributes be represented?
-- How should schema versions be handled?
+### Collection
 
----
-
-## Collection
-
-- Should `collect()` return all available Observations or stream them?
-- How should very large sources be processed?
-- Should batching be controlled by the Connector or the application?
+- Should `collect()` return a complete collection or a batch?
+- Should collection also support streaming?
+- Who controls batch size?
 - How should collection cancellation work?
+- How are partial batches materialized safely?
+- Is a CollectionRun application concept required?
 
----
+### Synchronization
 
-## Synchronization
-
-- Should incremental collection be a separate method?
-- Or should it be controlled through `CollectionRequest`?
+- Should incremental synchronization use the same `collect()` operation?
 - Where is synchronization state stored?
 - How is synchronization restarted after failure?
+- How are deleted or modified source records represented?
+- How is synchronization state migrated across Connector versions?
 
----
-
-## Secrets
+### Secrets
 
 - Which component owns secure credential storage?
-- How are authorization tokens referenced?
+- How are credential references represented?
 - How are secret fields prevented from entering logs?
-- How are Connector implementations prevented from accidentally exposing source secrets downstream?
+- How are Connector implementations prevented from accidentally exposing source secrets?
+- How should memory containing retrieved secrets be handled?
+- How are secret fields excluded from diagnostics?
 
----
+### Errors
 
-## Errors
-
-- Which errors belong to a common Connector error taxonomy?
-- Which provider diagnostics should be preserved?
+- Which errors belong to the common Connector error taxonomy?
+- Which Provider diagnostics should be retained?
 - Which errors are retryable?
-- Who decides whether a retry occurs?
+- Who decides whether and when retries occur?
+- How are repeated failures surfaced without corrupting previous valid information?
 
 ---
 
-# 43. Decision Candidates
+## 43. Decision Alignment
 
-The Connector Contract suggests several decisions that should be evaluated for incorporation into the architecture.
+The Connector Contract is aligned with the consolidated Architecture Decisions.
 
-### Candidate Decision - Multiple Source Instances
+### D-017 - Multiple Connected Source Instances
+
+The framework supports multiple independent Connected Sources, including multiple sources using the same Connector implementation.
+
+---
+
+### D-018 - Connector Is a Data-Minimization Boundary
+
+Provider information unnecessary for the requested capability should not cross the Connector boundary where technically practical.
+
+---
+
+### D-019 - Provider-Neutral Observations
+
+Equivalent source semantics from different Providers should produce equivalent Observation Types where their framework semantics are compatible.
+
+---
+
+### Existing Connector Decisions Preserved
+
+The following contract decisions remain valid:
 
 ```text
-The framework must support multiple simultaneously connected source instances,
-including multiple instances using the same Connector implementation.
+Capability-aware Connectors
+
+Provider details remain behind Connectors
+
+Progressive Permission
+
+Credential isolation
+
+Partial collection is explicit
+
+Provider-independent errors
+
+Opaque continuation state
+
+Independent ConnectedSource lifecycle
 ```
 
 ---
 
-### Candidate Decision - Capability-Aware Connectors
-
-```text
-Connectors must explicitly advertise supported capabilities rather than having
-the Discovery Core infer capabilities from the provider or source type.
-```
-
----
-
-### Candidate Decision - Connector Minimization Boundary
-
-```text
-Connectors should minimize source-specific information before exposing
-Observations to the common Discovery Core.
-
-Information unnecessary for the requested capability should not cross the
-Connector boundary where technically practical.
-```
-
----
-
-### Candidate Decision - Provider Details Remain Behind Connectors
-
-```text
-Provider-specific APIs, pagination models, authorization protocols and
-source object models should remain isolated behind Connector implementations
-wherever reasonably possible.
-```
-
----
-
-# 44. Current Contract Baseline
+## 44. Current Contract Baseline
 
 The current minimum Connector contract is:
 
 ```text
 Connector
 
-    identify itself
+- identifies itself;
 
-    advertise capabilities
+- receives one ConnectedSource context;
 
-    describe permission requirements
+- advertises capabilities available for that source;
 
-    expose authorization state
+- describes capability-specific permission requirements;
 
-    prepare authorization
+- exposes authorization state;
 
-    perform capability-specific collection
+- prepares Provider-specific authorization;
 
-    return framework Observations
+- performs capability-specific collection;
 
-    report complete / partial / failed collection
+- minimizes source data;
 
-    preserve continuation state when required
+- returns framework Observations;
 
-    support independent source instances
+- reports complete, partial or failed collection;
 
-    support disconnection
+- preserves continuation state when required;
+
+- supports incremental collection where advertised;
+
+- supports independent source instances;
+
+- supports source-specific disconnection;
+
+- preserves Provider-independent errors and warnings.
 ```
 
 The contract must not require:
 
 ```text
 AI
+
 specific database technology
+
 specific cloud provider
+
 specific OAuth provider
+
 specific Discovery Source type
+
 specific UI technology
+
+specific graph technology
 ```
 
 ---
 
-# 45. Next Interface Contracts
+## 45. Downstream Contract Dependencies
 
-After the Connector Contract is sufficiently stable, the next software contracts should be defined in dependency order.
+The Connector output enters the following Discovery pipeline:
 
-Recommended order:
+```text
+Connector
+    |
+    v
+Observation
+   /       \
+  /         \
+ v           v
+Service      Evidence
+Candidate    Classification
+Detector
+```
+
+The Connector must therefore comply with the Observation Contract but must not perform downstream semantic responsibilities.
+
+The current contract dependency order remains:
 
 ```text
 01 Connector Contract
@@ -1858,17 +2118,26 @@ Recommended order:
         |
         v
 04 Entity Resolver Contract
-        |
-        v
-05 Evidence Classifier Contract
-        |
-        v
-06 Evidence Aggregator Contract
-        |
-        v
-07 Relationship Assessor Contract
 ```
 
-This sequence follows the Discovery pipeline and allows each downstream contract to depend only on concepts already defined upstream.
+while Evidence Classification operates as an independent branch from the same Observation:
 
-The immediate next step should be the Observation Contract because every Connector must produce Observations and every subsequent discovery component depends on them.
+```text
+Observation
+   /       \
+  v         v
+Candidate   Evidence
+Detection   Classification
+```
+
+The results later converge through Evidence Aggregation and Relationship Assessment.
+
+The Connector Contract is now aligned with:
+
+- Architecture Draft v0.3;
+- Domain Model Draft v0.3;
+- the parallel Entity Resolution and Evidence Classification model;
+- the consolidated ConnectedSource Core Domain Entity;
+- the Connector minimization boundary.
+
+No further Connector-domain abstraction is required before implementation-oriented interface design.
