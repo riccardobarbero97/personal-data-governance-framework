@@ -1,35 +1,41 @@
 # Discovery Domain Model
 
-**Status:** Draft v0.2  
+**Status:** Draft v0.3  
 **Scope:** Identity and Service Discovery  
 **Last updated:** November 2026  
 **Related Architecture:** `docs/architecture/01-identity-and-service-discovery.md`  
-**Related Interface:** `docs/interfaces/01-connector-contract.md`  
+**Related Interfaces:** `docs/interfaces/01-connector-contract.md` through `docs/interfaces/07-relationship-assessor-contract.md`  
 **Validated Against:** `SCN-001 Gmail Service Discovery`, `SCN-002 Password Manager Service Discovery`
 
 ---
 
 ## 1. Purpose
 
-This document defines the initial Domain Model for the Identity and Service Discovery capability of the Personal Data Governance Framework.
+This document defines the consolidated Domain Model for the Identity and Service Discovery capability of the Personal Data Governance Framework.
 
 The model is derived from:
 
-- the Identity and Service Discovery architecture;
+- the Identity and Service Discovery Architecture Draft v0.3;
 - Scenario 001 - Gmail Service Discovery;
 - Scenario 002 - Password Manager Service Discovery;
-- the initial Connector Contract.
+- the Connector Contract;
+- the Observation Contract;
+- the Service Candidate Detector Contract;
+- the Entity Resolver Contract;
+- the Evidence Classifier Contract;
+- the Evidence Aggregator Contract;
+- the Relationship Assessor Contract;
+- the complete Discovery consistency review.
 
-Its purpose is to identify the concepts that exist in the Discovery Domain and define the relationships between them before implementation-specific software interfaces, persistence models or APIs are finalized.
+Draft v0.3 incorporates the following cross-cutting findings:
 
-Draft v0.2 promotes `ConnectedSource` to a core Domain Entity.
-
-This change reflects the requirement that one User may connect:
-
-- multiple source types;
-- multiple providers of the same source type;
-- multiple accounts using the same provider;
-- multiple independent instances of the same Connector implementation.
+1. a Relationship is primarily modeled between a User and a Service;
+2. relevant Identity Seeds remain associated with the Relationship;
+3. Relationship support and temporal interpretation are separate dimensions;
+4. Evidence requires lifecycle semantics to support reclassification and User correction;
+5. Evidence Aggregates are derived state rather than authoritative Domain information;
+6. Entity Resolution and Evidence Classification are independent processing branches;
+7. numerical Confidence is not part of the initial Discovery Domain Model.
 
 This document remains implementation-independent.
 
@@ -39,102 +45,136 @@ It does not define:
 - database tables;
 - REST resources;
 - JSON schemas;
-- graph database structures;
+- graph-database structures;
 - persistence technologies;
-- concrete provider APIs;
-- concrete authentication implementations.
+- provider-specific APIs;
+- concrete authentication implementations;
+- final Evidence taxonomy;
+- final Service Registry implementation.
 
 The objective is to answer:
 
-> What concepts must the framework represent in order to collect information from multiple connected sources, discover Services and explain why the User appears to have or have had Relationships with them?
+> What concepts must the framework represent to collect minimized information from multiple Connected Sources, discover canonical Services and explain why the User appears to have or have had Relationships with them?
 
 ---
 
-## 2. Design Context
+# 2. Design Context
 
-The Discovery architecture currently follows this conceptual pipeline:
+The consolidated Discovery architecture is:
 
 ```text
-User
-  |
-  v
-Identity Seed
-  |
-  v
-Connected Source
-  |
-  v
-Connector
-  |
-  v
-Observation
-  |
-  v
-Service Candidate Detection
-  |
-  v
-Entity Resolution
-  |
-  v
-Evidence Classification
-  |
-  v
-Evidence
-  |
-  v
+USER
+ |
+ +-- Identity Seeds
+ |
+ +-- Connected Sources
+         |
+         v
+      Connector
+         |
+         v
+     Observation
+       /       \
+      /         \
+     v           v
+Service        Evidence
+Candidate      Classification
+Detection          |
+     |             v
+     v          Evidence
+Candidate          |
+Identifiers        |
+     |             |
+     v             |
+Entity             |
+Resolution         |
+     |             |
+     v             |
+  Service ---------+
+         |
+         v
 Evidence Aggregation
-  |
-  v
+         |
+         v
+Evidence Aggregate
+         |
+         v
 Relationship Assessment
-  |
-  v
+         |
+         v
+Relationship
+         |
+         v
 Service Graph
 ```
 
-This pipeline contains both:
+The Domain Model must distinguish between:
 
 ```text
-Domain Concepts
+Domain Entities
 ```
 
-and:
+```text
+Domain Value Concepts
+```
+
+```text
+Derived Views
+```
+
+```text
+Processing Results
+```
 
 ```text
 Domain Processes
 ```
 
-These must not automatically be treated as the same thing.
-
 For example:
 
 ```text
+User
 ConnectedSource
 Observation
-Evidence
 Service
+Evidence
 Relationship
 ```
 
-represent information the framework may need to preserve.
+represent information the framework may need to preserve as part of the Discovery Domain.
 
 By contrast:
 
 ```text
 Connector
+ServiceCandidateDetector
 EntityResolver
 EvidenceClassifier
+EvidenceAggregator
 RelationshipAssessor
 ```
 
-represent behavior applied to domain information.
+represent behavior applied to Domain information.
 
-The Domain Model preserves this distinction.
+Results such as:
+
+```text
+CandidateDetectionResult
+ResolutionResult
+ClassificationResult
+AggregationResult
+RelationshipAssessmentResult
+```
+
+represent processing outputs.
+
+They may be persisted for provenance, but they are not automatically Core Domain Entities.
 
 ---
 
-## 3. Core Domain Principles
+# 3. Core Domain Principles
 
-The model is based on the following boundaries:
+The consolidated model is based on the following boundaries:
 
 ```text
 SOURCE TYPE != PROVIDER
@@ -143,80 +183,129 @@ PROVIDER != CONNECTED SOURCE
 
 CONNECTED SOURCE != CONNECTOR
 
+IDENTITY SEED != CONNECTED SOURCE
+
 CONNECTED SOURCE != OBSERVATION
 
 OBSERVATION != EVIDENCE
 
-EVIDENCE != RELATIONSHIP
+OBSERVATION TYPE != EVIDENCE TYPE
+
+CANDIDATE != RESOLVED SERVICE
 
 IDENTIFIER != SERVICE
 
+NORMALIZATION != RESOLUTION
+
+EVIDENCE != CONFIRMED FACT
+
+EVIDENCE != RELATIONSHIP
+
+EVIDENCE AGGREGATE != AUTHORITATIVE EVIDENCE
+
+RELATIONSHIP != ACCOUNT
+
+RELATIONSHIP STATUS != TEMPORAL STATUS
+
 SERVICE != ORGANIZATION
 
+PROVIDER ROLE != SERVICE ROLE
+
 RELATIONSHIP != CURRENT DATA POSSESSION
+
+DOMAIN OUTCOME != PROCESSING FAILURE
 ```
 
-These distinctions prevent provider definitions, concrete user connections, source information, semantic interpretations and inferred Relationships from being collapsed into a single representation.
+These boundaries prevent external-system definitions, collected information, semantic interpretations, technical identifiers and assessed Relationships from being collapsed into one representation.
 
 ---
 
-## 4. Domain Overview
+# 4. Domain Overview
 
-The core conceptual model is:
+The consolidated conceptual model is:
 
 ```text
-                              USER
-                               |
-                +--------------+--------------+
-                |                             |
-                | owns / declares            | connects
-                v                             v
-          IDENTITY SEED                CONNECTED SOURCE
-                |                             |
-                |                             | accessed through
-                |                             v
-                |                         CONNECTOR
-                |                             |
-                |                             | produces
-                |                             v
-                |                       OBSERVATION
-                |                          /     \
-                |                         /       \
-                |              interpreted as     \ exposes
-                |                      /            \
-                |                     v              v
-                |                 EVIDENCE     SERVICE IDENTIFIER
-                |                     |              |
-                |                     |              | resolved to
-                |                     |              v
-                |                     |           SERVICE
-                |                     |              |
-                +---------------------+--------------+
-                                      |
-                                      v
-                                RELATIONSHIP
+                                  USER
+                      +------------+------------+
+                      |                         |
+                      | declares                | connects
+                      v                         v
+                IDENTITY SEED            CONNECTED SOURCE
+                                                |
+                                                | accessed through
+                                                v
+                                            CONNECTOR
+                                                |
+                                                | produces
+                                                v
+                                          OBSERVATION
+                                           /        \
+                                          /          \
+                                         v            v
+                           SERVICE IDENTIFIER        EVIDENCE
+                                  |                     |
+                                  | resolved to         |
+                                  v                     |
+                               SERVICE                  |
+                                  \                     /
+                                   \                   /
+                                    v                 v
+                                      RELATIONSHIP
+                                           |
+                         +-----------------+------------------+
+                         |                                    |
+                         v                                    v
+               RELATIONSHIP STATUS                    TEMPORAL STATUS
 ```
 
-The core Domain Entities are:
+The Core Domain Entities are:
 
 ```text
 User
 IdentitySeed
 ConnectedSource
 Observation
-ServiceIdentifier
 Service
 Evidence
 Relationship
 ```
 
-The common classification and configuration concepts include:
+The supporting Domain Value and Classification Concepts include:
 
 ```text
 SourceType
 Provider
-ConnectorDescriptor
 Capability
+ObservationType
+SchemaVersion
+TemporalValue
+TemporalSemantics
+ServiceIdentifier
+EvidenceType
+EvidenceStatus
+RelationshipStatus
+TemporalStatus
+```
+
+Derived Views include:
+
+```text
+EvidenceAggregate
+EvidenceSummary
+SourceSummary
+TemporalSummary
+ConflictSummary
+CoverageSummary
+```
+
+Processing Results include:
+
+```text
+CandidateDetectionResult
+ResolutionResult
+ClassificationResult
+AggregationResult
+RelationshipAssessmentResult
 ```
 
 The primary Domain Processes are:
@@ -230,30 +319,36 @@ EvidenceAggregator
 RelationshipAssessor
 ```
 
-Additional concepts remain under evaluation:
+Concepts that remain under evaluation include:
 
 ```text
 Account
 Organization
-ResolutionResult
+Brand
+LegalDataController
+IdentityServiceAssociation
+CollectionRun
+RelationshipAssessmentHistory
 ```
 
 ---
 
-## 5. User
+# 5. User
 
 A `User` represents the person whose observed digital footprint is being analyzed.
 
-The framework is currently designed from a single-user perspective.
+The current framework is designed from a single-user perspective, although the Domain Model should not assume that only one User can ever exist in a deployment.
 
 The User may:
 
 - declare one or more Identity Seeds;
 - authorize one or more Connected Sources;
 - connect multiple sources of the same type;
-- connect multiple accounts using the same provider;
+- connect multiple accounts through the same provider;
 - correct derived conclusions;
-- revoke individual source connections.
+- reject incorrect Relationships;
+- disconnect source instances;
+- request removal of retained information.
 
 Conceptually:
 
@@ -267,11 +362,15 @@ User
  +-- ConnectedSource
  |
  +-- ConnectedSource
+ |
+ +-- Relationship
+ |
+ +-- Relationship
 ```
 
-At this stage, the User does not require a complex profile model.
+The User is the primary subject of the observed digital footprint.
 
-The framework does not yet need concepts such as:
+The framework does not currently require separate Domain Entities such as:
 
 ```text
 UserProfile
@@ -280,13 +379,13 @@ DataSubjectProfile
 Principal
 ```
 
-unless future capabilities demonstrate that they are necessary.
+unless future framework capabilities demonstrate that they are necessary.
 
 ---
 
-## 6. IdentitySeed
+# 6. IdentitySeed
 
-An `IdentitySeed` represents a digital identity explicitly declared by the User and used as a starting point for Discovery.
+An `IdentitySeed` represents a digital identity explicitly declared or confirmed by the User and used as a starting point for Discovery.
 
 Examples include:
 
@@ -297,14 +396,6 @@ Username
 Google Account
 Apple Account
 Microsoft Account
-```
-
-Example:
-
-```text
-type: EMAIL
-value: user@example.com
-verification_status: VERIFIED
 ```
 
 Conceptually:
@@ -323,33 +414,36 @@ This is a conceptual representation rather than a persistent schema.
 
 ---
 
-### 6.1 Identity Ownership
+## 6.1 Identity Ownership
 
 An Identity Seed represents an identity the User claims or confirms belongs to them.
 
 The framework must not automatically assume that every identifier encountered during Discovery belongs to the User.
 
-For example, a password-manager Observation may expose:
+For example:
 
 ```text
+Password Manager Observation
+
 username:
 old-address@example.com
 ```
 
-when the only known Identity Seed is:
+when the only verified Identity Seed is:
 
 ```text
 user@example.com
 ```
 
-The newly observed address may represent:
+may represent:
 
 - another Identity belonging to the User;
 - a historical Identity;
 - a username unrelated to email ownership;
 - a shared account;
 - another person's Identity;
-- incorrect or obsolete information.
+- obsolete information;
+- incorrect information.
 
 Therefore:
 
@@ -359,17 +453,17 @@ OBSERVED IDENTITY IDENTIFIER
 VERIFIED IDENTITY SEED
 ```
 
-Automatic creation of additional Identity Seeds remains outside the current model.
+The framework may eventually propose candidate Identity Seeds to the User.
 
-The framework may eventually suggest candidate identities to the User, but explicit confirmation may be required before they become verified Identity Seeds.
+Automatic promotion into a verified Identity Seed is outside the current model.
 
 ---
 
-### 6.2 IdentitySeed and ConnectedSource
+## 6.2 IdentitySeed and ConnectedSource
 
 An Identity Seed may be associated with one or more Connected Sources.
 
-For example:
+Example:
 
 ```text
 IdentitySeed:
@@ -379,29 +473,60 @@ ConnectedSource:
 Personal Gmail
 ```
 
-However, the concepts remain separate.
-
-An Identity Seed represents an identity belonging to the User.
-
-A Connected Source represents an authorized external source instance.
-
-Therefore:
+However:
 
 ```text
 IDENTITY SEED != CONNECTED SOURCE
 ```
 
-A Connected Source may also expose information related to multiple Identity Seeds.
+An Identity Seed represents a digital identity belonging to the User.
 
-For example, a password manager may contain entries associated with several email addresses belonging to the User.
+A Connected Source represents a particular authorized source instance.
+
+A password-manager ConnectedSource may expose information related to several Identity Seeds.
 
 ---
 
-## 7. SourceType
+## 6.3 IdentitySeed and Relationship
 
-A `SourceType` classifies a Discovery Source by the general kind of information it exposes.
+Identity Seeds may be associated with a User-Service Relationship.
 
-Initial source categories may include:
+Example:
+
+```text
+User
+ |
+ v
+Relationship
+ |
+ +-- Service: Spotify
+ |
+ +-- IdentitySeed: personal@example.com
+ |
+ +-- IdentitySeed: oldmail@example.net
+```
+
+Multiple Identity references do not automatically imply:
+
+```text
+multiple Accounts
+```
+
+or:
+
+```text
+one shared Account
+```
+
+They preserve the identities through which the Relationship was observed.
+
+---
+
+# 7. SourceType
+
+A `SourceType` classifies a source by the general kind of information it exposes.
+
+Initial examples include:
 
 ```text
 EMAIL
@@ -413,11 +538,16 @@ MANUAL
 
 These categories must remain extensible.
 
-SourceType answers:
+`SourceType` answers:
 
-> What general kind of source is this?
+> What general category of source is this?
 
-It does not identify a specific product, provider or User connection.
+It does not identify:
+
+- a provider;
+- a product;
+- a particular User connection;
+- an Observation structure.
 
 For example:
 
@@ -428,22 +558,28 @@ EMAIL
 is a SourceType.
 
 ```text
-Gmail
+Google
 ```
 
-is a provider or provider-specific service.
+is a Provider.
 
 ```text
 Personal Gmail
 ```
 
-is a Connected Source belonging to a User.
+is a ConnectedSource.
+
+```text
+EMAIL_MESSAGE_METADATA
+```
+
+is an ObservationType.
 
 ---
 
-## 8. Provider
+# 8. Provider
 
-A `Provider` identifies the product, platform or organization providing access to a source.
+A `Provider` identifies the external product, platform or organization providing access to a source.
 
 Examples may include:
 
@@ -459,33 +595,16 @@ KeePass
 
 Provider answers:
 
-> Which external product or platform provides this source?
+> Which external platform or product provides the source?
 
-The core Domain Model must not assume that every provider exposes the same capabilities merely because they support the same SourceType.
-
-For example:
-
-```text
-SourceType:
-EMAIL
-```
-
-may be provided by:
-
-```text
-Google
-Microsoft
-Apple
-Proton
-```
-
-with different:
+Providers supporting the same SourceType may expose different:
 
 - authorization mechanisms;
 - APIs;
-- metadata availability;
 - permission models;
-- synchronization capabilities;
+- capabilities;
+- metadata;
+- synchronization methods;
 - local or remote access models.
 
 Therefore:
@@ -494,11 +613,41 @@ Therefore:
 SOURCE TYPE != PROVIDER
 ```
 
-Provider-specific behavior belongs primarily behind the relevant Connector implementation.
+Provider-specific behavior belongs primarily behind Connector implementations.
 
 ---
 
-## 9. DiscoverySource
+## 8.1 Provider Role and Service Role
+
+A real-world entity may appear in more than one Domain role.
+
+For example, Google may be:
+
+```text
+Provider of a Gmail ConnectedSource
+```
+
+and separately:
+
+```text
+a discovered Service associated with the User
+```
+
+These roles must remain distinct.
+
+Therefore:
+
+```text
+GOOGLE AS PROVIDER
+        !=
+GOOGLE AS DISCOVERED SERVICE
+```
+
+even when they refer to the same real-world organization.
+
+---
+
+# 9. DiscoverySource
 
 `DiscoverySource` remains an architectural category describing an external source from which relevant information may be obtained.
 
@@ -512,7 +661,7 @@ Identity Provider
 Manual Input
 ```
 
-At the Domain Model level, source information is represented more precisely through:
+At Domain Model level, source information is represented more precisely through:
 
 ```text
 SourceType
@@ -520,27 +669,15 @@ Provider
 ConnectedSource
 ```
 
-Conceptually:
-
-```text
-Discovery Source Category
-        |
-        +-- SourceType
-        |
-        +-- Provider
-        |
-        +-- ConnectedSource
-```
-
-`DiscoverySource` is therefore retained as a useful architectural term but does not need to become a separate persistent entity if the required semantics are already represented by the more precise concepts.
+Therefore `DiscoverySource` does not currently require promotion to a separate Core Domain Entity.
 
 ---
 
-## 10. ConnectedSource
+# 10. ConnectedSource
 
-A `ConnectedSource` represents a specific external source instance connected or authorized by the User.
+A `ConnectedSource` represents a particular external source instance connected or authorized by the User.
 
-It is a core Domain Entity.
+It is a Core Domain Entity.
 
 Examples include:
 
@@ -548,20 +685,19 @@ Examples include:
 Personal Gmail account
 Old Gmail account
 Work Outlook account
-Personal iCloud Mail account
-Proton Mail account
-Primary password manager
-Secondary password manager
+Personal Proton Mail account
+Primary password-manager vault
+Imported password-manager archive
 Browser profile
 ```
 
-A Connected Source is distinct from:
+A ConnectedSource is distinct from:
 
-- the general SourceType;
-- the Provider;
-- the Connector implementation;
-- the User identity associated with the source;
-- the Observations obtained from it.
+- SourceType;
+- Provider;
+- Connector implementation;
+- IdentitySeed;
+- Observation.
 
 Therefore:
 
@@ -569,55 +705,28 @@ Therefore:
 PROVIDER != CONNECTED SOURCE
 ```
 
-and:
-
 ```text
 CONNECTED SOURCE != CONNECTOR
 ```
 
----
-
-### 10.1 Why ConnectedSource Is a Core Entity
-
-A single Connector implementation may be used for multiple independent source instances.
-
-For example:
-
 ```text
-                         GmailConnector
-                          /           \
-                         /             \
-                        v               v
-            ConnectedSource A   ConnectedSource B
-            personal@gmail.com  oldaddress@gmail.com
+CONNECTED SOURCE != IDENTITY SEED
 ```
 
-Each Connected Source may have its own:
-
-- authorization state;
-- permission state;
-- external account reference;
-- synchronization state;
-- connection lifecycle;
-- revocation state;
-- collection history;
-- Observations.
-
-Without ConnectedSource, the framework could not cleanly represent multiple accounts using the same provider.
-
 ---
 
-### 10.2 Conceptual Representation
+## 10.1 Conceptual Representation
 
-A Connected Source may conceptually contain:
+A ConnectedSource may conceptually contain:
 
 ```text
 ConnectedSource
 
 - id
+- user_reference
 - source_type
 - provider
-- connector_id
+- connector_reference
 - display_name
 - external_account_reference
 - connection_state
@@ -628,91 +737,84 @@ ConnectedSource
 
 This is not a final persistence schema.
 
-Sensitive provider identifiers may require protection or minimization.
-
-Authorization credentials and tokens must not be treated as ordinary ConnectedSource attributes.
+Authorization secrets must not be stored as ordinary ConnectedSource attributes.
 
 ---
 
-### 10.3 Multiple Sources of the Same Type
+## 10.2 Multiple Instances
 
-A User may connect multiple sources of the same type.
-
-Example:
+A Connector implementation may support multiple independent Connected Sources.
 
 ```text
-User
- |
- +-- EMAIL / Gmail / personal@gmail.com
- |
- +-- EMAIL / Gmail / oldaddress@gmail.com
- |
- +-- EMAIL / Outlook / user@outlook.com
- |
- +-- EMAIL / iCloud Mail / user@icloud.com
- |
- +-- EMAIL / Proton Mail / user@proton.me
+                    GmailConnector
+                    /            \
+                   /              \
+                  v                v
+         Personal Gmail        Old Gmail
 ```
 
-Every Connected Source remains independently identifiable and manageable.
+Each source may independently:
+
+- authorize;
+- expire;
+- require additional permission;
+- synchronize;
+- fail;
+- be revoked;
+- be disconnected;
+- produce Observations.
 
 ---
 
-### 10.4 Multiple Password Managers
+## 10.3 ConnectedSource State
 
-The same model applies to password managers.
+Connection lifecycle and authorization state may need to remain distinct.
 
 For example:
 
 ```text
-User
- |
- +-- PASSWORD_MANAGER / Provider A / Primary Vault
- |
- +-- PASSWORD_MANAGER / Provider B / Imported Archive
+connection_state:
+CONNECTED
+
+authorization_state:
+INSUFFICIENT
 ```
 
-Evidence from both sources may eventually resolve to the same Services while retaining independent source provenance.
+may mean that the source instance exists but the selected capability requires additional access.
 
----
-
-### 10.5 ConnectedSource State
-
-A Connected Source may move through states conceptually equivalent to:
+Potential conceptual states include:
 
 ```text
-PENDING_AUTHORIZATION
+Connection State
+
+PENDING
 CONNECTED
-AUTHORIZATION_EXPIRED
-PERMISSION_INSUFFICIENT
-REVOKED
 DISCONNECTED
 ERROR
 ```
 
-The final state model is not yet defined.
-
-Connection state and authorization state may ultimately need to remain separate.
-
-For example:
+and:
 
 ```text
-Connection State:
-CONNECTED
+Authorization State
 
-Authorization State:
+NOT_AUTHORIZED
+AUTHORIZED
+EXPIRED
 INSUFFICIENT
+REVOKED
+ERROR
 ```
 
-may be possible when the source is known but a requested capability requires additional permission.
+The final enumerations remain implementation-dependent.
 
 ---
 
-### 10.6 Authorization Material
+## 10.4 Authorization Material
 
-A Connected Source may reference authorization material, but secrets must not be stored as ordinary Domain attributes.
+A ConnectedSource may reference authorization material but must not contain its secret values as ordinary Domain attributes.
 
-The preferred conceptual boundary is:
+The conceptual boundary is:
 
 ```text
 ConnectedSource
@@ -724,93 +826,50 @@ Credential Reference
 Secure Credential Storage
 ```
 
-rather than:
+not:
 
 ```text
 ConnectedSource
-       |
-       +-- access_token
-       +-- refresh_token
-       +-- password
+ |
+ +-- access_token
+ +-- refresh_token
+ +-- password
 ```
 
-The implementation of secure credential storage belongs to the Privacy and Security Architecture.
+Secure credential storage belongs to the Privacy and Security Architecture.
 
 ---
 
-### 10.7 ConnectedSource Capabilities
+## 10.5 ConnectedSource Capabilities
 
-A Connected Source may support only a subset of the capabilities exposed by its Connector implementation.
+Available capabilities may depend on:
 
-Capabilities can depend on:
-
-- provider features;
+- Connector implementation;
+- Provider capability;
 - granted permissions;
-- account configuration;
+- User configuration;
+- source configuration;
 - deployment environment;
-- local software availability;
-- user authorization.
+- local application availability.
 
-Therefore, supported capabilities may need to be evaluated per Connected Source, not only per Connector implementation.
-
-Conceptually:
+Therefore:
 
 ```text
-Connector Implementation
-        |
-        v
-Potential Capabilities
-        |
-        v
-ConnectedSource
-        |
-        v
-Currently Available Capabilities
+Connector Potential Capabilities
+              |
+              v
+ConnectedSource Available Capabilities
 ```
+
+may differ between source instances using the same Connector.
 
 ---
 
-### 10.8 ConnectedSource Lifecycle
+# 11. Connector
 
-A Connected Source has a lifecycle independent from the Connector implementation.
+A `Connector` is the provider-specific processing and security boundary through which the framework communicates with one or more Connected Sources.
 
-For example:
-
-```text
-Created
-  |
-  v
-Authorization Pending
-  |
-  v
-Connected
-  |
-  +--> Authorization Expired
-  |
-  +--> Permission Insufficient
-  |
-  +--> Revoked
-  |
-  +--> Disconnected
-```
-
-Disconnecting one Connected Source must not affect another Connected Source using the same Connector.
-
-Example:
-
-```text
-Personal Gmail     -> remain connected
-Old Gmail          -> disconnect
-Outlook            -> remain connected
-```
-
----
-
-## 11. Connector
-
-A `Connector` is responsible for communicating with one or more Connected Sources supported by a provider-specific integration.
-
-A Connector is considered a processing and integration boundary rather than a persistent Domain Entity.
+It is not a persistent Core Domain Entity.
 
 Conceptually:
 
@@ -821,138 +880,108 @@ ConnectedSource
     Connector
        |
        v
+External Provider
+```
+
+and:
+
+```text
+External Provider
+       |
+       v
+    Connector
+       |
+       v
   Observation
 ```
 
-Possible implementations may eventually include:
-
-```text
-GmailConnector
-OutlookConnector
-ICloudMailConnector
-ProtonMailConnector
-OnePasswordConnector
-BitwardenConnector
-BrowserConnector
-```
-
-The existence and technical feasibility of these examples must be validated individually before implementation.
-
 ---
 
-### 11.1 Connector Responsibilities
+## 11.1 Connector Responsibilities
 
 A Connector may be responsible for:
 
 ```text
 Authorization
-Provider API interaction
-Capability detection
-Permission analysis
-Data retrieval
+Capability Discovery
+Permission Analysis
+Provider API Interaction
 Pagination
 Synchronization
-Source-specific error handling
-Source-data minimization
-Observation creation
+Source Error Handling
+Representation Normalization
+Data Minimization
+Observation Creation
 ```
 
 Its responsibility ends at the boundary between provider-specific representation and the common Discovery Domain.
 
 ---
 
-### 11.2 Connector Implementation vs ConnectedSource
+## 11.2 Connector as Minimization Boundary
 
-The distinction is:
-
-```text
-Connector
-```
-
-answers:
-
-> How does the framework communicate with this provider?
-
-Whereas:
-
-```text
-ConnectedSource
-```
-
-answers:
-
-> Which specific external source instance has this User connected?
+A Connector should prevent unnecessary information from entering the Discovery Core.
 
 Example:
 
 ```text
-Connector:
-GmailConnector
-
-Connected Sources:
-- Personal Gmail
-- Old Gmail
-- Secondary Gmail
+Password Manager Record
+ |
+ +-- title ----------+
+ +-- username -------+--> Observation
+ +-- URI ------------+
+ |
+ +-- password -------X
+ +-- OTP seed -------X
+ +-- recovery code --X
 ```
+
+Authentication secrets unnecessary for Discovery must remain outside normal Observations.
 
 ---
 
-### 11.3 Data Minimization at the Connector Boundary
+# 12. Capability
 
-A Connector should avoid exposing information to the rest of the framework when that information is unnecessary for the requested capability.
+A `Capability` represents an intentional framework operation requiring defined information and permissions.
+
+Examples may include:
+
+```text
+SERVICE_DISCOVERY_METADATA
+EMAIL_CONTENT_DISCOVERY
+ATTACHMENT_DISCOVERY
+INCREMENTAL_SYNCHRONIZATION
+```
+
+A Capability is distinct from a concrete provider permission.
 
 Conceptually:
 
 ```text
-External Source
-      |
-      v
-   Connector
-      |
-      +-- required data --------+
-      |                         |
-      +-- unnecessary data -- X |
-                                |
-                                v
-                         Observation
+Capability
+     |
+     v
+Required Information
+     |
+     v
+Provider-Specific Permission
 ```
 
-A password-manager Connector provides a clear example.
-
-A source may expose:
-
-```text
-Title
-Username
-URI
-Password
-OTP Secret
-Recovery Code
-```
-
-while Service Discovery may require only:
-
-```text
-Title
-Username
-URI
-```
-
-Authentication secrets should remain outside the normal Discovery pipeline.
+The final capability vocabulary remains open.
 
 ---
 
-## 12. Observation
+# 13. Observation
 
-An `Observation` represents information obtained from a specific Connected Source before the framework assigns semantic meaning to it.
+An `Observation` represents source-derived information obtained from exactly one ConnectedSource before final semantic interpretation.
 
-It represents:
+It answers:
 
-> What did the framework observe from this Connected Source?
+> What did the framework observe?
 
-rather than:
+It does not answer:
 
-> What does the framework believe that information means?
+> What does this information mean?
 
 Therefore:
 
@@ -960,182 +989,134 @@ Therefore:
 CONNECTED SOURCE != OBSERVATION
 ```
 
-and:
-
 ```text
 OBSERVATION != EVIDENCE
 ```
 
----
-
-### 12.1 Observation and ConnectedSource
-
-Every Observation must retain a reference to the Connected Source from which it originated.
-
-Conceptually:
-
 ```text
-ConnectedSource
-       |
-       +-- Observation
-       |
-       +-- Observation
-       |
-       +-- Observation
+OBSERVATION != SERVICE
 ```
 
-This allows the framework to distinguish between identical-looking observations collected from different sources.
-
-For example:
-
 ```text
-spotify.com
+OBSERVATION != RELATIONSHIP
 ```
-
-may be observed through:
-
-- a personal Gmail account;
-- a work Outlook account;
-- a password manager;
-- a browser profile.
-
-These Observations may converge on the same Service while maintaining separate provenance.
 
 ---
 
-### 12.2 Email Observation
+## 13.1 Conceptual Representation
 
-An email Connected Source may produce:
-
-```text
-Connected Source:
-Personal Gmail
-
-Sender:
-no-reply@spotify.com
-
-Subject:
-Verify your email address
-
-Message Date:
-2026-01-01
-```
-
-At this stage, no Evidence type has necessarily been assigned.
-
----
-
-### 12.3 Password Manager Observation
-
-A password-manager Connected Source may produce:
-
-```text
-Connected Source:
-Primary Password Manager
-
-Title:
-Spotify
-
-Username:
-user@example.com
-
-URI:
-https://accounts.spotify.com
-```
-
-This remains an Observation rather than the final semantic interpretation.
-
----
-
-### 12.4 Observation Core
-
-A common Observation representation may eventually contain concepts equivalent to:
+The consolidated Observation model is:
 
 ```text
 Observation
 
 - id
 - connected_source_id
-- source_reference
 - observation_type
+- schema_version
+- source_reference
 - observed_at
 - collected_at
-- attributes
-- associated_identity_reference
+- temporal_semantics
+- payload
 - provenance
 ```
 
-The exact schema remains undefined.
+The representation consists of:
+
+```text
+Common Envelope
+        +
+Typed Payload
+```
 
 ---
 
-### 12.5 Source-Specific Attributes
+## 13.2 Common Envelope
 
-Different source types expose different information.
-
-Email may expose:
+The common envelope contains provider-independent framework fields such as:
 
 ```text
-sender
-recipient
-subject
-message date
-thread reference
+id
+connected_source_id
+observation_type
+schema_version
+source_reference
+temporal information
 ```
 
-A password manager may expose:
+---
+
+## 13.3 Typed Payload
+
+The payload is constrained by:
 
 ```text
-title
-username
-URI
-record modification time
-```
-
-The common Observation model must not force every source into an email-shaped or password-manager-shaped structure.
-
-A future representation may combine:
-
-```text
-Common Observation Envelope
-
+ObservationType
 +
-
-Source-Specific Typed Attributes
+SchemaVersion
 ```
+
+Examples include:
+
+```text
+EMAIL_MESSAGE_METADATA v1
+PASSWORD_MANAGER_ENTRY_METADATA v1
+BROWSER_VISIT v1
+MANUAL_RELATIONSHIP_DECLARATION v1
+```
+
+The payload must not be an unrestricted serialization of the provider object.
 
 ---
 
-### 12.6 Temporal Semantics
+## 13.4 Provider-Neutral Observation Types
 
-Observation timestamps must preserve their original meaning.
-
-For example:
+Equivalent source semantics should use the same ObservationType across providers where possible.
 
 ```text
-Email Message Date:
-2024-02-01
+Gmail --------+
+              |
+Outlook ------+
+              |
+iCloud -------+--> EMAIL_MESSAGE_METADATA
+              |
+Proton -------+
 ```
 
-may represent the time associated with a message.
+Provider-specific Observation Types should be introduced only when the framework semantics genuinely differ.
 
-By contrast:
+---
+
+## 13.5 Source Reference
+
+A source reference should be preserved where technically possible and safe.
+
+Conceptually:
 
 ```text
-Password Manager Record Modified At:
-2024-02-01
+Observation Identity Context
+
+ConnectedSourceId
+        +
+SourceReference
 ```
 
-may represent modification of the password-manager record.
+This may support:
 
-It must not automatically be interpreted as:
+- deduplication;
+- synchronization;
+- source updates;
+- reprocessing;
+- traceability.
 
-```text
-Last Service Activity:
-2024-02-01
-```
+A source reference must not expose unnecessary secret information.
 
-Temporal information must therefore preserve both:
+---
+
+## 13.6 Temporal Semantics
+
+Temporal values must preserve both:
 
 ```text
 timestamp
@@ -1144,32 +1125,189 @@ timestamp
 and:
 
 ```text
-timestamp semantics
+meaning of the timestamp
+```
+
+For example:
+
+```text
+MESSAGE_TIME
+```
+
+is distinct from:
+
+```text
+SOURCE_RECORD_MODIFIED
+```
+
+A password-manager record modification time must not automatically become:
+
+```text
+Last Service Activity
 ```
 
 ---
 
-### 12.7 Collection Completeness
+## 13.7 Observation Validity
 
-An Observation must not imply that the Connected Source was completely analyzed.
+An Observation asserts that the Connector observed the represented information.
 
-Collection status belongs to the collection or synchronization context.
+It does not assert that the information is true.
 
-The framework must distinguish:
+For example, a phishing message may produce a valid Observation containing a misleading sender.
 
-```text
-No relevant Observations found after a complete collection
-```
-
-from:
+Therefore:
 
 ```text
-No Observations returned because collection was partial or failed
+OBSERVED VALUE != TRUSTED FACT
 ```
 
 ---
 
-## 13. ServiceIdentifier
+## 13.8 Observation Immutability
+
+Observations should be treated as immutable source-derived records where practical.
+
+A later interpretation or reprocessing operation must not destructively rewrite what was originally observed.
+
+---
+
+# 14. ObservationType
+
+`ObservationType` identifies the semantic source structure represented by an Observation.
+
+Examples include:
+
+```text
+EMAIL_MESSAGE_METADATA
+EMAIL_MESSAGE_CONTENT
+PASSWORD_MANAGER_ENTRY_METADATA
+BROWSER_VISIT
+IDENTITY_PROVIDER_RELATIONSHIP
+MANUAL_RELATIONSHIP_DECLARATION
+```
+
+ObservationType is distinct from both:
+
+```text
+SourceType
+```
+
+and:
+
+```text
+EvidenceType
+```
+
+Therefore:
+
+```text
+SOURCE TYPE != OBSERVATION TYPE
+```
+
+```text
+OBSERVATION TYPE != EVIDENCE TYPE
+```
+
+---
+
+# 15. SchemaVersion
+
+`SchemaVersion` identifies the structure and semantic version of a typed Observation payload.
+
+Historical payload semantics must not change silently.
+
+Downstream consumers should interpret:
+
+```text
+ObservationType
++
+SchemaVersion
+```
+
+rather than ObservationType alone.
+
+---
+
+# 16. TemporalValue and TemporalSemantics
+
+A `TemporalValue` conceptually combines:
+
+```text
+timestamp
+temporal_semantics
+```
+
+Potential semantics include:
+
+```text
+SOURCE_EVENT_TIME
+MESSAGE_TIME
+SOURCE_RECORD_CREATED
+SOURCE_RECORD_MODIFIED
+VISIT_TIME
+USER_DECLARED_TIME
+UNKNOWN
+```
+
+The final vocabulary remains open.
+
+The Domain Model must support multiple typed temporal values if future Observation structures require them.
+
+---
+
+# 17. Candidate Detection
+
+Service Candidate Detection determines whether an Observation should participate in the Service Discovery capability.
+
+It is a Domain Process.
+
+Conceptual outcomes include:
+
+```text
+CANDIDATE
+NOT_CANDIDATE
+UNKNOWN
+```
+
+A technical processing failure must remain separate from these outcomes.
+
+---
+
+## 17.1 Candidate Is Not Resolved
+
+An Observation can be a valid candidate even when its Service remains unresolved.
+
+Therefore:
+
+```text
+CANDIDATE != RESOLVED
+```
+
+---
+
+## 17.2 Candidate Identifiers
+
+Candidate Detection may extract one or more technical identifiers.
+
+Examples include:
+
+```text
+EMAIL_DOMAIN
+DOMAIN
+HOSTNAME
+URL
+DISPLAY_NAME
+PROVIDER_SPECIFIC_IDENTIFIER
+```
+
+These values contribute to ServiceIdentifier creation or processing.
+
+They must not be treated as canonical Services.
+
+---
+
+# 18. ServiceIdentifier
 
 A `ServiceIdentifier` represents a technical identifier that may contribute to identifying a canonical Service.
 
@@ -1178,9 +1316,9 @@ Examples include:
 ```text
 spotify.com
 accounts.spotify.com
-no-reply@spotify.com
 https://accounts.spotify.com/login
-source-specific service identifier
+no-reply@spotify.com
+provider-specific application identifier
 ```
 
 Potential identifier types include:
@@ -1191,254 +1329,63 @@ HOSTNAME
 URL
 EMAIL_ADDRESS
 EMAIL_DOMAIN
-SOURCE_SPECIFIC
+DISPLAY_NAME
+PROVIDER_SPECIFIC
 ```
 
-The final taxonomy remains open.
+The final taxonomy remains extensible.
 
 ---
 
-### 13.1 Identifier Is Not Service
+## 18.1 ServiceIdentifier Classification
 
-A ServiceIdentifier must not automatically be treated as a Service.
+`ServiceIdentifier` is best treated as a Domain Value Concept rather than a standalone aggregate root.
 
-Therefore:
+It may possess identity for persistence and provenance purposes, but it is primarily meaningful through:
+
+- its value;
+- its type;
+- its source Observation;
+- its normalization history;
+- its resolution history.
+
+---
+
+## 18.2 Identifier Is Not Service
 
 ```text
 IDENTIFIER != SERVICE
 ```
 
-For example:
-
-```text
-accounts.spotify.com
-```
-
-may be an observed technical identifier.
-
-The corresponding canonical Service may be:
-
-```text
-Spotify
-```
+A domain, URL or email address is not automatically a canonical Service.
 
 ---
 
-### 13.2 Multiple Identifiers
+## 18.3 Original and Normalized Values
 
-A Service may have multiple identifiers.
-
-Conceptually:
+The Domain Model should preserve:
 
 ```text
-Spotify
- |
- +-- spotify.com
- |
- +-- accounts.spotify.com
- |
- +-- open.spotify.com
- |
- +-- other identifiers
+Original Identifier
+        |
+        v
+Normalized Identifier
+        |
+        v
+Resolved Service
 ```
 
-Identifiers from multiple Connected Sources may resolve to the same Service.
+Normalization must not destroy the original value.
 
 ---
 
-### 13.3 Identifier Provenance
+# 19. Entity Resolution
 
-A ServiceIdentifier derived from an Observation must remain traceable to:
+Entity Resolution attempts to map one or more ServiceIdentifiers to a canonical Service.
 
-- the Observation;
-- the Connected Source;
-- the original source value;
-- any normalization steps;
-- the final Entity Resolution result.
+It is a Domain Process.
 
----
-
-## 14. Service
-
-A `Service` represents a normalized digital service with which the User may have or have had a Relationship.
-
-Examples include:
-
-```text
-Spotify
-Netflix
-GitHub
-Amazon
-```
-
-A Service is distinct from:
-
-```text
-an email sender
-a domain
-a URL
-a credential record
-an Observation
-a Connected Source
-an Organization
-```
-
----
-
-### 14.1 Service Identity
-
-Conceptually:
-
-```text
-Service
-
-- id
-- name
-- identifiers
-- status
-```
-
-This is not a database schema.
-
----
-
-### 14.2 Provider and Service
-
-A Provider used for Discovery may also be discovered as a Service.
-
-For example, Google may act as:
-
-- the Provider of a Gmail Connected Source;
-- a Service with which the User has a Relationship.
-
-These roles must remain distinguishable.
-
-Conceptually:
-
-```text
-Google as Source Provider
-             !=
-Google as Discovered Service
-```
-
-The same real-world organization may participate in multiple domain roles.
-
----
-
-### 14.3 Service vs Organization
-
-A Service and the Organization operating that Service must not automatically be considered equivalent.
-
-For example:
-
-```text
-Organization
-    |
-    +-- Service A
-    |
-    +-- Service B
-```
-
-The framework may later need to distinguish:
-
-```text
-Service
-Brand
-Organization
-Legal Data Controller
-```
-
-The current Discovery Domain does not yet contain enough evidence to define this model.
-
-Therefore:
-
-```text
-SERVICE != ORGANIZATION
-```
-
-remains an architectural boundary.
-
----
-
-## 15. Entity Resolution
-
-Entity Resolution is the process that attempts to map observed ServiceIdentifiers to canonical Services.
-
-It is behavior rather than a core Domain Entity.
-
-Conceptually:
-
-```text
-Observation
-     |
-     v
-ServiceIdentifier
-     |
-     v
-EntityResolver
-     |
-     +-----------+
-     |           |
-     v           v
-Resolved      Unresolved
-     |
-     v
-Service
-```
-
----
-
-### 15.1 Cross-Source Resolution
-
-Identifiers derived from different Connected Sources may resolve to the same Service.
-
-Example:
-
-```text
-Personal Gmail
-      |
-      v
-no-reply@spotify.com
-      |
-      v
-spotify.com
-      |
-      +-------------------+
-                          |
-                          v
-                       Spotify
-                          ^
-                          |
-      +-------------------+
-      |
-accounts.spotify.com
-      ^
-      |
-Primary Password Manager
-```
-
-The canonical Service must not be duplicated merely because the supporting identifiers originated from different Connected Sources.
-
----
-
-### 15.2 Resolution Result
-
-Although Entity Resolution itself is behavior, the result of resolution may need to be preserved.
-
-A future value or record may contain concepts such as:
-
-```text
-ResolutionResult
-
-- observed_identifier
-- normalized_identifier
-- resolved_service
-- resolution_status
-- resolution_method
-- created_at
-```
-
-Potential states may include:
+Conceptual resolution states include:
 
 ```text
 RESOLVED
@@ -1446,257 +1393,299 @@ UNRESOLVED
 AMBIGUOUS
 ```
 
-The exact representation is not yet defined.
+Technical processing state remains separate.
 
 ---
 
-### 15.3 Resolution Provenance
+## 19.1 Normalization Is Not Resolution
 
-Entity Resolution must never destroy the original identifier.
+For example:
+
+```text
+accounts.spotify.com
+        |
+        v
+spotify.com
+```
+
+may be normalization.
+
+```text
+spotify.com
+        |
+        v
+Spotify
+```
+
+is canonical Entity Resolution.
+
+Therefore:
+
+```text
+NORMALIZATION != RESOLUTION
+```
+
+---
+
+## 19.2 Cross-Source Resolution
+
+Identifiers derived from multiple Connected Sources may resolve to the same Service.
+
+```text
+Gmail Observation
+      |
+      v
+spotify.com
+      |
+      +---------------+
+                      |
+                      v
+                   Spotify
+                      ^
+                      |
+      +---------------+
+      |
+accounts.spotify.com
+      ^
+      |
+Password Manager Observation
+```
+
+Provider identity must not create duplicate Services.
+
+---
+
+## 19.3 ResolutionResult
+
+A `ResolutionResult` represents the output of Entity Resolution.
 
 Conceptually:
 
 ```text
-Connected Source
-       |
-       v
-Observation
-       |
-       v
-Original Identifier
-       |
-       v
-Normalized Identifier
-       |
-       v
-Resolved Service
+ResolutionResult
+
+- input_identifiers
+- normalized_identifiers
+- processing_status
+- resolution_status
+- resolved_service_reference
+- alternative_service_references
+- method
+- reason_codes
+- resolver_version
+- provenance
 ```
 
-All relevant stages should remain explainable and reprocessable.
+`ResolutionResult` is classified as:
+
+```text
+Processing Result / Value Object
+```
+
+not a Core Domain Entity.
+
+It may be persisted when needed for:
+
+- explainability;
+- re-resolution;
+- debugging;
+- historical comparison;
+- User correction.
 
 ---
 
-## 16. Evidence
+# 20. Service
 
-`Evidence` represents the framework's semantic interpretation of one or more Observations in the context of Service Discovery.
-
-It answers:
-
-> What does this Observation appear to tell us about a possible Relationship?
+A `Service` represents a canonical digital Service with which the User may have or have had a Relationship.
 
 Examples include:
 
 ```text
-ACCOUNT_VERIFICATION
-SUBSCRIPTION
-PAYMENT
-PASSWORD_MANAGER_ENTRY
+Spotify
+GitHub
+Netflix
+Amazon
 ```
 
-Evidence taxonomies may vary across source types and capabilities.
-
----
-
-### 16.1 Example
+A Service is distinct from:
 
 ```text
-Observation:
-
-Subject:
-Verify your email address
-```
-
-may produce:
-
-```text
-Evidence:
-
-ACCOUNT_VERIFICATION
-```
-
-Similarly:
-
-```text
-Observation:
-
-Password-manager record
-URI: accounts.spotify.com
-```
-
-may produce:
-
-```text
-Evidence:
-
-PASSWORD_MANAGER_ENTRY
+email sender
+domain
+hostname
+URL
+credential record
+Observation
+ConnectedSource
+Provider
+Organization
+Account
 ```
 
 ---
 
-### 16.2 Evidence Core
-
-A conceptual Evidence representation may contain:
+## 20.1 Conceptual Representation
 
 ```text
-Evidence
+Service
 
 - id
-- type
-- supporting_observation_references
-- service_reference
-- classification_method
-- classification_status
+- canonical_name
+- status
+- identifiers
 - created_at
-- provenance
+- updated_at
 ```
 
-Potential classification methods may include:
-
-```text
-RULE
-AI
-MANUAL
-```
-
-The exact model remains open.
+This remains conceptual.
 
 ---
 
-### 16.3 Evidence May Remain Unknown
+## 20.2 Service Granularity
 
-Classification must never be forced.
+The Domain Model does not yet define universal Service granularity.
 
 For example:
 
 ```text
-classification_status:
+Google
+Google Account
+Gmail
+```
+
+may represent different Service levels.
+
+Granularity must not be inferred solely from a domain.
+
+The appropriate model should be validated against real Discovery and later Personal Data Acquisition scenarios.
+
+---
+
+## 20.3 Service and Organization
+
+A Service may be operated by an Organization.
+
+One Organization may operate many Services.
+
+Therefore:
+
+```text
+SERVICE != ORGANIZATION
+```
+
+Potential future concepts include:
+
+```text
+Brand
+Organization
+Legal Data Controller
+```
+
+These are not Core Domain Entities in Draft v0.3.
+
+---
+
+## 20.4 Service Registry
+
+A Service Registry is conceptually required to manage canonical Services and identifiers.
+
+However, it is currently treated as:
+
+```text
+Application / Repository Boundary
+```
+
+rather than a new Core Domain Entity.
+
+Its responsibilities may eventually include:
+
+- locating Services;
+- storing ServiceIdentifier mappings;
+- registering new Services;
+- maintaining aliases;
+- managing merges;
+- managing splits;
+- retaining historical identifiers.
+
+The exact contract remains undefined.
+
+---
+
+# 21. Evidence Classification
+
+Evidence Classification interprets one Observation and produces zero, one or multiple semantic Evidence candidates.
+
+It is a Domain Process.
+
+The process may return:
+
+```text
+CLASSIFIED
 UNKNOWN
 ```
 
-is valid.
+when processing succeeds.
 
-The supporting Observation must remain available.
-
----
-
-### 16.4 No Arbitrary Confidence
-
-Draft v0.2 does not assign arbitrary numerical confidence values to Evidence.
-
-Values such as:
-
-```text
-confidence = 0.87
-```
-
-must not be introduced until:
-
-- their semantics are defined;
-- calibration is possible;
-- representative data exists;
-- they provide measurable user benefit.
+Technical failures and unsupported schemas remain separate.
 
 ---
 
-## 17. Evidence Classification
+# 22. EvidenceType
 
-Evidence Classification is behavior applied to Observations.
+`EvidenceType` identifies the semantic interpretation of an Observation.
 
-It is not currently modeled as a persistent Domain Entity.
-
-Conceptually:
+Examples currently validated include:
 
 ```text
-Observation
-     |
-     v
-EvidenceClassifier
-     |
-     v
-Evidence
+ACCOUNT_CREATION
+ACCOUNT_VERIFICATION
+AUTHENTICATION
+PASSWORD_RESET
+SECURITY_NOTIFICATION
+PURCHASE
+INVOICE
+SUBSCRIPTION
+PAYMENT
+ACCOUNT_UPDATE
+ACCOUNT_DELETION
+MARKETING
+NEWSLETTER
+PRIVACY_NOTICE
+PASSWORD_MANAGER_ENTRY
 ```
 
-Different sources may use different classification strategies.
+The Evidence taxonomy must be:
 
-For example:
+- controlled;
+- versionable;
+- provider-neutral where possible;
+- extensible based on real scenarios.
 
-```text
-Email
- |
- +-- deterministic rules
- |
- +-- AI for ambiguous cases
-```
-
-while:
-
-```text
-Password Manager
- |
- +-- primarily deterministic classification
-```
-
-The domain must support this variation without making AI mandatory.
+Source-specific Evidence Types may be introduced only when common semantic types cannot adequately represent the source meaning.
 
 ---
 
-## 18. Evidence Aggregation
+# 23. Evidence
 
-Evidence Aggregation combines Evidence associated with the same discovery context.
+`Evidence` represents a semantic interpretation supported by one or more Observations.
 
-It is a process rather than a core Domain Entity.
+It answers:
 
-Conceptually:
-
-```text
-Evidence A
-Evidence B
-Evidence C
-    |
-    v
-EvidenceAggregator
-    |
-    v
-Relationship Context
-```
-
-Aggregation must not destroy individual Evidence or its ConnectedSource provenance.
-
-For example:
-
-```text
-100 Evidence items
-```
-
-may contribute to:
-
-```text
-1 Relationship
-```
-
-while all Evidence items remain independently traceable.
-
----
-
-## 19. Relationship
-
-A `Relationship` represents the framework's current assessment that an Identity and a Service are or were related.
-
-Conceptually:
-
-```text
-IdentitySeed
-     |
-     v
-Relationship
-     |
-     v
-Service
-```
-
-A Relationship is derived from Evidence.
+> What does the observed information appear to tell the framework about a possible User-Service Relationship?
 
 Therefore:
+
+```text
+OBSERVATION != EVIDENCE
+```
+
+and:
+
+```text
+EVIDENCE != CONFIRMED FACT
+```
+
+and:
 
 ```text
 EVIDENCE != RELATIONSHIP
@@ -1704,47 +1693,575 @@ EVIDENCE != RELATIONSHIP
 
 ---
 
-### 19.1 Relationship Core
+## 23.1 Conceptual Representation
 
-A conceptual representation may contain:
+```text
+Evidence
+
+- id
+- evidence_type
+- evidence_status
+- supporting_observation_references
+- service_reference
+- identity_references
+- classification_method
+- classifier_version
+- reason_codes
+- temporal_values
+- created_at
+- provenance
+```
+
+The exact persistent schema remains undefined.
+
+---
+
+## 23.2 Evidence Without Resolved Service
+
+Evidence does not require successful Entity Resolution.
+
+Example:
+
+```text
+EvidenceType:
+PAYMENT
+
+Service:
+UNRESOLVED
+```
+
+is valid.
+
+If Entity Resolution later succeeds, the Evidence may become associated with the resolved Service without reclassifying the Observation.
+
+---
+
+## 23.3 Multiple Evidence Items
+
+One Observation may support zero, one or several Evidence items.
+
+For example:
+
+```text
+Observation:
+Your subscription was renewed and payment was successful
+```
+
+may support:
+
+```text
+SUBSCRIPTION
+PAYMENT
+```
+
+if both meanings are independently justified.
+
+The classifier must not generate implied categories merely because events commonly occur together.
+
+---
+
+# 24. EvidenceStatus
+
+`EvidenceStatus` represents whether an Evidence interpretation should participate in current Discovery assessment.
+
+The initial conceptual states are:
+
+```text
+ACTIVE
+SUPERSEDED
+REJECTED
+```
+
+---
+
+## 24.1 ACTIVE
+
+`ACTIVE` means that the Evidence represents a currently accepted semantic interpretation.
+
+Only ACTIVE Evidence should normally participate in current Evidence Aggregation and Relationship Assessment.
+
+---
+
+## 24.2 SUPERSEDED
+
+`SUPERSEDED` means that an Evidence interpretation has been replaced by a newer accepted interpretation.
+
+Example:
+
+```text
+Classifier v1:
+Evidence = MARKETING
+Status = SUPERSEDED
+
+Classifier v2:
+Evidence = PRIVACY_NOTICE
+Status = ACTIVE
+```
+
+The superseded Evidence remains available for provenance and historical analysis.
+
+It must not normally be counted as simultaneous current Evidence.
+
+---
+
+## 24.3 REJECTED
+
+`REJECTED` means that an Evidence interpretation has been explicitly invalidated or rejected.
+
+Possible reasons include:
+
+- User correction;
+- classification error;
+- invalid source association;
+- processing defect;
+- later information demonstrating that the interpretation was incorrect.
+
+Rejected Evidence remains preserved where required for provenance.
+
+It must not participate in the current Relationship assessment.
+
+---
+
+## 24.4 EvidenceStatus Is Not RelationshipStatus
+
+```text
+EvidenceStatus.REJECTED
+```
+
+means:
+
+> This Evidence interpretation is not currently accepted.
+
+```text
+RelationshipStatus.REJECTED
+```
+
+means:
+
+> The apparent User-Service Relationship should not currently be attributed to the User.
+
+These concepts must remain distinct.
+
+---
+
+## 24.5 Evidence Lifecycle
+
+Potential lifecycle transitions include:
+
+```text
+ACTIVE
+   |
+   +--> SUPERSEDED
+   |
+   +--> REJECTED
+```
+
+A newer Evidence interpretation may then become:
+
+```text
+ACTIVE
+```
+
+The final transition policy remains open.
+
+---
+
+# 25. EvidenceCandidate
+
+`EvidenceCandidate` represents the immediate semantic output of the EvidenceClassifier before persistence and lifecycle management.
+
+Conceptually:
+
+```text
+EvidenceCandidate
+
+- evidence_type
+- supporting_observation_references
+- method
+- reason_codes
+- classifier_version
+```
+
+It is classified as:
+
+```text
+Interface Value Object / Processing Output
+```
+
+It is not a Core Domain Entity.
+
+The application layer may materialize a valid EvidenceCandidate as `Evidence`.
+
+---
+
+# 26. Evidence Aggregation
+
+Evidence Aggregation combines current Evidence associated with the same discovery context.
+
+It is a Domain Process.
+
+The primary aggregation boundary is the canonical Service where available.
+
+Conceptually:
+
+```text
+ACTIVE Evidence
+ACTIVE Evidence
+ACTIVE Evidence
+      |
+      v
+EvidenceAggregator
+      |
+      v
+EvidenceAggregate
+```
+
+Superseded or Rejected Evidence should not normally participate in the current aggregate.
+
+---
+
+# 27. EvidenceAggregate
+
+An `EvidenceAggregate` is a derived view over Evidence.
+
+It is not an authoritative Core Domain Entity.
+
+Conceptually:
+
+```text
+EvidenceAggregate
+
+- scope
+- service_reference
+- unresolved_identifier_reference
+- identity_references
+- evidence_references
+- evidence_summary
+- source_summary
+- temporal_summary
+- conflict_summary
+- coverage_summary
+- aggregator_version
+```
+
+---
+
+## 27.1 Derived State
+
+```text
+EVIDENCE AGGREGATE != AUTHORITATIVE EVIDENCE
+```
+
+An Aggregate must remain reconstructable from its contributing Evidence where that Evidence is retained.
+
+Deleting a materialized Aggregate must not delete underlying Evidence.
+
+---
+
+## 27.2 Service-Level Aggregation
+
+The primary scope is:
+
+```text
+SERVICE
+```
+
+Additional scopes may include:
+
+```text
+UNRESOLVED_SERVICE_CANDIDATE
+AMBIGUOUS_SERVICE_CANDIDATE
+```
+
+Evidence must not disappear solely because canonical Service resolution is incomplete.
+
+---
+
+## 27.3 Identity Preservation
+
+Aggregation must preserve relevant Identity references.
+
+It must not automatically infer:
+
+```text
+one Account
+```
+
+or:
+
+```text
+multiple Accounts
+```
+
+from multiple Identity references.
+
+---
+
+## 27.4 Source Summary
+
+The Aggregate may preserve:
+
+```text
+ConnectedSource count
+SourceType diversity
+Provider diversity
+Evidence count by source
+Evidence count by source type
+```
+
+These values describe provenance.
+
+They do not automatically determine Relationship strength.
+
+---
+
+## 27.5 Evidence Frequency
+
+Evidence frequency is descriptive.
+
+Therefore:
+
+```text
+100 MARKETING
+```
+
+does not automatically outweigh:
+
+```text
+1 ACCOUNT_VERIFICATION
+```
+
+Semantic interpretation belongs to Relationship Assessment.
+
+---
+
+## 27.6 Temporal Summary
+
+Temporal summary may include:
+
+```text
+first_observed
+last_observed
+typed temporal values
+Evidence timeline
+```
+
+These values must preserve temporal semantics.
+
+`first_observed` must not automatically mean account creation.
+
+`last_observed` must not automatically mean last Service use.
+
+---
+
+## 27.7 Conflicting Evidence
+
+Evidence conflicts must remain preserved.
+
+Example:
+
+```text
+2024 ACCOUNT_DELETION
+2026 AUTHENTICATION
+```
+
+The Aggregate may report a conflict.
+
+It must not invent the explanation.
+
+---
+
+# 28. EvidenceSummary
+
+`EvidenceSummary` is a derived value containing information such as:
+
+```text
+total Evidence count
+Evidence count by type
+active Evidence types
+historical Evidence types
+```
+
+It is calculated only from Evidence permitted by the active aggregation policy.
+
+---
+
+# 29. SourceSummary
+
+`SourceSummary` is a derived value describing the provenance dimensions supporting an Aggregate.
+
+Conceptually:
+
+```text
+SourceSummary
+
+- connected_source_count
+- source_types
+- providers
+- evidence_count_by_connected_source
+- evidence_count_by_source_type
+```
+
+Provider information should be omitted when unnecessary.
+
+---
+
+# 30. TemporalSummary
+
+`TemporalSummary` is a derived value preserving typed temporal information.
+
+Conceptually:
+
+```text
+TemporalSummary
+
+- first_observed
+- last_observed
+- evidence_timeline
+- typed_temporal_values
+```
+
+All summary values must remain traceable to Evidence or supporting Observations.
+
+---
+
+# 31. ConflictSummary
+
+`ConflictSummary` is a derived value describing potential semantic conflicts.
+
+Conceptually:
+
+```text
+ConflictSummary
+
+- has_potential_conflicts
+- conflict_types
+- involved_evidence_references
+```
+
+The final conflict taxonomy remains open.
+
+---
+
+# 32. CoverageSummary
+
+`CoverageSummary` describes the known completeness state of configured source processing.
+
+Conceptually:
+
+```text
+CoverageSummary
+
+- configured_sources
+- completed_sources
+- partial_sources
+- failed_sources
+- unavailable_sources
+```
+
+Coverage information originates from collection and synchronization context.
+
+The EvidenceAggregator and RelationshipAssessor may consume or summarize coverage, but they must not invent it.
+
+Coverage is currently classified as:
+
+```text
+Derived Application / Processing Context
+```
+
+rather than a Core Domain Entity.
+
+---
+
+# 33. Relationship
+
+A `Relationship` represents the framework's current assessment that a meaningful digital Relationship exists or existed between a User and a Service.
+
+The primary relationship is:
+
+```text
+User
+ |
+ v
+Relationship
+ |
+ v
+Service
+```
+
+Relevant Identity Seeds remain associated with the Relationship.
+
+This replaces the earlier primary model that treated the Relationship as fundamentally IdentitySeed-to-Service.
+
+---
+
+## 33.1 Conceptual Representation
 
 ```text
 Relationship
 
 - id
-- identity_references
+- user_reference
 - service_reference
-- state
-- first_observed
-- last_observed
+- relationship_status
+- temporal_status
+- identity_references
+- evidence_basis
+- reason_codes
+- warnings
+- assessment_method
+- assessor_version
+- assessment_policy_version
+- assessed_at
 ```
 
-The final representation remains undefined.
+This remains conceptual.
 
 ---
 
-### 19.2 Relationship State
+## 33.2 Why User-Service Is Primary
 
-Potential states may eventually include:
+The primary User-facing Discovery question is:
+
+> Which Services appear to have or have had a Relationship with me?
+
+Therefore the User-Service Relationship is the primary graph edge.
+
+Identity references support additional questions such as:
+
+> Which Services were associated with `oldmail@example.net`?
+
+without requiring a separate Relationship for each Identity at this stage.
+
+---
+
+## 33.3 Relationship Is Not Account
+
+Relationships may arise through:
 
 ```text
-UNKNOWN
-POSSIBLE
-PROBABLE
-CONFIRMED
-HISTORICAL
-REJECTED
+account Evidence
+subscription
+purchase
+guest transaction
+newsletter
+mailing list
+browser interaction
+privacy communication
+historical interaction
 ```
 
-These values remain provisional.
+Therefore:
 
-The framework should not freeze a Relationship state model before additional empirical validation.
+```text
+RELATIONSHIP != ACCOUNT
+```
 
 ---
 
-### 19.3 Relationship Is Not Current Data Possession
+## 33.4 Relationship Is Not Current Data Possession
 
-A discovered Relationship does not establish which personal data the Service currently holds.
+A Relationship does not establish which personal data a Service currently possesses.
 
 Therefore:
 
@@ -1754,252 +2271,355 @@ RELATIONSHIP
 CURRENT DATA POSSESSION
 ```
 
-A Relationship belongs to Discovery.
-
-Current data possession belongs to later Personal Data Acquisition and Understanding capabilities.
+That question belongs to later Personal Data Acquisition and Understanding capabilities.
 
 ---
 
-### 19.4 Relationship and ConnectedSource
+# 34. RelationshipStatus
 
-A Relationship is not owned by one Connected Source.
+`RelationshipStatus` describes the level of semantic support for a User-Service Relationship.
 
-It may be supported by Evidence originating from multiple Connected Sources.
+The initial conceptual states are:
+
+```text
+UNKNOWN
+OBSERVED
+ESTABLISHED
+REJECTED
+```
+
+---
+
+## 34.1 UNKNOWN
+
+Available Evidence is insufficient to justify that a meaningful Relationship existed.
+
+This does not mean that no Relationship exists.
+
+It means only that available observed information does not justify a stronger conclusion.
+
+---
+
+## 34.2 OBSERVED
+
+Evidence demonstrates some interaction or communication involving the Service, but does not justify a stronger Relationship conclusion.
+
+Possible examples may include:
+
+```text
+marketing
+newsletter
+privacy communication
+browser visit
+```
+
+depending on explicit assessment policy.
+
+---
+
+## 34.3 ESTABLISHED
+
+Available Evidence provides a justified basis for concluding that a meaningful Relationship existed.
+
+Potential supporting information may include:
+
+```text
+account-related Evidence
+commercial Evidence
+authentication Evidence
+password-manager Evidence
+multi-source Evidence
+User confirmation
+```
+
+The exact Evidence combinations required for this state remain subject to empirical validation.
+
+---
+
+## 34.4 REJECTED
+
+The apparent Relationship should not currently be attributed to the User.
+
+Potential reasons include:
+
+- explicit User rejection;
+- verified misattribution;
+- Evidence belonging to another person;
+- correction demonstrating an incorrect Service association.
+
+REJECTED requires provenance.
+
+Weak Evidence alone must not automatically produce rejection.
+
+---
+
+# 35. TemporalStatus
+
+`TemporalStatus` describes the temporal interpretation of a Relationship independently from its semantic support.
+
+The initial conceptual states are:
+
+```text
+UNKNOWN
+CURRENTLY_OBSERVED
+HISTORICAL
+```
+
+---
+
+## 35.1 UNKNOWN
+
+The framework cannot safely determine whether the Relationship is current or historical.
 
 Example:
 
 ```text
-                       Spotify
-                          |
-                    Relationship
-                    /     |      \
-                   /      |       \
-                  v       v        v
-            Gmail A   Outlook   Password Manager
-            Evidence  Evidence      Evidence
+RelationshipStatus:
+ESTABLISHED
+
+Evidence:
+PASSWORD_MANAGER_ENTRY
+
+TemporalStatus:
+UNKNOWN
 ```
 
-Disconnecting one Connected Source must not automatically remove a Relationship if other Evidence still supports it.
-
-The Relationship may instead require reassessment.
+The entry does not establish whether credentials still work or the account still exists.
 
 ---
 
-## 20. Evidence Supporting Relationships
+## 35.2 CURRENTLY_OBSERVED
 
-A Relationship may be supported by multiple Evidence items.
+Recent Evidence indicates ongoing observable interaction.
+
+This does not mean:
+
+```text
+Active Account Confirmed
+```
+
+A recent newsletter may indicate ongoing communication without proving account activity.
+
+---
+
+## 35.3 HISTORICAL
+
+Available Evidence supports that the Relationship existed in the past, while current continuation is not established or Evidence indicates that it ended.
+
+Example:
+
+```text
+2021 ACCOUNT_VERIFICATION
+2022 PAYMENT
+2024 ACCOUNT_DELETION
+```
+
+may support:
+
+```text
+RelationshipStatus:
+ESTABLISHED
+
+TemporalStatus:
+HISTORICAL
+```
+
+Historical does not imply that the Service currently retains no data.
+
+---
+
+# 36. RelationshipStatus and TemporalStatus
+
+Relationship support and time are separate dimensions.
+
+Valid combinations may include:
+
+```text
+ESTABLISHED + HISTORICAL
+```
+
+```text
+ESTABLISHED + UNKNOWN
+```
+
+```text
+OBSERVED + CURRENTLY_OBSERVED
+```
+
+```text
+REJECTED + UNKNOWN
+```
+
+The model intentionally does not use one flat state enumeration containing:
+
+```text
+POSSIBLE
+PROBABLE
+CONFIRMED
+HISTORICAL
+```
+
+because those values mix support level and time.
+
+---
+
+# 37. Relationship Assessment
+
+Relationship Assessment interprets an EvidenceAggregate and produces a Relationship assessment.
+
+It is a Domain Process.
 
 Conceptually:
 
 ```text
-               Relationship
-              /      |      \
-             /       |       \
-            v        v        v
-        Evidence  Evidence  Evidence
-```
-
-Evidence may originate from:
-
-- different Observations;
-- different Connected Sources;
-- different SourceTypes;
-- different providers;
-- different times.
-
-This cross-source support is a core requirement of the framework.
-
----
-
-## 21. Multi-Source Convergence
-
-The same canonical Service may be discovered independently through multiple Connected Sources.
-
-For example:
-
-```text
-Personal Gmail
-      |
-      v
-Observation
-      |
-      v
-spotify.com
-      |
-      +----------------------+
-                             |
-                             v
-                          Spotify
-                             ^
-                             |
-      +----------------------+
-      |
-accounts.spotify.com
-      ^
-      |
-Primary Password Manager
-```
-
-The framework must preserve:
-
-```text
-independent ConnectedSource provenance
-```
-
-while allowing:
-
-```text
-canonical Service convergence
-```
-
-This means the framework should not create provider-specific copies such as:
-
-```text
-Spotify_Gmail
-Spotify_Outlook
-Spotify_PasswordManager
-```
-
-when available Evidence indicates that they represent the same Service.
-
----
-
-## 22. Multiple Connected Sources
-
-The target Domain Model must support structures such as:
-
-```text
-User
- |
- +-- ConnectedSource
- |     |
- |     +-- SourceType: EMAIL
- |     +-- Provider: Google
- |     +-- Account: personal@gmail.com
- |
- +-- ConnectedSource
- |     |
- |     +-- SourceType: EMAIL
- |     +-- Provider: Google
- |     +-- Account: oldaddress@gmail.com
- |
- +-- ConnectedSource
- |     |
- |     +-- SourceType: EMAIL
- |     +-- Provider: Microsoft
- |     +-- Account: user@outlook.com
- |
- +-- ConnectedSource
- |     |
- |     +-- SourceType: PASSWORD_MANAGER
- |     +-- Provider: Provider A
- |     +-- Display Name: Primary Vault
- |
- +-- ConnectedSource
+EvidenceAggregate
        |
-       +-- SourceType: PASSWORD_MANAGER
-       +-- Provider: Provider B
-       +-- Display Name: Archive
+       v
+RelationshipAssessor
+       |
+       v
+RelationshipAssessmentResult
+       |
+       v
+Relationship
 ```
 
-Each Connected Source may independently:
-
-- authorize;
-- collect;
-- synchronize;
-- fail;
-- require additional permission;
-- expire;
-- be revoked;
-- be disconnected.
+Assessment should use explicit, explainable and versionable policy.
 
 ---
 
-## 23. Candidate Concept: Account
+# 38. RelationshipAssessmentResult
 
-Scenario 002 exposed a possible distinction between:
+A `RelationshipAssessmentResult` is a processing result.
 
-```text
-Service
-```
-
-and:
+Conceptually:
 
 ```text
-Account
+RelationshipAssessmentResult
+
+- processing_status
+- relationship_status
+- temporal_status
+- service_reference
+- identity_references
+- evidence_basis
+- reason_codes
+- warnings
+- method
+- assessor_version
+- assessment_policy_version
 ```
 
-For example:
+It is classified as:
 
 ```text
-Service:
-Spotify
-
-Account A:
-personal@example.com
-
-Account B:
-oldmail@example.net
+Processing Result / Value Object
 ```
 
-This could eventually produce:
+rather than a Core Domain Entity.
 
-```text
-Service
-   |
-   +-- Account
-   |      |
-   |      +-- Identity
-   |
-   +-- Account
-          |
-          +-- Identity
-```
-
-However, `Account` is not currently a core Domain Entity.
+It may be used to create or update the current Relationship representation.
 
 ---
 
-### 23.1 Why Account May Be Useful
+# 39. Relationship Assessment History
 
-An Account could allow the framework to represent:
+Historical assessments may need to remain available when assessment logic or Evidence changes.
+
+Example:
+
+```text
+January 2026:
+OBSERVED + CURRENTLY_OBSERVED
+
+April 2026:
+ESTABLISHED + CURRENTLY_OBSERVED
+
+October 2026:
+ESTABLISHED + HISTORICAL
+```
+
+A possible future `RelationshipAssessmentHistory` concept may preserve this sequence.
+
+Draft v0.3 does not promote it to a Core Domain Entity.
+
+The initial implementation may instead persist versioned RelationshipAssessmentResults.
+
+---
+
+# 40. No Numerical Confidence
+
+Numerical Confidence is not part of the initial Discovery Domain Model.
+
+The model prefers:
+
+```text
+RelationshipStatus
+TemporalStatus
+Evidence Basis
+Source Diversity
+Temporal Timeline
+Reason Codes
+Warnings
+```
+
+over:
+
+```text
+confidence = 0.87
+```
+
+This applies across:
+
+- Candidate Detection;
+- Entity Resolution;
+- Evidence Classification;
+- Relationship Assessment.
+
+Confidence may be reconsidered only if:
+
+- its exact semantics are defined;
+- representative validation data exists;
+- calibration is possible;
+- it provides measurable User value.
+
+---
+
+# 41. Account
+
+`Account` remains a candidate Domain Concept.
+
+It may eventually represent:
+
+```text
+Service
+ |
+ +-- Account
+ |      |
+ |      +-- IdentitySeed
+ |
+ +-- Account
+        |
+        +-- IdentitySeed
+```
+
+Potential uses include:
 
 - multiple accounts with the same Service;
+- multiple identities;
 - historical accounts;
-- multiple identities used with one Service;
-- shared accounts;
-- migrated accounts.
+- migrated accounts;
+- shared accounts.
 
----
+However, Account is not required for:
 
-### 23.2 Why Account Is Not Yet Included
+- guest purchases;
+- newsletter Relationships;
+- privacy communications;
+- browser interactions;
+- historical commercial Relationships.
 
-Not every Service Relationship exposes an identifiable Account.
-
-For example:
-
-```text
-Marketing Evidence
-Browser Activity
-Guest Purchase
-Privacy Notice
-```
-
-may support a Relationship without revealing a distinct Account.
-
-Therefore, additional evidence is required before determining whether Account should become:
-
-```text
-a core entity
-```
-
-or:
-
-```text
-an optional Relationship detail
-```
-
-For now:
+Therefore:
 
 ```text
 Account = CANDIDATE DOMAIN CONCEPT
@@ -2007,26 +2627,25 @@ Account = CANDIDATE DOMAIN CONCEPT
 
 ---
 
-## 24. Candidate Concept: Organization
+# 42. Organization
 
-A Service may be operated by an Organization.
+An `Organization` may operate one or more Services.
 
-An Organization may operate multiple Services.
-
-A Service may change owner over time.
-
-The framework may eventually need:
+Potential future structure:
 
 ```text
 Organization
-Brand
-Service
-Legal Data Controller
+    |
+    +-- Brand
+    |     |
+    |     +-- Service
+    |
+    +-- Service
 ```
 
-as separate concepts.
+A legal data controller may be distinct from both Brand and Service.
 
-However, Identity and Service Discovery currently focuses on canonical Services.
+The current Discovery Domain lacks sufficient validated requirements to formalize these concepts.
 
 Therefore:
 
@@ -2034,347 +2653,483 @@ Therefore:
 Organization = CANDIDATE DOMAIN CONCEPT
 ```
 
-until later acquisition and governance scenarios demonstrate the required semantics.
-
 ---
 
-## 25. Candidate Concept: ResolutionResult
+# 43. IdentityServiceAssociation
 
-Entity Resolution is behavior, but its result may need to be persistable and versionable.
-
-A `ResolutionResult` could preserve:
+A future `IdentityServiceAssociation` could explicitly model:
 
 ```text
-Observed Identifier
-Normalized Identifier
-Resolved Service
-Resolution Status
-Resolution Method
-Resolver Version
-Creation Time
-```
-
-This concept remains under evaluation because some of its information may instead belong to ServiceIdentifier provenance.
-
----
-
-## 26. Domain Processes
-
-The following concepts represent behavior rather than persistent Domain Entities.
-
----
-
-### 26.1 Connector
-
-```text
-ConnectedSource
-       |
-       v
-Connector
-       |
-       v
-Observation
-```
-
-Responsibilities include authorized retrieval, source minimization and translation.
-
----
-
-### 26.2 ServiceCandidateDetector
-
-```text
-Observation
-     |
-     v
-Candidate Detector
-    / \
- yes   no
-```
-
-Determines whether an Observation is relevant to Service Discovery.
-
----
-
-### 26.3 EntityResolver
-
-```text
-ServiceIdentifier
+IdentitySeed
       |
       v
-EntityResolver
+IdentityServiceAssociation
       |
       v
-Service / Unresolved
+Service
 ```
 
-Determines which canonical Service an observed identifier may represent.
-
----
-
-### 26.4 EvidenceClassifier
+This may support queries such as:
 
 ```text
-Observation
-     |
-     v
-EvidenceClassifier
-     |
-     v
-Evidence
+Which Services were associated with this historical email address?
 ```
 
-Assigns semantic meaning while allowing `UNKNOWN`.
+Draft v0.3 does not promote this concept because Identity references can currently be preserved through the User-Service Relationship and its Evidence basis.
 
----
-
-### 26.5 EvidenceAggregator
+Therefore:
 
 ```text
-Evidence
-Evidence
-Evidence
-    |
-    v
-EvidenceAggregator
+IdentityServiceAssociation = CANDIDATE DOMAIN CONCEPT
 ```
-
-Combines Evidence for Relationship Assessment without destroying individual provenance.
 
 ---
 
-### 26.6 RelationshipAssessor
+# 44. CollectionRun
+
+A future `CollectionRun` may represent one collection or synchronization execution.
+
+Conceptually:
 
 ```text
-Aggregated Evidence
-        |
-        v
-RelationshipAssessor
-        |
-        v
-Relationship
+CollectionRun
+
+- id
+- connected_source_reference
+- capability
+- started_at
+- completed_at
+- status
+- continuation
+- errors
+- coverage
 ```
 
-Evaluates what accumulated Evidence suggests about the Identity-Service Relationship.
+It may support:
+
+- partial collection;
+- retries;
+- measurement;
+- synchronization;
+- debugging;
+- coverage reporting.
+
+CollectionRun currently belongs more naturally to the application and synchronization model than to the Core Discovery Domain.
+
+Therefore:
+
+```text
+CollectionRun = APPLICATION-LEVEL CANDIDATE
+```
 
 ---
 
-## 27. Domain Entities vs Processes
+# 45. Domain Entities, Values and Processes
 
-| Concept | Current Classification |
+| Concept | Draft v0.3 classification |
 |---|---|
 | `User` | Core Domain Entity |
 | `IdentitySeed` | Core Domain Entity |
 | `ConnectedSource` | Core Domain Entity |
 | `Observation` | Core Domain Entity |
-| `ServiceIdentifier` | Core Domain Entity / Value Concept |
 | `Service` | Core Domain Entity |
 | `Evidence` | Core Domain Entity |
 | `Relationship` | Core Domain Entity |
+| `ServiceIdentifier` | Domain Value Concept |
 | `SourceType` | Classification Concept |
-| `Provider` | Classification / Reference Concept |
-| `Connector` | Process / Integration Boundary |
+| `Provider` | Reference / Classification Concept |
+| `Capability` | Classification / Policy Concept |
+| `ObservationType` | Controlled Type Concept |
+| `SchemaVersion` | Value Concept |
+| `TemporalValue` | Value Concept |
+| `TemporalSemantics` | Controlled Type Concept |
+| `EvidenceType` | Controlled Taxonomy Concept |
+| `EvidenceStatus` | Lifecycle State Concept |
+| `RelationshipStatus` | Relationship State Concept |
+| `TemporalStatus` | Relationship Temporal State Concept |
+| `EvidenceAggregate` | Derived View |
+| `EvidenceSummary` | Derived Value |
+| `SourceSummary` | Derived Value |
+| `TemporalSummary` | Derived Value |
+| `ConflictSummary` | Derived Value |
+| `CoverageSummary` | Derived Processing Context |
+| `CandidateDetectionResult` | Processing Result |
+| `ResolutionResult` | Processing Result / Value Object |
+| `ClassificationResult` | Processing Result |
+| `EvidenceCandidate` | Interface Value Object |
+| `AggregationResult` | Processing Result |
+| `RelationshipAssessmentResult` | Processing Result |
+| `Connector` | Integration Boundary / Process |
 | `ServiceCandidateDetector` | Domain Process |
 | `EntityResolver` | Domain Process |
 | `EvidenceClassifier` | Domain Process |
 | `EvidenceAggregator` | Domain Process |
 | `RelationshipAssessor` | Domain Process |
-| `ResolutionResult` | Candidate Value Concept |
+| `ServiceRegistry` | Application / Repository Boundary |
 | `Account` | Candidate Domain Concept |
 | `Organization` | Candidate Domain Concept |
-
-These classifications remain provisional and may be revised if implementation or additional scenarios expose contradictions.
+| `IdentityServiceAssociation` | Candidate Domain Concept |
+| `CollectionRun` | Application-Level Candidate |
+| `RelationshipAssessmentHistory` | Candidate Historical Concept |
 
 ---
 
-## 28. Conceptual Multi-Source Model
-
-The target Discovery Domain should support a topology similar to:
+# 46. Conceptual Multi-Source Model
 
 ```text
-                                  USER
-                                    |
-                  +-----------------+-----------------+
-                  |                                   |
-                  v                                   v
-            IDENTITY SEED                     CONNECTED SOURCE
-                                                      |
-                                  +-------------------+-------------------+
-                                  |                   |                   |
-                                  v                   v                   v
-                            Personal Gmail      Work Outlook       Password Manager
-                                  |                   |                   |
-                                  v                   v                   v
-                            GmailConnector     OutlookConnector     VaultConnector
-                                  |                   |                   |
-                                  +-------------------+-------------------+
-                                                      |
-                                                      v
-                                                 OBSERVATIONS
-                                                      |
-                                      +---------------+---------------+
-                                      |                               |
-                                      v                               v
-                              SERVICE IDENTIFIERS          EVIDENCE CLASSIFICATION
-                                      |                               |
-                                      v                               v
-                               ENTITY RESOLUTION                    EVIDENCE
-                                      |                               |
-                                      v                               |
-                                   SERVICE <--------------------------+
-                                      |
-                                      v
-                                RELATIONSHIP
-                                      |
-                                      v
-                                 SERVICE GRAPH
+                                      USER
+                     +-----------------+-----------------+
+                     |                                   |
+                     v                                   v
+              IDENTITY SEEDS                    CONNECTED SOURCES
+                                                        |
+                               +------------------------+----------------------+
+                               |                        |                      |
+                               v                        v                      v
+                        Personal Gmail            Work Outlook         Password Manager
+                               |                        |                      |
+                               v                        v                      v
+                        GmailConnector           OutlookConnector       VaultConnector
+                               |                        |                      |
+                               +------------------------+----------------------+
+                                                        |
+                                                        v
+                                                   OBSERVATIONS
+                                                    /        \
+                                                   /          \
+                                                  v            v
+                                     SERVICE IDENTIFIERS      EVIDENCE
+                                                  |            |
+                                                  v            |
+                                          ENTITY RESOLUTION    |
+                                                  |            |
+                                                  v            |
+                                               SERVICE         |
+                                                  \            /
+                                                   \          /
+                                                    v        v
+                                                EVIDENCE AGGREGATE
+                                                        |
+                                                        v
+                                                   RELATIONSHIP
+                                                   /     |      \
+                                                  /      |       \
+                                                 v       v        v
+                                             STATUS   TEMPORAL  IDENTITIES
+                                                        |
+                                                        v
+                                                  SERVICE GRAPH
 ```
 
-Future source types and providers should be able to join this architecture without changing the common Discovery Domain.
+Future providers should be able to join this architecture without changing the common Domain Model.
 
 ---
 
-## 29. Domain Invariants
+# 47. Domain Invariants
 
-The following invariants should hold unless future scenarios demonstrate otherwise.
+## INV-001
 
-### INV-001
-
-A Service must not be created solely because an arbitrary external identifier was observed.
-
-```text
-IDENTIFIER != SERVICE
-```
+Every ConnectedSource must belong to one User.
 
 ---
 
-### INV-002
-
-Evidence must remain traceable to supporting Observations.
-
-```text
-Evidence
-   |
-   v
-Observation
-```
-
-must remain reconstructable.
-
----
-
-### INV-003
-
-Every Observation must retain a reference to the Connected Source from which it originated.
-
----
-
-### INV-004
-
-Every Connected Source must belong to a User.
-
----
-
-### INV-005
+## INV-002
 
 A Connector implementation may serve multiple independent Connected Sources.
 
 ---
 
-### INV-006
+## INV-003
 
-Multiple Connected Sources using the same provider must be independently manageable.
-
----
-
-### INV-007
-
-Disconnecting one Connected Source must not automatically disconnect another Connected Source.
+Disconnecting one ConnectedSource must not automatically disconnect another ConnectedSource.
 
 ---
 
-### INV-008
+## INV-004
 
-An unresolved Observation must not require creation of a fabricated Service.
-
----
-
-### INV-009
-
-Classification failure must be representable as `UNKNOWN`.
+IdentitySeed and ConnectedSource must not be assumed equivalent.
 
 ---
 
-### INV-010
+## INV-005
 
-A Relationship must not be interpreted as proof of current personal-data possession.
-
----
-
-### INV-011
-
-Multiple Observations may support one Service.
+Every Observation must reference exactly one ConnectedSource.
 
 ---
 
-### INV-012
+## INV-006
 
-Multiple Connected Sources may support one Service.
-
----
-
-### INV-013
-
-Multiple providers may contribute Evidence to one canonical Service.
+An Observation must not expose provider credentials required only for source access.
 
 ---
 
-### INV-014
+## INV-007
 
-Source-specific secrets unnecessary for Service Discovery must not become normal Discovery Observations.
+Authentication secrets unnecessary for Discovery must not become normal Observation attributes.
 
 ---
 
-### INV-015
+## INV-008
+
+Observation payload must conform to its ObservationType and SchemaVersion.
+
+---
+
+## INV-009
+
+Provider-specific raw objects must not become common Observation payloads without minimization and normalization.
+
+---
+
+## INV-010
+
+Observation temporal values must preserve source semantics.
+
+---
+
+## INV-011
+
+Collection completeness must not be inferred from the presence or absence of individual Observations.
+
+---
+
+## INV-012
+
+Candidate status must remain distinct from Entity Resolution status.
+
+---
+
+## INV-013
+
+An unresolved identifier must not require creation of a fabricated Service.
+
+---
+
+## INV-014
+
+Original identifiers must remain traceable after normalization and resolution.
+
+---
+
+## INV-015
+
+Provider identity must not create provider-specific copies of canonical Services.
+
+---
+
+## INV-016
+
+Multiple identifiers may resolve to one Service.
+
+---
+
+## INV-017
+
+One identifier must not be assumed to identify one Service in every context.
+
+---
+
+## INV-018
+
+Service and Organization must remain distinct concepts.
+
+---
+
+## INV-019
+
+Evidence must remain traceable to supporting Observations.
+
+---
+
+## INV-020
+
+Evidence Classification must not require successful Entity Resolution.
+
+---
+
+## INV-021
+
+Entity Resolution must not require successful Evidence Classification.
+
+---
+
+## INV-022
+
+One Observation may produce zero, one or multiple Evidence items.
+
+---
+
+## INV-023
+
+Multiple Evidence items from one Observation must be independently justified.
+
+---
+
+## INV-024
+
+Evidence must not be interpreted as a confirmed real-world event.
+
+---
+
+## INV-025
+
+Only currently accepted Evidence should normally participate in current Aggregation.
+
+---
+
+## INV-026
+
+Superseded Evidence must remain distinguishable from Active Evidence.
+
+---
+
+## INV-027
+
+Rejected Evidence must not participate in current Relationship Assessment.
+
+---
+
+## INV-028
+
+EvidenceStatus.REJECTED must remain distinct from RelationshipStatus.REJECTED.
+
+---
+
+## INV-029
+
+An EvidenceAggregate must remain traceable to its contributing Evidence.
+
+---
+
+## INV-030
+
+An EvidenceAggregate must be treated as derived state.
+
+---
+
+## INV-031
+
+Deleting a materialized EvidenceAggregate must not delete underlying Evidence.
+
+---
+
+## INV-032
+
+Evidence frequency must not automatically determine Relationship strength.
+
+---
+
+## INV-033
+
+Source diversity must not automatically determine Relationship strength.
+
+---
+
+## INV-034
+
+Unresolved-Service Evidence must not be discarded.
+
+---
+
+## INV-035
+
+Ambiguous-Service Evidence must not be arbitrarily assigned to a canonical Service.
+
+---
+
+## INV-036
+
+Conflicting Evidence must remain preserved.
+
+---
+
+## INV-037
+
+Temporal aggregation must not erase source-specific temporal semantics.
+
+---
+
+## INV-038
+
+A Relationship must reference one User and one Service.
+
+---
+
+## INV-039
+
+A Relationship may preserve zero, one or multiple Identity references.
+
+---
+
+## INV-040
+
+Multiple Identity references must not automatically imply multiple Accounts.
+
+---
+
+## INV-041
+
+RelationshipStatus and TemporalStatus must remain separate dimensions.
+
+---
+
+## INV-042
+
+A Relationship must not imply a conventional Account.
+
+---
+
+## INV-043
+
+A Relationship must not imply current personal-data possession.
+
+---
+
+## INV-044
+
+Historical Relationships must remain representable in the Service Graph.
+
+---
+
+## INV-045
+
+User corrections must not destructively rewrite source Observations.
+
+---
+
+## INV-046
 
 Derived information must not destructively replace its source provenance.
 
 ---
 
-### INV-016
+## INV-047
+
+Technical processing failure must remain distinct from Domain uncertainty.
+
+---
+
+## INV-048
 
 AI availability must not be required for deterministic Discovery operations.
 
 ---
 
-### INV-017
+## INV-049
 
-Provider authorization credentials must not be represented as ordinary ConnectedSource attributes.
-
----
-
-### INV-018
-
-The absence of Observations must not be interpreted as absence of relevant source information unless collection completed successfully.
+No numerical Confidence is required by the initial Discovery Domain Model.
 
 ---
 
-### INV-019
+## INV-050
 
-A Connected Source and an Identity Seed must not be assumed to be equivalent.
-
----
-
-### INV-020
-
-A Provider and a discovered Service must remain distinguishable domain roles, even when they refer to the same real-world organization.
+Relationships must be reassessable when their supporting Evidence or assessment policy changes.
 
 ---
 
-## 30. Lifecycle Considerations
+# 48. Lifecycle Model
 
-Domain concepts have different lifecycles.
-
-Conceptually:
+The primary lifecycle chain is:
 
 ```text
 ConnectedSource
@@ -2386,127 +3141,209 @@ Observation
 Evidence
       |
       v
+EvidenceAggregate
+      |
+      v
 Relationship
 ```
 
-Disconnecting a Connected Source does not necessarily imply automatic deletion of every downstream concept.
+Each concept has an independent lifecycle.
 
 Potential operations include:
 
 ```text
-Disconnect Source
+Disconnect ConnectedSource
 Revoke Authorization
 Delete Credentials
 Delete Cached Provider Data
-Delete Observations
-Delete Evidence
-Recalculate Relationships
-Delete ConnectedSource
+Delete Observation
+Reject Evidence
+Supersede Evidence
+Rebuild Aggregate
+Reassess Relationship
+Delete Relationship
 ```
 
-These operations must remain conceptually distinguishable.
+These operations must not be treated as equivalent.
 
 ---
 
-### 30.1 Source Disconnection
+# 49. ConnectedSource Lifecycle
 
-When a Connected Source is disconnected:
+When a ConnectedSource is disconnected:
 
 - new collection must stop;
-- authorization material should be invalidated or removed as appropriate;
+- authorization material should be revoked or removed as appropriate;
 - other Connected Sources must remain unaffected;
-- existing Observations and Evidence require an explicit lifecycle decision;
-- Relationships may need reassessment if they depended only on that source.
+- existing Observations require an explicit retention decision;
+- derived Evidence may require deletion or invalidation;
+- affected Aggregates require rebuilding;
+- affected Relationships require reassessment.
 
-The exact deletion and retention policy belongs to the Privacy and Security Architecture.
+Disconnection must not mechanically delete all downstream information without policy evaluation.
 
 ---
 
-### 30.2 Authorization Expiration
+# 50. Observation Lifecycle
 
-Authorization expiration does not necessarily mean that the Connected Source no longer exists.
+Observations may be:
 
-Conceptually:
+- retained for reprocessing;
+- minimized;
+- stored ephemerally;
+- deleted after derived information is created;
+- deleted by User request or retention policy.
+
+Deleting an Observation may require:
 
 ```text
-ConnectedSource:
-exists
-
-Authorization:
-expired
+Identify dependent Evidence
+        |
+        v
+Reject or delete dependent Evidence
+        |
+        v
+Rebuild affected Aggregates
+        |
+        v
+Reassess affected Relationships
 ```
 
-The source may be reauthorized later.
+The exact retention policy remains outside this Domain Model.
 
 ---
 
-### 30.3 Revocation
+# 51. Evidence Lifecycle
 
-Revocation must be distinguishable from voluntary disconnection where the provider supports that distinction.
-
-Both operations stop future collection, but they may have different security and provider-side semantics.
-
----
-
-### 30.4 Relationship Reassessment
-
-If Evidence from one Connected Source is removed, the framework may need to reassess affected Relationships.
+Evidence lifecycle must support reclassification.
 
 Example:
 
 ```text
-Spotify Relationship
- |
- +-- Gmail Evidence
- |
- +-- Password Manager Evidence
+Evidence A
+Type:
+MARKETING
+Status:
+ACTIVE
 ```
 
-If Gmail Evidence is deleted, the Relationship may remain supported by Password Manager Evidence.
+after reclassification may become:
 
-The Relationship must not be deleted mechanically without reassessment.
+```text
+Evidence A
+Status:
+SUPERSEDED
+```
+
+while:
+
+```text
+Evidence B
+Type:
+PRIVACY_NOTICE
+Status:
+ACTIVE
+```
+
+is created from the same Observation.
+
+The older Evidence remains historically explainable but should not be counted as a simultaneous current semantic event.
 
 ---
 
-## 31. Reprocessing
+# 52. Aggregate Lifecycle
 
-Observations should support reprocessing where practical.
+EvidenceAggregates may be:
 
-Example:
+```text
+computed on demand
+```
+
+or:
+
+```text
+materialized
+```
+
+If materialized, they must be invalidated or rebuilt when:
+
+- Active Evidence changes;
+- Evidence is superseded;
+- Evidence is rejected;
+- Service Resolution changes;
+- Identity association changes;
+- Service merge occurs;
+- Service split occurs;
+- aggregation policy changes;
+- relevant source data is deleted.
+
+---
+
+# 53. Relationship Lifecycle
+
+A Relationship may be created, updated, rejected or reassessed.
+
+Reassessment may be triggered by:
+
+```text
+new Evidence
+Evidence removal
+Evidence status change
+Entity re-resolution
+Service merge
+Service split
+Identity reassociation
+User correction
+ConnectedSource deletion
+Assessment policy change
+Assessor version change
+```
+
+A historical Relationship should not be deleted merely because it is no longer currently observed.
+
+---
+
+# 54. Reprocessing
+
+The Domain Model supports controlled reprocessing.
 
 ```text
 Observation
     |
-    +--> EvidenceClassifier v1
-    |           |
-    |           v
-    |       Evidence v1
+    +--> Classifier v1
     |
-    +--> EvidenceClassifier v2
-                |
-                v
-            Evidence v2
+    +--> Classifier v2
 ```
 
-Similarly:
+and:
 
 ```text
 ServiceIdentifier
       |
-      +--> EntityResolver v1
+      +--> Resolver v1
       |
-      +--> EntityResolver v2
+      +--> Resolver v2
 ```
 
-This allows the framework to improve classification and resolution without necessarily retrieving source information again.
+Reprocessing must preserve enough provenance to determine:
 
-The exact persistence required to enable reprocessing remains an open question.
+- which processing version produced a result;
+- which result is currently accepted;
+- which result was superseded;
+- why a Relationship changed.
 
 ---
 
-## 32. User Correction
+# 55. User Correction
 
-Future versions should allow the User to correct derived conclusions.
+The User should eventually be able to correct:
+
+- Service resolution;
+- Service merge or split;
+- Evidence classification;
+- Identity association;
+- Relationship attribution;
+- temporal interpretation.
 
 Examples include:
 
@@ -2515,274 +3352,248 @@ Examples include:
 
 "These two Services are the same."
 
-"These two Services are different."
+"This was not my account."
 
-"This account does not belong to me."
+"This was a guest purchase."
 
-"This was only a guest purchase."
+"This Relationship was historical."
 
-"This Relationship is historical."
-
-"This Connected Source is associated with a different Identity Seed."
+"This Evidence was misclassified."
 ```
 
-User correction should not silently destroy historical provenance.
+Corrections must remain attributable to the User.
 
-Corrections should remain attributable to the User and distinguishable from automated conclusions.
+They must not silently rewrite original Observations or historical processing results.
 
 ---
 
-## 33. Deliberately Undefined
+# 56. Deliberately Undefined
 
-Draft v0.2 intentionally does not define:
+Draft v0.3 intentionally does not define:
 
 ```text
 Database technology
-Database schema
+Graph technology
 Python classes
-Application package structure
+Package architecture
 REST API
-Graph database
-Service Graph implementation
-Final Observation schema
+JSON Schema
+Final Observation payload schemas
 Final Evidence taxonomy
-Final Relationship states
-Confidence algorithm
-AI provider
-Entity Resolution algorithm
-Persistence strategy
-Authorization credential storage
+Final relationship assessment rules
+Service granularity
+Service Registry implementation
+Service creation workflow
+Service merge implementation
+Service split implementation
 Account representation
 Organization model
 Legal Data Controller model
-Connector plugin registration
+CollectionRun implementation
+Retention policy
+Credential storage technology
+AI provider
+Numerical Confidence
 ```
 
-These decisions should follow Domain and interface validation rather than precede it.
+These decisions should follow implementation-oriented design and empirical validation.
 
 ---
 
-## 34. Open Questions
+# 57. Open Questions
 
-### User and Identity
+## User and Identity
 
 - Can new Identity Seeds be proposed from authorized Observations?
-- Must the User explicitly confirm all newly discovered identities?
+- Must all newly discovered identities be explicitly confirmed?
 - How should historical identities be represented?
-- How should aliases be represented?
-- Can one Connected Source be associated with multiple Identity Seeds?
+- How should aliases be modeled?
+- When is IdentityServiceAssociation required?
 
-### ConnectedSource
+## ConnectedSource
 
-- Which connection states are required?
-- Should connection state and authorization state be separate?
-- Which synchronization state belongs to ConnectedSource?
-- Which state should remain internal to the Connector?
-- How should external account references be protected?
-- Can one Connected Source change Provider identity?
-- How should locally imported files be represented as Connected Sources?
-- How should manual input be represented if it has no external authorization lifecycle?
+- What exact connection states are required?
+- Should connection and authorization state remain separate?
+- Where should synchronization state be stored?
+- How should locally imported files be represented?
+- How should manual input be represented as a ConnectedSource?
 
-### Provider
+## Observation
 
-- Should Provider be an entity, enum or external registry entry?
-- How should provider rebranding be handled?
-- How should self-hosted or local providers be represented?
-- How should multiple products from the same organization be distinguished?
-
-### Connector
-
-- How are Connector implementations registered?
-- Can a Connector support more than one SourceType?
-- Can different Connector implementations support the same Provider?
-- How should Connector versions be managed?
-- How are provider-specific capabilities mapped to common framework capabilities?
-
-### Observation
-
-- What is the minimal common Observation envelope?
-- How should typed source-specific attributes be represented?
+- Which Observation Types belong to the first MVP?
+- How will typed payload schemas be implemented?
 - Which Observations should be persisted?
-- Which source information can safely be discarded after classification?
-- How should source-specific temporal semantics be represented?
-- How should Observations be versioned?
+- Which Observations may remain ephemeral?
+- Should Connector version be mandatory provenance?
+- Is a CollectionRun reference required?
 
-### ServiceIdentifier
+## ServiceIdentifier
 
-- Which identifier types are required?
-- Can one identifier resolve to multiple Services in different contexts?
-- How should historical identifiers be represented?
-- How should third-party infrastructure identifiers be handled?
-- Should normalized and original identifiers be separate values?
+- Which identifier types belong to the initial vocabulary?
+- Should full URLs remain identifiers?
+- How are historical identifiers represented?
+- How are third-party infrastructure identifiers handled?
+- How should public-suffix reference data be versioned?
 
-### Service
+## Service
 
-- When are two Services considered the same?
-- How should rebranding and acquisitions be represented?
-- Should Service and Brand be separate?
-- Should Service and Organization be separate?
-- How should legal data controllers eventually relate to Services?
+- At what granularity should Services be canonicalized?
+- Who creates a new Service?
+- How is the initial Service Registry populated?
+- How are aliases maintained?
+- How are rebranding and acquisitions represented?
+- How are Service merge and split operations governed?
 
-### Evidence
+## Evidence
 
-- Which Evidence Types should be common across source types?
-- Which should remain source-specific?
-- Can one Observation generate multiple Evidence items?
-- Can multiple Observations generate one Evidence item?
-- How should conflicting Evidence be represented?
+- What is the first controlled Evidence taxonomy?
+- Which Evidence Types are provider-neutral?
+- Which source-specific Evidence Types are justified?
+- What are the exact EvidenceStatus transition rules?
+- Can Rejected Evidence become Active again?
+- How are User corrections prioritized?
+- What constitutes duplicate logical Evidence?
 
-### Relationship
+## Aggregation
 
-- Is a Relationship primarily between User and Service or IdentitySeed and Service?
-- Can multiple Identity Seeds participate in one Relationship?
-- How should historical Relationships be represented?
-- How should conflicting Evidence affect a Relationship?
-- How should removal of source Evidence trigger reassessment?
+- Should Aggregates be computed on demand or materialized?
+- How should unresolved candidate contexts be grouped?
+- What constitutes a semantic Evidence conflict?
+- Which coverage information belongs in an Aggregate?
+- How are incremental and full rebuild results kept equivalent?
 
-### Account
+## Relationship
 
-- Should Account become a first-class Domain Entity?
-- Can a Relationship exist without an Account?
-- Can multiple Accounts belong to the same Service?
-- Can one Account use multiple Identity Seeds?
-- How should shared Accounts be represented?
-- How should guest purchases be represented?
+- Are the proposed RelationshipStatus values sufficient?
+- Are the proposed TemporalStatus values sufficient?
+- Which Evidence combinations justify ESTABLISHED?
+- How should User confirmation affect status?
+- Does REJECTED require explicit User input?
+- Should assessment history become a first-class concept?
 
-### Privacy
+## Account
 
-- What information must be removed at the Connector boundary?
-- Which provider attributes may be persisted?
-- How long should Observations and Evidence remain locally stored?
-- How should deletion propagate through derived information?
-- How should external account references be encrypted or minimized?
-- How should credential references be separated from Domain persistence?
+- When should Account be promoted?
+- How should shared accounts be represented?
+- How should migrated accounts be represented?
+- How should guest interactions coexist with Account entities?
+
+## Organization
+
+- When should Organization enter the Domain Model?
+- How should Brands and Products relate to Services?
+- How should Legal Data Controllers be modeled?
+
+## Coverage
+
+- Should CollectionRun become a formal application entity?
+- How is source completeness exposed to Relationship Assessment?
+- How is partial discovery communicated to the User?
+
+## Privacy
+
+- What retention period applies to Observations?
+- What retention period applies to superseded Evidence?
+- How are source references protected?
+- How does deletion propagate?
+- Which Observation Types may be processed by remote AI?
 
 ---
 
-## 35. Validation Status
+# 58. Validation Status
 
-Draft v0.2 is based on two structurally different Discovery scenarios and the first Connector Contract.
+Draft v0.3 is validated against two structurally different scenarios.
 
-### Scenario 001 - Gmail Service Discovery
+## Scenario 001 - Gmail Service Discovery
 
 Validated:
 
 ```text
-Connector
-Observation
-ServiceIdentifier
+Email metadata Observations
+Service Candidate Detection
 Entity Resolution
 Evidence Classification
 Evidence Aggregation
-Relationship Assessment
+Historical Relationships
 Progressive Permission
 Provenance
+UNKNOWN classifications
 ```
 
-### Scenario 002 - Password Manager Service Discovery
+## Scenario 002 - Password Manager Service Discovery
 
 Further validated:
 
 ```text
-Source-independent Observation
-Source-independent Entity Resolution
-Deterministic Evidence Classification
-Cross-source Service convergence
+Source-independent Connector boundary
+Non-email Observation types
 Sensitive-source minimization
-Multiple identities per Service
-Historical Relationships
+Deterministic classification
+Cross-source Service convergence
+Multiple Identity references
+Source-specific timestamps
+Historical credentials
+Unresolved Services
 ```
 
-Scenario 002 also exposed:
+## Software Contract Cycle
+
+The seven software contracts further validated:
 
 ```text
-Account
+ConnectedSource as Core Entity
+Common Observation envelope
+Typed Observation payloads
+Provider-neutral Observation Types
+Candidate / Resolution separation
+Parallel Entity Resolution and Classification
+Explicit resolution states
+Controlled Evidence taxonomy
+Evidence lifecycle requirement
+Derived Aggregate semantics
+RelationshipStatus / TemporalStatus separation
+No numerical Confidence in the initial model
 ```
-
-as a candidate Domain Concept.
-
-### Connector Contract
-
-The Connector Contract demonstrated that the framework must distinguish between:
-
-```text
-Connector Implementation
-```
-
-and:
-
-```text
-A particular external source instance connected by the User
-```
-
-This distinction is required to support:
-
-- multiple Gmail accounts;
-- multiple email providers;
-- multiple password managers;
-- independent authorization states;
-- independent synchronization states;
-- per-source collection;
-- per-source revocation;
-- per-source disconnection;
-- Observation provenance.
-
-For this reason, Draft v0.2 promotes:
-
-```text
-ConnectedSource
-```
-
-to a core Domain Entity.
 
 ---
 
-## 36. Current Domain Model
+# 59. Current Domain Model
 
-The current baseline is:
+The consolidated Domain Model is:
 
 ```text
 CORE DOMAIN
 
-User
+USER
  |
- +-- IdentitySeed
+ +-- IDENTITY SEED
  |
- +-- ConnectedSource
-        |
-        v
-    Observation
-        |
-        +-----------> ServiceIdentifier
-        |                    |
-        |                    v
-        |              Entity Resolution
-        |                    |
-        |                    v
-        |                 Service
-        |
-        v
-     Evidence
-        |
-        v
-   Relationship
-        |
-        +------------ IdentitySeed
-        |
-        +------------ Service
+ +-- CONNECTED SOURCE
+ |       |
+ |       v
+ |   OBSERVATION
+ |      /     \
+ |     /       \
+ |    v         v
+ | SERVICE    EVIDENCE
+ | IDENTIFIER    |
+ |    |          |
+ |    v          |
+ | SERVICE ------+
+ |    |
+ +----+----------------------+
+      |                      |
+      v                      v
+ RELATIONSHIP          IDENTITY REFERENCES
+      |
+      +-- RELATIONSHIP STATUS
+      |
+      +-- TEMPORAL STATUS
+      |
+      +-- EVIDENCE BASIS
 ```
 
 with:
-
-```text
-CLASSIFICATION AND REFERENCE CONCEPTS
-
-SourceType
-Provider
-Capability
-```
-
-and:
 
 ```text
 DOMAIN PROCESSES
@@ -2795,6 +3606,19 @@ EvidenceAggregator
 RelationshipAssessor
 ```
 
+with:
+
+```text
+DERIVED VIEWS
+
+EvidenceAggregate
+EvidenceSummary
+SourceSummary
+TemporalSummary
+ConflictSummary
+CoverageSummary
+```
+
 and:
 
 ```text
@@ -2802,141 +3626,174 @@ CANDIDATE CONCEPTS
 
 Account
 Organization
-ResolutionResult
+Brand
+LegalDataController
+IdentityServiceAssociation
+CollectionRun
+RelationshipAssessmentHistory
 ```
 
 ---
 
-## 37. Changes from Draft v0.1
+# 60. Changes from Draft v0.2
 
-Draft v0.2 introduces the following changes.
+## Relationship Reoriented
 
-### ConnectedSource Promoted
-
-`ConnectedSource` is promoted from:
+The primary Relationship changes from:
 
 ```text
-Candidate Domain Concept
+IdentitySeed -> Relationship -> Service
 ```
 
 to:
 
 ```text
-Core Domain Entity
+User -> Relationship -> Service
 ```
 
-### DiscoverySource Refined
-
-The broad architectural concept of DiscoverySource is refined through:
-
-```text
-SourceType
-Provider
-ConnectedSource
-```
-
-### Connector Relationship Clarified
-
-A Connector implementation may serve multiple Connected Sources.
-
-```text
-Connector
-   |
-   +-- ConnectedSource A
-   |
-   +-- ConnectedSource B
-```
-
-### Observation Provenance Strengthened
-
-Every Observation must reference the Connected Source from which it originated.
-
-### Source Lifecycle Added
-
-Independent authorization, revocation, disconnection and synchronization requirements are now represented at the ConnectedSource level.
-
-### Multi-Instance Support Formalized
-
-The Domain Model explicitly supports:
-
-- multiple accounts using the same provider;
-- multiple providers of the same SourceType;
-- multiple password managers;
-- independent connection lifecycle.
-
-### Invariants Updated
-
-New invariants prevent:
-
-- conflating Provider and ConnectedSource;
-- conflating IdentitySeed and ConnectedSource;
-- disconnecting all provider accounts when only one source instance is selected;
-- storing authorization secrets as normal Domain attributes.
+Identity references remain preserved inside the Relationship context.
 
 ---
 
-## 38. Next Design Step
+## Relationship State Split
 
-The next step is to define the software contract for:
+The previous provisional flat state model:
 
 ```text
-Observation
+UNKNOWN
+POSSIBLE
+PROBABLE
+CONFIRMED
+HISTORICAL
+REJECTED
 ```
 
-Every Connector must produce Observations, and every downstream Discovery component depends on them.
-
-The Observation Contract should determine:
+is replaced by two dimensions:
 
 ```text
-What belongs in the common Observation envelope?
+RelationshipStatus
 
-How are source-specific attributes represented?
-
-How is ConnectedSource provenance preserved?
-
-How are source references represented?
-
-How are temporal semantics represented?
-
-How is schema evolution handled?
-
-How are sensitive attributes excluded?
-
-How are duplicate observations detected?
-
-How is collection completeness represented?
+UNKNOWN
+OBSERVED
+ESTABLISHED
+REJECTED
 ```
 
-Only after the Observation boundary is sufficiently stable should downstream contracts be defined for:
+and:
 
 ```text
-ServiceCandidateDetector
-EntityResolver
-EvidenceClassifier
+TemporalStatus
+
+UNKNOWN
+CURRENTLY_OBSERVED
+HISTORICAL
+```
+
+---
+
+## Evidence Lifecycle Added
+
+Evidence now has an explicit lifecycle concept:
+
+```text
+EvidenceStatus
+
+ACTIVE
+SUPERSEDED
+REJECTED
+```
+
+This allows reclassification and User correction without counting incompatible historical interpretations simultaneously.
+
+---
+
+## EvidenceAggregate Classified as Derived State
+
+EvidenceAggregate is no longer treated as a possible Domain Entity.
+
+It is explicitly classified as a rebuildable derived view.
+
+---
+
+## Parallel Processing Formalized
+
+Entity Resolution and Evidence Classification are formally represented as independent branches.
+
+Either process may succeed while the other remains unresolved.
+
+---
+
+## Processing Results Classified
+
+The following are explicitly classified as processing results rather than Core Domain Entities:
+
+```text
+CandidateDetectionResult
+ResolutionResult
+ClassificationResult
+AggregationResult
+RelationshipAssessmentResult
+```
+
+---
+
+## Confidence Removed from Initial Domain
+
+Numerical Confidence is explicitly excluded from the initial Discovery Domain Model.
+
+---
+
+## Service Registry Boundary Recognized
+
+The need for a Service Registry is acknowledged while leaving its application and persistence design open.
+
+---
+
+## Account Remains Candidate
+
+Account is not promoted because meaningful Relationships may exist without identifiable accounts.
+
+---
+
+# 61. Next Design Step
+
+With Architecture Draft v0.3 and Domain Model Draft v0.3 aligned, the next step is a limited terminology alignment across the existing software contracts.
+
+The alignment should update only affected concepts:
+
+```text
+Evidence
+    -> include EvidenceStatus lifecycle
+
 EvidenceAggregator
+    -> aggregate ACTIVE Evidence by default
+
+Relationship
+    -> primarily User-Service
+
 RelationshipAssessor
+    -> use consolidated RelationshipStatus and TemporalStatus
+
+EvidenceAggregate
+    -> explicitly derived view
+
+Confidence
+    -> outside initial Discovery model
 ```
 
-The recommended dependency order remains:
+The seven contracts should not be rewritten from scratch.
 
-```text
-Connector Contract
-        |
-        v
-Observation Contract
-        |
-        v
-Service Candidate Detector Contract
-        |
-        v
-Entity Resolver Contract
-        |
-        v
-Evidence Classifier Contract
-        |
-        v
-Evidence Aggregator Contract
-        |
-        v
-Relationship Assessor Contract
-```
+After alignment, the project can begin an implementation-oriented model defining:
+
+- concrete value-object boundaries;
+- Python protocols or abstract interfaces;
+- package structure;
+- repositories;
+- Service Registry boundary;
+- application orchestration;
+- first Observation payload schemas;
+- first Evidence taxonomy;
+- first deterministic assessment policy;
+- vertical Gmail Discovery MVP.
+
+Implementation must preserve the Domain boundaries established in this document rather than collapsing the pipeline into provider-specific application code.
