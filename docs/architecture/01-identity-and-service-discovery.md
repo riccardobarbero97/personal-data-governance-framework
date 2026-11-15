@@ -3110,11 +3110,11 @@ advanced AI usage
 
 ---
 
-# 47. Path Toward Implementation
+## 47. Path Toward Implementation
 
-Draft v0.3 completes the first architecture consolidation cycle.
+Draft v0.3 completes the first Identity and Service Discovery architecture-consolidation cycle.
 
-The project progression is now:
+The project progression has reached:
 
 ```text
 Architecture v0.1
@@ -3147,10 +3147,13 @@ Domain Model v0.3
 Contract Alignment
        |
        v
-Implementation Model
+README Alignment
        |
        v
-Vertical Discovery MVP
+IMPLEMENTATION MODEL
+       |
+       v
+Gmail Vertical MVP
        |
        v
 Empirical Validation
@@ -3159,9 +3162,203 @@ Empirical Validation
 Architecture Refinement
 ```
 
-The next design task is therefore not another abstract architecture document.
+The following Discovery design activities are now complete:
 
-The next step is to update the Discovery Domain Model so that it formally incorporates the cross-cutting findings already established in Draft v0.3.
+```text
+Architecture consolidation
+        ✓
+
+Domain Model consolidation
+        ✓
+
+Software Contract alignment
+        ✓
+
+Repository entry-point alignment
+        ✓
+```
+
+The seven Discovery contracts are aligned with the consolidated Architecture and Domain Model:
+
+```text
+01 Connector Contract
+
+02 Observation Contract
+
+03 Service Candidate Detector Contract
+
+04 Entity Resolver Contract
+
+05 Evidence Classifier Contract
+
+06 Evidence Aggregator Contract
+
+07 Relationship Assessor Contract
+```
+
+No additional Discovery processing contract is currently required.
+
+The next design phase is the:
+
+```text
+IMPLEMENTATION MODEL
+```
+
+Its purpose is to translate the consolidated conceptual architecture into concrete, implementable software boundaries without changing the Domain responsibilities established by this architecture.
+
+The Implementation Model should define, at minimum:
+
+```text
+package structure
+
+dependency direction
+
+Domain entities
+
+Domain value objects
+
+Enums and controlled vocabularies
+
+Python Protocols or abstract interfaces
+
+typed Observation payloads
+
+Processing Result objects
+
+repository interfaces
+
+ServiceRegistry interface
+
+Evidence lifecycle implementation
+
+assessment-policy boundaries
+
+application orchestration
+
+persistence boundaries
+
+configuration and rule loading
+
+testing boundaries
+```
+
+The Implementation Model must preserve the architectural distinctions already established, including:
+
+```text
+ConnectedSource != Connector
+
+Observation != Evidence
+
+CandidateIdentifier != ServiceIdentifier != Service
+
+Normalization != Resolution
+
+Evidence != Relationship
+
+EvidenceAggregate != Authoritative Evidence
+
+RelationshipStatus != TemporalStatus
+
+Processing Result != Core Domain Entity
+```
+
+It must also preserve the dependency direction that keeps Provider-specific infrastructure outside the common Discovery Domain.
+
+Conceptually:
+
+```text
+Provider Infrastructure
+        |
+        v
+Connector / Infrastructure Adapters
+        |
+        v
+Application Orchestration
+        |
+        v
+Discovery Interfaces and Domain Model
+```
+
+The Implementation Model must not collapse the architecture into Provider-specific application logic.
+
+After the Implementation Model is defined, the first executable vertical slice should be:
+
+```text
+Gmail Vertical MVP
+```
+
+Conceptually:
+
+```text
+Gmail
+  |
+  v
+GmailConnector
+  |
+  v
+EMAIL_MESSAGE_METADATA Observation
+  |
+  +-------------------------+
+  |                         |
+  v                         v
+Candidate Detection    Evidence Classification
+  |                         |
+  v                         v
+ServiceIdentifier          Evidence
+  |                         |
+  v                         |
+EntityResolver              |
+  |                         |
+  v                         |
+Service --------------------+
+            |
+            v
+EvidenceAggregator
+            |
+            v
+EvidenceAggregate
+            |
+            v
+RelationshipAssessor
+            |
+            v
+Relationship
+            |
+            v
+MVP Service Graph / Output
+```
+
+The Gmail Vertical MVP should validate the implementation against real source-derived behavior while preserving:
+
+```text
+metadata-first collection
+
+Progressive Permission
+
+Provider isolation
+
+Connector minimization
+
+explicit provenance
+
+deterministic-first processing
+
+UNKNOWN / UNRESOLVED / AMBIGUOUS states
+
+EvidenceStatus lifecycle
+
+RelationshipStatus / TemporalStatus separation
+
+no numerical Confidence
+
+local-first processing where practical
+
+explainability
+```
+
+Architecture changes after this point should primarily be driven by implementation evidence, empirical validation or genuinely new cross-source requirements.
+
+New abstractions should not be introduced in advance merely because they appear potentially useful.Draft v0.3.
 
 In particular, Domain Model v0.3 should incorporate:
 
