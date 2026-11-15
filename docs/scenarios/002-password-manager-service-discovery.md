@@ -8,6 +8,118 @@
 **Architecture Under Test:** Identity & Service Discovery Draft v0.2  
 
 ---
+> **Historical Validation Note**
+>
+> This scenario is a historical architecture-validation artifact.
+>
+> It was intentionally executed against:
+>
+> ```text
+> Identity & Service Discovery
+> Draft v0.2
+> ```
+>
+> Its purpose was to test whether the architecture derived primarily from Gmail Service Discovery remained valid when applied to a structurally different and significantly more sensitive source: a Password Manager.
+>
+> The comparison described by this scenario has since been completed.
+>
+> Its findings contributed directly to:
+>
+> ```text
+> Architecture Draft v0.3
+>        |
+>        v
+> Domain Model Draft v0.3
+>        |
+>        v
+> aligned Discovery software contracts
+> ```
+>
+> In particular, the scenario helped validate or expose concepts that are now part of the consolidated Discovery baseline, including:
+>
+> ```text
+> ConnectedSource
+>
+> Connector as a data-minimization boundary
+>
+> provider-neutral Observations
+>
+> typed Observation payloads
+>
+> Candidate Detection
+>
+> ServiceIdentifier
+>
+> cross-source Entity Resolution
+>
+> independent Entity Resolution and Evidence Classification
+>
+> Evidence lifecycle
+>
+> User-Service Relationship
+>
+> multiple Identity references
+>
+> source-aware temporal semantics
+>
+> Progressive Permission
+>
+> deterministic-first processing
+> ```
+>
+> Questions raised in this scenario about concepts such as:
+>
+> ```text
+> Account
+> Relationship cardinality
+> sensitive-field filtering
+> cross-source Evidence
+> ```
+>
+> were subsequently evaluated during the Domain Model and software-contract design cycle.
+>
+> The consolidated model currently defines:
+>
+> ```text
+> User
+>   |
+>   v
+> Relationship
+>   |
+>   v
+> Service
+> ```
+>
+> while preserving relevant Identity references.
+>
+> `Account` remains a Candidate Domain Concept rather than a Core Domain Entity.
+>
+> The scenario's final section describing a future comparison with Architecture Draft v0.2 should therefore be understood as part of the historical design sequence rather than as the repository's current next step.
+>
+> The current normative references are:
+>
+> ```text
+> docs/architecture/01-identity-and-service-discovery.md
+>
+> docs/domain/01-discovery-domain-model.md
+>
+> docs/interfaces/
+> ```
+>
+> This scenario should be preserved as evidence of:
+>
+> ```text
+> what was tested
+>        |
+>        v
+> which questions emerged
+>        |
+>        v
+> how the architecture evolved
+> ```
+>
+> rather than rewritten to make its original validation context appear as though it had always targeted Architecture Draft v0.3.
+---
 
 ## 1. Purpose
 
