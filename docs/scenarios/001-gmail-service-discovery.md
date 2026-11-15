@@ -7,7 +7,94 @@
 **Primary Capability:** Service Discovery  
 
 ---
-
+> **Historical Validation Note**
+>
+> This scenario is a historical architecture-validation artifact.
+>
+> It was originally designed during the first Identity and Service Discovery architecture cycle and therefore predates the consolidated:
+>
+> ```text
+> Architecture Draft v0.3
+> Domain Model Draft v0.3
+> aligned Discovery software contracts
+> ```
+>
+> Some illustrative terminology, processing sequences, Relationship states and output structures in this document reflect the architecture version under evaluation at the time the scenario was written.
+>
+> In particular, examples such as:
+>
+> ```text
+> relationship.status = DISCOVERED
+> ```
+>
+> and diagrams representing:
+>
+> ```text
+> Entity Resolution
+>        |
+>        v
+> Evidence Classification
+> ```
+>
+> should not be interpreted as the current normative Domain Model.
+>
+> The consolidated architecture now defines:
+>
+> ```text
+> Entity Resolution
+>        \
+>         \
+>          +--> Evidence Aggregation
+>         /
+>        /
+> Evidence Classification
+> ```
+>
+> as independent semantic branches originating from the same Observation context.
+>
+> It also defines Relationships through:
+>
+> ```text
+> RelationshipStatus
+>
+> UNKNOWN
+> OBSERVED
+> ESTABLISHED
+> REJECTED
+> ```
+>
+> and independently:
+>
+> ```text
+> TemporalStatus
+>
+> UNKNOWN
+> CURRENTLY_OBSERVED
+> HISTORICAL
+> ```
+>
+> The findings produced by this scenario were subsequently incorporated into the consolidated Discovery Architecture, Domain Model and software contracts.
+>
+> For current normative semantics, refer to:
+>
+> ```text
+> docs/architecture/01-identity-and-service-discovery.md
+>
+> docs/domain/01-discovery-domain-model.md
+>
+> docs/interfaces/
+> ```
+>
+> This scenario should therefore be read as:
+>
+> ```text
+> validation history
+>       +
+> empirical design input
+> ```
+>
+> rather than as the current normative software specification.
+---
 ## 1. Purpose
 
 This scenario validates whether the Personal Data Governance Framework can discover online services with which a user has or has had a relationship by analyzing evidence available in the user's Gmail account.
