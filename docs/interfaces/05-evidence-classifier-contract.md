@@ -3,9 +3,9 @@
 **Status:** Draft v0.1  
 **Scope:** Identity and Service Discovery  
 **Last updated:** November 2026  
-**Related Architecture:** `docs/architecture/01-identity-and-service-discovery.md`  
-**Related Domain Model:** `docs/domain/01-discovery-domain-model.md`  
-**Related Interfaces:**  
+**Related Architecture:** `docs/architecture/01-identity-and-service-discovery.md` - Draft v0.3  
+**Related Domain Model:** `docs/domain/01-discovery-domain-model.md` - Draft v0.3  
+**Related Interfaces:**
 - `docs/interfaces/01-connector-contract.md`
 - `docs/interfaces/02-observation-contract.md`
 - `docs/interfaces/03-service-candidate-detector-contract.md`
@@ -48,7 +48,6 @@ may produce:
 
 ```text
 Evidence:
-
 ACCOUNT_VERIFICATION
 ```
 
@@ -56,8 +55,8 @@ Similarly:
 
 ```text
 Observation:
-
 Password Manager Entry
+
 URI:
 https://accounts.spotify.com
 ```
@@ -66,7 +65,6 @@ may produce:
 
 ```text
 Evidence:
-
 PASSWORD_MANAGER_ENTRY
 ```
 
@@ -78,7 +76,7 @@ It does not determine:
 
 - whether the Observation is relevant to Service Discovery;
 - which canonical Service the Observation refers to;
-- whether the User has a confirmed Relationship with that Service;
+- whether the User has an ESTABLISHED Relationship with that Service;
 - the overall strength of the Relationship;
 - what personal data the Service currently holds.
 
@@ -267,8 +265,8 @@ MARKETING
 does not imply:
 
 ```text
-Relationship:
-CONFIRMED ACCOUNT
+RelationshipStatus:
+ESTABLISHED
 ```
 
 Similarly:
@@ -313,8 +311,8 @@ The classifier should consume only the minimum information necessary to interpre
 
 It must not require:
 
-- provider credentials;
-- provider-specific raw objects;
+- Provider credentials;
+- Provider-specific raw objects;
 - unrelated Observations;
 - unrestricted ConnectedSource access.
 
@@ -377,6 +375,22 @@ ClassificationResult
 
 This is implementation-independent.
 
+The consolidated Domain Model classifies:
+
+```text
+ClassificationResult
+```
+
+as:
+
+```text
+Processing Result
+```
+
+rather than a Core Domain Entity.
+
+A ClassificationResult may be persisted for provenance, reprocessing comparison, debugging or auditability without changing this classification.
+
 ---
 
 ## 10. Processing Status
@@ -420,7 +434,6 @@ The minimum classification states are:
 
 ```text
 CLASSIFIED
-
 UNKNOWN
 ```
 
@@ -434,7 +447,7 @@ One or more semantic Evidence items were produced.
 
 The Observation was successfully processed, but available information was insufficient for justified classification.
 
-`UNKNOWN` is a valid domain outcome.
+`UNKNOWN` is a valid Domain outcome.
 
 ---
 
@@ -478,7 +491,7 @@ rather than forcing one category.
 
 ## 13. Unsupported Is Not UNKNOWN
 
-An unsupported Observation Type represents a processing capability limitation.
+An unsupported ObservationType represents a processing capability limitation.
 
 Example:
 
@@ -496,7 +509,7 @@ processing_status:
 UNSUPPORTED
 ```
 
-This is different from:
+This differs from:
 
 ```text
 processing_status:
@@ -509,9 +522,7 @@ UNKNOWN
 Therefore:
 
 ```text
-UNSUPPORTED
-     !=
-UNKNOWN
+UNSUPPORTED != UNKNOWN
 ```
 
 ---
@@ -520,27 +531,141 @@ UNKNOWN
 
 An Evidence item represents a semantic interpretation supported by one or more Observations.
 
+Evidence is a Core Domain Entity.
+
 Conceptually:
 
 ```text
 Evidence
 
 - id
-- type
+- evidence_type
+- evidence_status
 - supporting_observation_references
+- service_reference
+- identity_references
 - classification_method
 - classifier_version
+- reason_codes
+- temporal_values
 - created_at
 - provenance
 ```
 
 The final persistent structure remains undefined.
 
+Evidence answers:
+
+> What does the observed information appear to tell the framework about a possible User-Service Relationship?
+
+It does not represent objective truth.
+
+Therefore:
+
+```text
+OBSERVATION != EVIDENCE
+
+EVIDENCE != CONFIRMED FACT
+
+EVIDENCE != RELATIONSHIP
+```
+
+The `evidence_status` field represents whether a particular Evidence interpretation participates in the current Discovery assessment.
+
+The consolidated initial lifecycle states are:
+
+```text
+ACTIVE
+SUPERSEDED
+REJECTED
+```
+
+---
+
+### 14.1 Evidence Lifecycle
+
+Evidence has an explicit lifecycle independent from the Observation that supports it.
+
+The consolidated initial model is:
+
+```text
+EvidenceStatus
+
+ACTIVE
+SUPERSEDED
+REJECTED
+```
+
+#### ACTIVE
+
+`ACTIVE` means that the Evidence represents a currently accepted semantic interpretation.
+
+Only ACTIVE Evidence should normally participate in:
+
+```text
+Current Evidence Aggregation
+        |
+        v
+Relationship Assessment
+```
+
+#### SUPERSEDED
+
+`SUPERSEDED` means that an Evidence interpretation has been replaced by a newer accepted interpretation.
+
+Example:
+
+```text
+Observation
+    |
+    +--> Evidence A
+    |      EvidenceType: MARKETING
+    |      EvidenceStatus: SUPERSEDED
+    |
+    +--> Evidence B
+           EvidenceType: PRIVACY_NOTICE
+           EvidenceStatus: ACTIVE
+```
+
+Evidence A remains available for provenance.
+
+It must not normally be counted as simultaneous current Evidence.
+
+#### REJECTED
+
+`REJECTED` means that an Evidence interpretation has been explicitly invalidated.
+
+Possible reasons may include:
+
+- User correction;
+- classification error;
+- invalid source association;
+- processing defect;
+- later information demonstrating that the interpretation was incorrect.
+
+Rejected Evidence may remain preserved where required for provenance.
+
+It must not participate in current Relationship Assessment.
+
+Therefore:
+
+```text
+EvidenceStatus.REJECTED
+        !=
+RelationshipStatus.REJECTED
+```
+
+The first refers to acceptance of an Evidence interpretation.
+
+The second refers to attribution of the User-Service Relationship.
+
+The exact lifecycle-transition policy remains open.
+
 ---
 
 ## 15. Evidence Type
 
-`EvidenceType` identifies what the Observation semantically represents.
+EvidenceType identifies what the Observation semantically represents.
 
 Examples emerging from Scenario 001 include:
 
@@ -619,7 +744,7 @@ Draft v0.1 does not establish a finalized hierarchical taxonomy.
 
 ## 17. Common vs Source-Specific Evidence Types
 
-An important design question is whether Evidence Types should always be source-independent.
+An important design question is whether EvidenceTypes should always be source-independent.
 
 Some categories are naturally semantic and cross-source:
 
@@ -639,13 +764,13 @@ PASSWORD_MANAGER_ENTRY
 The framework should therefore permit both:
 
 ```text
-common semantic Evidence Types
+common semantic EvidenceTypes
 ```
 
 and, where justified:
 
 ```text
-source-specific Evidence Types
+source-specific EvidenceTypes
 ```
 
 Source-specific categories should not be introduced merely because it is easier than semantic interpretation.
@@ -659,10 +784,10 @@ The mapping is not:
 ```text
 EMAIL_MESSAGE_METADATA
       =
-one Evidence Type
+one EvidenceType
 ```
 
-The same Observation Type may produce many Evidence Types.
+The same ObservationType may produce many EvidenceTypes.
 
 For example:
 
@@ -682,7 +807,7 @@ EMAIL_MESSAGE_METADATA
         +-- UNKNOWN
 ```
 
-Similarly, future Observation Types may contribute Evidence Types already used by other sources.
+Similarly, future ObservationTypes may contribute EvidenceTypes already used by other sources.
 
 ---
 
@@ -701,20 +826,13 @@ could potentially support:
 
 ```text
 SUBSCRIPTION
-```
-
-and:
-
-```text
 PAYMENT
 ```
 
 Therefore the classifier should not assume:
 
 ```text
-1 Observation
-      =
-1 Evidence Type
+1 Observation = 1 EvidenceType
 ```
 
 The result may contain:
@@ -765,11 +883,9 @@ Semantic implications should not be silently fabricated.
 
 ## 21. One Evidence Item from Multiple Observations
 
-The inverse relationship may also eventually be useful.
+The inverse relationship may eventually be useful.
 
-For example, several technically related Observations may together support one semantic Evidence item.
-
-Conceptually:
+For example:
 
 ```text
 Observation A
@@ -862,7 +978,7 @@ Material changes to rules should allow reclassification of preserved Observation
 
 ## 24. Classification Strategy by Observation Type
 
-Different Observation Types may require different strategies.
+Different ObservationTypes may require different strategies.
 
 Conceptually:
 
@@ -881,7 +997,7 @@ EvidenceClassifier
 Strategy should generally follow:
 
 ```text
-Observation Type
+ObservationType
 ```
 
 rather than:
@@ -890,7 +1006,7 @@ rather than:
 Provider
 ```
 
-For example, equivalent Gmail and Outlook email metadata should be classifiable through the same semantic strategy when their Observation payload contracts are compatible.
+Equivalent Gmail and Outlook email metadata should be classifiable through the same semantic strategy when their Observation payload contracts are compatible.
 
 ---
 
@@ -918,7 +1034,7 @@ ICloudEvidenceClassifier
 ProtonEvidenceClassifier
 ```
 
-unless concrete semantic differences make provider-specific behavior necessary.
+unless concrete semantic differences make Provider-specific behavior necessary.
 
 ---
 
@@ -929,7 +1045,7 @@ Scenario 002 demonstrates a case where classification may be mostly deterministi
 For example:
 
 ```text
-Observation Type:
+ObservationType:
 PASSWORD_MANAGER_ENTRY_METADATA
 ```
 
@@ -943,7 +1059,7 @@ without requiring natural-language interpretation.
 
 This reinforces:
 
-> Classification complexity should follow the Observation semantics rather than forcing AI into every source.
+> Classification complexity should follow Observation semantics rather than forcing AI into every source.
 
 ---
 
@@ -1051,7 +1167,7 @@ The classifier may return:
 UNKNOWN
 ```
 
-The Evidence Classifier itself must not automatically retrieve the message body.
+The EvidenceClassifier itself must not automatically retrieve the message body.
 
 Conceptually:
 
@@ -1108,7 +1224,7 @@ Conceptually:
 EMAIL_MESSAGE_METADATA
          |
          +-- source_reference = message_123
-         |
+
 EMAIL_MESSAGE_CONTENT
          |
          +-- source_reference = message_123
@@ -1150,9 +1266,7 @@ For example:
 
 ```text
 Verify your email address
-
 Verifica il tuo indirizzo email
-
 Vérifiez votre adresse e-mail
 ```
 
@@ -1177,18 +1291,14 @@ Draft v0.1 does not prescribe the implementation.
 
 ## 35. Language Must Not Change Evidence Semantics
 
-Equivalent source semantics expressed in different languages should ideally map to the same canonical Evidence Type.
+Equivalent source semantics expressed in different languages should ideally map to the same canonical EvidenceType.
 
 For example:
 
 ```text
 Italian:
 PASSWORD RESET semantic
-```
 
-and:
-
-```text
 English:
 PASSWORD RESET semantic
 ```
@@ -1199,7 +1309,7 @@ should both produce:
 PASSWORD_RESET
 ```
 
-rather than language-specific Evidence Types.
+rather than language-specific EvidenceTypes.
 
 ---
 
@@ -1266,6 +1376,10 @@ PRIVACY_NOTICE
 
 The Observation remains unchanged.
 
+A new classifier version producing a different accepted semantic interpretation should normally result in a new Evidence interpretation rather than destructive replacement of existing Evidence.
+
+The Evidence lifecycle then determines which interpretation is current.
+
 ---
 
 ## 38. Rule Version
@@ -1298,10 +1412,10 @@ Potential information includes:
 provider type
 model identifier
 model version
-prompt or classifier policy version
+classifier policy version
 ```
 
-However, this information must not create provider lock-in inside the core Evidence model.
+However, this information must not create Provider lock-in inside the core Evidence model.
 
 A generic classification provenance structure may be preferable.
 
@@ -1333,12 +1447,18 @@ Evidence
     |
     +-- supporting Observation
     |
+    +-- EvidenceType
+    |
+    +-- EvidenceStatus
+    |
     +-- classification method
     |
     +-- classifier version
 ```
 
 must remain reconstructable.
+
+The current Evidence lifecycle state must also remain attributable.
 
 ---
 
@@ -1358,7 +1478,7 @@ Entity Resolution:
 UNRESOLVED
 ```
 
-The Evidence is still useful.
+The Evidence remains useful.
 
 Therefore:
 
@@ -1369,6 +1489,18 @@ REQUIRES RESOLVED SERVICE
 ```
 
 An Evidence item may temporarily exist without a canonical Service reference.
+
+Association with a Service and Evidence lifecycle are independent concerns.
+
+Therefore:
+
+```text
+ACTIVE Evidence
++
+UNRESOLVED Service
+```
+
+is a valid state.
 
 ---
 
@@ -1420,9 +1552,7 @@ Resolution:
 UNRESOLVED
 ```
 
-The framework still learns:
-
-> This Observation appears to describe a password-reset event associated with an unresolved Service candidate.
+The framework still learns that the Observation appears to describe a password-reset event associated with an unresolved Service candidate.
 
 This is valid.
 
@@ -1476,7 +1606,7 @@ ACCOUNT_VERIFICATION
 
 means:
 
-> The classifier interpreted the Observation as account-verification evidence.
+> The classifier interpreted the Observation as account-verification Evidence.
 
 It does not mean:
 
@@ -1558,7 +1688,7 @@ SUBSCRIPTION
 PURCHASE
 ```
 
-Those conclusions require independent evidence.
+Those conclusions require independent Evidence.
 
 ---
 
@@ -1582,7 +1712,7 @@ or:
 SUBSCRIPTION
 ```
 
-where `SUBSCRIPTION` refers to a paid or Service subscription.
+where SUBSCRIPTION refers to a paid or Service subscription.
 
 Taxonomy semantics must remain explicit to avoid semantic overlap.
 
@@ -1735,22 +1865,41 @@ The framework must not destroy:
 
 ```text
 original Observation
+
 original automated classification provenance
 ```
 
-A future model may preserve:
+The consolidated Evidence lifecycle allows the framework to preserve:
 
 ```text
 Automated Evidence
+EvidenceType: MARKETING
+EvidenceStatus: SUPERSEDED or REJECTED
         |
         v
 User Correction
         |
         v
-Current Interpretation
+Current Evidence
+EvidenceType: NEWSLETTER
+EvidenceStatus: ACTIVE
 ```
 
-The exact precedence model remains open.
+The exact rule determining whether the earlier Evidence becomes:
+
+```text
+SUPERSEDED
+```
+
+or:
+
+```text
+REJECTED
+```
+
+remains part of the Evidence lifecycle policy.
+
+User corrections must remain attributable to the User.
 
 ---
 
@@ -1776,6 +1925,31 @@ Observation
 
 This must not require destructive modification of the Observation.
 
+If a later classifier produces a new accepted semantic interpretation, the previous accepted Evidence should normally cease to participate as current Evidence.
+
+Conceptually:
+
+```text
+Classifier v1
+      |
+      v
+Evidence A
+      |
+      v
+SUPERSEDED / REJECTED
+
+Classifier v2
+      |
+      v
+Evidence B
+SECURITY_NOTIFICATION
+      |
+      v
+ACTIVE
+```
+
+The exact transition depends on why the previous interpretation is no longer accepted.
+
 ---
 
 ## 57. Changed Classification
@@ -1792,45 +1966,99 @@ Classifier v2:
 PRIVACY_NOTICE
 ```
 
-The framework must eventually determine:
+The framework must preserve both processing histories while identifying which semantic interpretation is currently accepted.
 
-- which classification is current;
-- whether historical classifications are retained;
-- how derived Relationships are reassessed.
+The consolidated lifecycle representation is conceptually:
 
-Draft v0.1 requires provenance but does not define the complete lifecycle.
+```text
+Observation
+    |
+    +--> Evidence A
+    |      type: MARKETING
+    |      status: SUPERSEDED
+    |
+    +--> Evidence B
+           type: PRIVACY_NOTICE
+           status: ACTIVE
+```
+
+Alternatively, when the previous interpretation is determined to be invalid rather than merely replaced:
+
+```text
+Evidence A
+type: MARKETING
+status: REJECTED
+```
+
+may be appropriate.
+
+Therefore the framework distinguishes between:
+
+```text
+historical interpretation
+```
+
+and:
+
+```text
+current accepted interpretation
+```
+
+Downstream current aggregation should normally consume only ACTIVE Evidence.
 
 ---
 
-## 58. Evidence Replacement vs Evidence Versioning
+## 58. Evidence Replacement and Lifecycle
 
-Reclassification raises a design question:
+Reclassification should normally preserve historical Evidence rather than destructively overwrite it.
+
+Conceptually:
 
 ```text
-Should Evidence be overwritten?
+Observation
+    |
+    +--> Evidence A
+    |      EvidenceType: MARKETING
+    |      EvidenceStatus: SUPERSEDED
+    |
+    +--> Evidence B
+           EvidenceType: PRIVACY_NOTICE
+           EvidenceStatus: ACTIVE
 ```
 
-or:
+The exact persistence mechanism remains open.
+
+Possible implementation strategies may eventually include:
 
 ```text
-Should Evidence versions be retained?
-```
+separate Evidence records
 
-Because explainability and auditing are important, silent destructive replacement is undesirable.
+versioned Evidence records
 
-A future model may use:
-
-```text
-Evidence Version
-```
-
-or:
-
-```text
 ClassificationResult history
++
+materialized current Evidence
 ```
 
-This remains open.
+However, the semantic requirement is established:
+
+```text
+historical interpretation
+        !=
+currently accepted interpretation
+```
+
+and:
+
+```text
+SUPERSEDED Evidence
+        !=
+ACTIVE Evidence
+```
+
+Silent destructive replacement is incompatible with the framework's provenance requirements.
+
+The Implementation Model must choose a persistence mechanism that preserves this distinction.
 
 ---
 
@@ -1842,14 +2070,32 @@ Conceptually:
 
 ```text
 Observation A
-+ Classifier v1
-+ same rule set
++
+Classifier v1
++
+same rule set
         |
         v
 same logical classification
 ```
 
 Persistence and idempotency semantics remain to be defined.
+
+Evidence lifecycle and duplicate detection must remain separate.
+
+For example:
+
+```text
+Evidence A:
+PAYMENT / ACTIVE
+
+Evidence B:
+PAYMENT / SUPERSEDED
+```
+
+does not necessarily represent two payment events.
+
+Likewise, two independently ACTIVE Evidence items must not automatically be deduplicated solely because they share the same EvidenceType.
 
 ---
 
@@ -1859,7 +2105,7 @@ Evidence identity may depend on factors such as:
 
 ```text
 supporting Observation
-Evidence Type
+EvidenceType
 Classifier Version
 Classification Method
 ```
@@ -1867,6 +2113,18 @@ Classification Method
 The exact identity model remains open.
 
 The contract requires only that duplicate execution be distinguishable from genuinely new semantic Evidence.
+
+EvidenceStatus should normally not define Evidence identity by itself.
+
+A lifecycle transition such as:
+
+```text
+ACTIVE -> SUPERSEDED
+```
+
+does not necessarily create a different semantic source event.
+
+The exact persistent identity rules remain an Implementation Model decision.
 
 ---
 
@@ -1889,7 +2147,7 @@ USER_CORRECTION
 
 These are illustrative.
 
-Reason codes should improve explainability without becoming a substitute for the Evidence Type itself.
+Reason codes should improve explainability without becoming a substitute for EvidenceType itself.
 
 ---
 
@@ -1957,7 +2215,7 @@ Explainability should be based on observable inputs, rules, outputs and concise 
 
 ## 65. Classification Errors
 
-Technical failures must remain separate from semantic `UNKNOWN`.
+Technical failures must remain separate from semantic UNKNOWN.
 
 Examples include:
 
@@ -1983,7 +2241,28 @@ or:
 UNSUPPORTED
 ```
 
-rather than semantic `UNKNOWN`.
+rather than semantic UNKNOWN.
+
+A technical classification failure must not automatically change the lifecycle state of previously valid Evidence.
+
+For example:
+
+```text
+Existing Evidence:
+ACTIVE
+
+New Classification Attempt:
+FAILED
+```
+
+must not implicitly become:
+
+```text
+Existing Evidence:
+REJECTED
+```
+
+Lifecycle transitions require explicit semantic or policy justification.
 
 ---
 
@@ -2012,7 +2291,7 @@ UNKNOWN Evidence
 
 ## 67. Unsupported Observation Type
 
-A classifier may not support a newly introduced Observation Type.
+A classifier may not support a newly introduced ObservationType.
 
 For example:
 
@@ -2054,7 +2333,7 @@ EMAIL_MESSAGE_METADATA v3
 
 This should be represented as an unsupported processing case rather than misclassifying the payload.
 
-Observation Type and Schema Version must both be considered.
+ObservationType and SchemaVersion must both be considered.
 
 ---
 
@@ -2070,7 +2349,7 @@ classify_many(observations)
 
 may be useful for performance.
 
-Each Observation must still receive independently traceable results.
+Each Observation must still receive independently traceable Results.
 
 Batch processing must not destroy:
 
@@ -2116,7 +2395,7 @@ Your subscription payment succeeded
 
 Together they may provide richer context.
 
-However, Draft v0.1 keeps the Evidence Classifier primarily Observation-oriented.
+However, Draft v0.1 keeps the EvidenceClassifier primarily Observation-oriented.
 
 Cross-Observation reasoning should initially remain in:
 
@@ -2162,7 +2441,7 @@ This improves generalization.
 
 Some future classifications may require Service-specific semantics.
 
-For example, a provider may use unusual terminology that cannot be interpreted reliably without knowing the Service.
+For example, a Service may use unusual terminology that cannot be interpreted reliably without knowing the Service.
 
 If such cases arise, Service context may be passed explicitly.
 
@@ -2190,7 +2469,7 @@ The classifier must therefore follow:
 - local-first processing;
 - capability-specific authorization;
 - no silent permission escalation;
-- provider-independent AI policy.
+- Provider-independent AI policy.
 
 The classifier must not assume that because data exists in an Observation it may freely be transmitted externally.
 
@@ -2218,7 +2497,7 @@ Remote AI should remain optional.
 
 ## 76. Sensitive Observation Types
 
-Some Observation Types may have restrictions preventing remote AI processing.
+Some ObservationTypes may have restrictions preventing remote AI processing.
 
 For example:
 
@@ -2242,7 +2521,7 @@ AI prohibited
 
 depending on:
 
-- Observation Type;
+- ObservationType;
 - sensitivity;
 - User configuration;
 - privacy policy.
@@ -2253,7 +2532,7 @@ The final policy mechanism remains undefined.
 
 ## 77. Classification Policy
 
-A future `ClassificationPolicy` may describe:
+A future ClassificationPolicy may describe:
 
 ```text
 allowed methods
@@ -2311,7 +2590,6 @@ interface EvidenceClassifier {
         Observation observation,
         ClassificationContext context
     )
-
 }
 ```
 
@@ -2344,38 +2622,98 @@ ClassificationResult {
 }
 ```
 
+`ClassificationResult` is classified as:
+
+```text
+Processing Result
+```
+
+It describes one classifier execution.
+
+It must remain distinct from:
+
+```text
+EvidenceCandidate
+```
+
+and:
+
+```text
+Evidence
+```
+
+Conceptually:
+
+```text
+EvidenceClassifier
+      |
+      v
+ClassificationResult
+[Processing Result]
+      |
+      +-- EvidenceCandidate
+             |
+             v
+Application Layer
+             |
+             v
+Evidence
+[Core Domain Entity]
+```
+
 ---
 
 ## 81. Evidence Candidate
 
-Before persistence as canonical Evidence, the classifier may conceptually return:
+Before materialization as Domain Evidence, the classifier may return:
 
 ```text
 EvidenceCandidate
 
 - evidence_type
-- supporting_observation_id
+- supporting_observation_references
 - method
 - reason_codes
+- classifier_version
 ```
 
-This allows classification output to remain distinct from Evidence persistence lifecycle.
+The consolidated Domain Model classifies `EvidenceCandidate` as:
 
-Whether `EvidenceCandidate` becomes a formal software object remains an implementation decision.
+```text
+Interface Value Object / Processing Output
+```
+
+It is not a Core Domain Entity.
+
+An EvidenceCandidate communicates the semantic result of classification across the classifier boundary.
+
+The application layer may materialize an accepted EvidenceCandidate into:
+
+```text
+Evidence
+```
+
+with an initial lifecycle state normally equivalent to:
+
+```text
+EvidenceStatus.ACTIVE
+```
+
+The exact materialization and persistence mechanism remains an Implementation Model decision.
 
 ---
 
-## 82. Why EvidenceCandidate May Be Useful
+## 82. Why EvidenceCandidate Is Useful
 
 The classifier should determine semantics.
 
-It may not need responsibility for:
+It does not automatically need responsibility for:
 
 ```text
 generating persistent Evidence IDs
 saving Evidence
 versioning Evidence history
-invalidating old Evidence
+managing Evidence lifecycle
 ```
 
 Those responsibilities may belong to an application or repository layer.
@@ -2389,12 +2727,31 @@ Classifier
 EvidenceCandidate
      |
      v
+Application Layer
+     |
+     v
 Evidence Lifecycle / Persistence
 ```
 
-may provide a cleaner separation.
+provides a cleaner separation.
 
-Draft v0.1 keeps this as a conceptual distinction rather than adding a new Domain Entity.
+The consolidated Domain Model formalizes:
+
+```text
+EvidenceCandidate
+=
+Interface Value Object / Processing Output
+```
+
+while:
+
+```text
+Evidence
+=
+Core Domain Entity
+```
+
+Therefore EvidenceCandidate must not be promoted into a Core Domain Entity merely because it crosses the classifier boundary.
 
 ---
 
@@ -2402,151 +2759,135 @@ Draft v0.1 keeps this as a conceptual distinction rather than adding a new Domai
 
 ### EC-INV-001
 
-The classifier must operate on valid framework Observations rather than raw provider objects.
-
----
+The classifier must operate on valid framework Observations rather than raw Provider objects.
 
 ### EC-INV-002
 
 Evidence Classification must remain distinct from Candidate Detection.
 
----
-
 ### EC-INV-003
 
 Evidence Classification must remain distinct from Entity Resolution.
-
----
 
 ### EC-INV-004
 
 Evidence Classification must remain distinct from Relationship Assessment.
 
----
-
 ### EC-INV-005
 
-An Evidence Type must not be interpreted as a confirmed real-world event.
-
----
+An EvidenceType must not be interpreted as a confirmed real-world event.
 
 ### EC-INV-006
 
-The classifier must support `UNKNOWN`.
-
----
+The classifier must support UNKNOWN.
 
 ### EC-INV-007
 
-`UNKNOWN` must remain distinct from technical failure.
-
----
+UNKNOWN must remain distinct from technical failure.
 
 ### EC-INV-008
 
-Unsupported Observation Types or Schema Versions must remain distinguishable from semantic `UNKNOWN`.
-
----
+Unsupported ObservationTypes or SchemaVersions must remain distinguishable from semantic UNKNOWN.
 
 ### EC-INV-009
 
 The classifier must not fabricate missing Observation information.
 
----
-
 ### EC-INV-010
 
 The classifier must not silently request additional source permissions.
-
----
 
 ### EC-INV-011
 
 Deterministic classification should be preferred when adequate.
 
----
-
 ### EC-INV-012
 
 AI availability must not be required for basic Evidence Classification.
-
----
 
 ### EC-INV-013
 
 AI-assisted classification must respect existing authorization and privacy boundaries.
 
----
-
 ### EC-INV-014
 
-Provider credentials must never be required by the Evidence Classifier.
-
----
+Provider credentials must never be required by the EvidenceClassifier.
 
 ### EC-INV-015
 
 Every Evidence item must remain traceable to supporting Observations.
 
----
-
 ### EC-INV-016
 
 One Observation may produce zero, one or multiple Evidence items.
-
----
 
 ### EC-INV-017
 
 Multiple Evidence items from one Observation must be independently justified.
 
----
-
 ### EC-INV-018
 
-Evidence Classification must not automatically generate implied Evidence Types.
-
----
+Evidence Classification must not automatically generate implied EvidenceTypes.
 
 ### EC-INV-019
 
 Reclassification must not require destructive modification of the source Observation.
 
----
-
 ### EC-INV-020
 
 The classifier must preserve enough method and version provenance to support reprocessing and explanation.
 
----
-
 ### EC-INV-021
 
-Provider identity should not determine classification strategy when Observation semantics are provider-neutral.
-
----
+Provider identity should not determine classification strategy when Observation semantics are Provider-neutral.
 
 ### EC-INV-022
 
-Equivalent semantics expressed in different languages should map to the same canonical Evidence Type where appropriate.
-
----
+Equivalent semantics expressed in different languages should map to the same canonical EvidenceType where appropriate.
 
 ### EC-INV-023
 
-No arbitrary numerical Evidence Confidence is required in Draft v0.1.
-
----
+Numerical Evidence Classification Confidence is outside the initial Discovery model.
 
 ### EC-INV-024
 
-Evidence may exist even when Entity Resolution remains `UNRESOLVED`.
-
----
+Evidence may exist even when Entity Resolution remains UNRESOLVED.
 
 ### EC-INV-025
 
 A resolved Service does not require Evidence Classification to succeed.
+
+### EC-INV-026
+
+Newly materialized accepted Evidence should normally enter the Evidence lifecycle as ACTIVE.
+
+### EC-INV-027
+
+Reclassification must not cause an older superseded interpretation and its replacement to participate simultaneously as current Evidence.
+
+### EC-INV-028
+
+Evidence lifecycle state changes must preserve supporting Observation provenance.
+
+### EC-INV-029
+
+SUPERSEDED Evidence must remain distinguishable from REJECTED Evidence.
+
+### EC-INV-030
+
+`EvidenceStatus.REJECTED` must remain distinct from `RelationshipStatus.REJECTED`.
+
+### EC-INV-031
+
+A failed classification attempt must not automatically invalidate previously ACTIVE Evidence.
+
+### EC-INV-032
+
+ClassificationResult must remain classified as a Processing Result even when persisted.
+
+### EC-INV-033
+
+EvidenceCandidate must remain an Interface Value Object / Processing Output rather than a Core Domain Entity.
 
 ---
 
@@ -2845,7 +3186,7 @@ classification_status:
 N/A
 ```
 
-This must not become semantic `UNKNOWN`.
+This must not become semantic UNKNOWN.
 
 ---
 
@@ -2885,17 +3226,23 @@ User correction:
 NEWSLETTER
 ```
 
-The framework should be able to preserve:
+A possible lifecycle representation is:
 
 ```text
 Observation
       |
-      +--> Automated Classification
+      +--> Automated Evidence
+      |      type: MARKETING
+      |      status: SUPERSEDED or REJECTED
       |
-      +--> User Correction
+      +--> User-Corrected Evidence
+             type: NEWSLETTER
+             status: ACTIVE
 ```
 
-rather than destructively rewriting the Observation.
+The original Observation and automated classification provenance remain preserved.
+
+The exact choice between SUPERSEDED and REJECTED depends on correction policy.
 
 ---
 
@@ -2904,23 +3251,40 @@ rather than destructively rewriting the Observation.
 ### Evidence Taxonomy
 
 - What is the minimum common Evidence taxonomy?
-- Which Evidence Types should be cross-source?
-- Which Evidence Types should remain source-specific?
-- Should Evidence Types form a flat list or hierarchy?
+- Which EvidenceTypes should be cross-source?
+- Which EvidenceTypes should remain source-specific?
+- Should EvidenceTypes form a flat list or hierarchy?
 - How should taxonomy versions be managed?
 
-### Evidence Identity
+### Evidence Identity and Lifecycle
 
-- Is Evidence itself versioned?
-- Should reclassification create new Evidence records?
-- How should superseded Evidence be represented?
-- What constitutes duplicate Evidence?
+The Domain Model now defines:
+
+```text
+EvidenceStatus
+
+ACTIVE
+SUPERSEDED
+REJECTED
+```
+
+The remaining questions are:
+
+- Should reclassification create a new Evidence record every time?
+- Can one Evidence record change EvidenceStatus while preserving identity?
+- What exact transitions are permitted?
+- Can REJECTED Evidence ever become ACTIVE again?
+- When should an older Evidence become SUPERSEDED rather than REJECTED?
+- How are User corrections represented?
+- What constitutes duplicate logical Evidence?
+- How long should SUPERSEDED and REJECTED Evidence be retained?
+- Should lifecycle-transition provenance be represented explicitly?
 
 ### Classification Granularity
 
-- Is `PASSWORD_RESET` sufficiently precise?
+- Is PASSWORD_RESET sufficiently precise?
 - Should request, completion and change events be distinct?
-- Should `SUBSCRIPTION` distinguish start, renewal and cancellation?
+- Should SUBSCRIPTION distinguish start, renewal and cancellation?
 - Should commercial events be modeled more granularly later?
 
 ### Multiple Evidence Types
@@ -2937,9 +3301,9 @@ rather than destructively rewriting the Observation.
 
 ### Provider-Specific Semantics
 
-- How should provider-specific terminology be handled?
+- How should Provider-specific terminology be handled?
 - Can Service-specific dictionaries remain deterministic?
-- At what point does specialization damage provider independence?
+- At what point does specialization damage Provider independence?
 
 ### Language
 
@@ -2951,14 +3315,14 @@ rather than destructively rewriting the Observation.
 ### AI
 
 - Which classification cases actually benefit from AI?
-- Should AI return one Evidence Type or multiple candidates?
+- Should AI return one EvidenceType or multiple candidates?
 - Should AI ever create new taxonomy categories?
 - How are model changes managed?
-- Should some Observation Types prohibit remote AI completely?
+- Should some ObservationTypes prohibit remote AI completely?
 
 ### Privacy
 
-- Which Observation Types may be sent to remote AI?
+- Which ObservationTypes may be sent to remote AI?
 - Should classification policy depend on field-level sensitivity?
 - Should some payload fields be redacted before AI processing?
 
@@ -2970,15 +3334,26 @@ rather than destructively rewriting the Observation.
 ### Persistence
 
 - Should ClassificationResult be persisted?
-- Should canonical Evidence alone be persisted?
+- Should EvidenceCandidate ever be persisted independently?
+- Which Evidence records are persisted?
 - How much classifier provenance is necessary?
-- How should reclassification affect downstream Relationships?
+- How is EvidenceStatus persisted?
+- How is lifecycle transition provenance stored?
+- How should reclassification trigger downstream re-aggregation and Relationship reassessment?
 
 ### Confidence
 
-- Is numerical Evidence Confidence ever necessary?
-- Could explicit Evidence Types, methods and provenance remain sufficient?
-- If introduced later, how would Confidence be calibrated?
+Numerical Evidence Classification Confidence is outside the initial Discovery baseline.
+
+The remaining question is whether future empirical validation demonstrates a justified need for it.
+
+If introduced later:
+
+- what exactly will Confidence measure?
+- how will it be calibrated?
+- what validation dataset will support it?
+- how will it differ from CLASSIFIED / UNKNOWN?
+- how should Users interpret it?
 
 ---
 
@@ -2992,8 +3367,6 @@ Likewise, a Service may be resolved while Evidence semantics remain unknown.
 
 This confirms that the two operations should remain separate.
 
----
-
 ### Finding 2 - One Observation May Produce Multiple Evidence Items
 
 The relationship:
@@ -3006,58 +3379,54 @@ is not necessarily one-to-one.
 
 The Domain Model must therefore avoid assuming exactly one Evidence item per Observation.
 
----
-
 ### Finding 3 - Evidence Taxonomy Needs Governance
 
-Once multiple sources and classification strategies exist, Evidence Types cannot remain arbitrary strings created by individual Connectors or classifiers.
+Once multiple sources and classification strategies exist, EvidenceTypes cannot remain arbitrary strings created by individual Connectors or classifiers.
 
 A controlled and versionable taxonomy will be required.
 
 The final taxonomy should be derived from real scenarios rather than designed exhaustively in advance.
 
----
-
-### Finding 4 - Evidence Should Stay Independent from Persistence Lifecycle
+### Finding 4 - EvidenceCandidate and Evidence Have Different Lifecycle Responsibilities
 
 The classifier's responsibility is semantic interpretation.
 
-It should not necessarily own:
+It does not automatically own:
 
 ```text
-persistent ID generation
+persistent Evidence ID generation
 Evidence storage
-Evidence replacement
-Evidence version history
+Evidence lifecycle transitions
+Evidence replacement history
 ```
 
-This suggests a useful conceptual distinction between:
+The consolidated Domain Model therefore distinguishes:
 
 ```text
 EvidenceCandidate
+=
+Interface Value Object / Processing Output
 ```
 
-and canonical persisted:
+from:
 
 ```text
 Evidence
+=
+Core Domain Entity
 ```
 
-without yet promoting EvidenceCandidate to a core Domain Entity.
-
----
+The application layer materializes accepted classifier output into Domain Evidence.
 
 ### Finding 5 - AI Escalation Must Remain Optional
 
-`UNKNOWN` is an acceptable outcome.
+UNKNOWN is an acceptable outcome.
 
 The framework does not need to send every ambiguous Observation to AI merely to maximize classification coverage.
 
----
-
 ### Finding 6 - Progressive Permission Remains Outside the Classifier
 
-If available Observation data is insufficient, the classifier returns `UNKNOWN`.
+If available Observation data is insufficient, the classifier returns UNKNOWN.
 
 It does not independently gain access to more sensitive source information.
 
@@ -3075,8 +3444,6 @@ Observation
 
 path.
 
----
-
 ### Finding 7 - Metadata and Content Should Remain Distinct Observation Types
 
 Progressive Permission is easier to preserve if:
@@ -3093,89 +3460,149 @@ EMAIL_MESSAGE_CONTENT
 
 remain separate Observation semantics rather than progressively expanding one opaque email object.
 
----
+### Finding 8 - Evidence Requires Explicit Lifecycle State
 
-## 97. Decision Candidates
-
-### Candidate Decision - Classification Is Independent from Resolution
+Reclassification and User correction require the framework to distinguish:
 
 ```text
-Evidence Classification and Entity Resolution should operate as separate
-Discovery concerns.
-
-Either process may succeed while the other remains unresolved.
+currently accepted interpretation
 ```
 
----
-
-### Candidate Decision - Evidence Taxonomy Is Controlled
+from:
 
 ```text
-Evidence Types should belong to a controlled and versionable framework
-taxonomy rather than being arbitrary provider-specific strings.
+historical replaced interpretation
 ```
 
----
-
-### Candidate Decision - One Observation May Produce Multiple Evidence Items
+and:
 
 ```text
-One Observation may produce zero, one or multiple Evidence items when each
-semantic classification is independently supported.
+explicitly invalidated interpretation
 ```
 
----
-
-### Candidate Decision - Unknown Is a Valid Classification
+The consolidated Domain Model therefore introduces:
 
 ```text
-Evidence Classification may return UNKNOWN when available authorized
-information is insufficient.
+EvidenceStatus
 
-The classifier must not fabricate a classification or silently request
-additional source permissions.
+ACTIVE
+SUPERSEDED
+REJECTED
 ```
 
----
+Current Evidence Aggregation should normally consume only ACTIVE Evidence.
 
-### Candidate Decision - Deterministic Classification First
+### Finding 9 - ClassificationResult Is a Processing Result
+
+The consolidated Domain Model classifies ClassificationResult as:
 
 ```text
-Deterministic classification should be preferred when explicit rules can
-reliably interpret the Observation.
-
-AI should primarily address semantic ambiguity rather than replace reliable
-deterministic classification.
+Processing Result
 ```
+
+rather than a Core Domain Entity.
+
+It may be persisted for provenance without becoming authoritative Domain Evidence.
 
 ---
 
-### Candidate Decision - Semantic Types Are Provider-Neutral Where Possible
+## 97. Architecture Alignment and Remaining Decision Candidates
+
+### Architecture Alignment - Classification Is Independent from Resolution
+
+Evidence Classification and Entity Resolution operate as independent Discovery concerns.
+
+Either may succeed while the other remains unresolved.
+
+This is formalized by:
 
 ```text
-Equivalent semantics from different providers should map to the same
-Evidence Type where appropriate.
-
-Provider-specific Evidence Types should be introduced only when the source
-semantics genuinely cannot be represented through the common taxonomy.
+D-020 - Entity Resolution and Evidence Classification Are Independent
 ```
 
----
+### Architecture Alignment - Evidence Taxonomy Is Controlled
 
-### Candidate Decision - Reclassification Preserves Observation Provenance
+EvidenceTypes belong to a controlled and versionable framework taxonomy rather than being arbitrary Provider-specific strings.
+
+The final taxonomy remains empirically extensible.
+
+### Architecture Alignment - One Observation May Produce Multiple Evidence Items
+
+One Observation may produce:
 
 ```text
-Classifier evolution must not require destructive modification of source
-Observations.
-
-Preserved Observations should support later reclassification where compatible.
+zero
+one
+multiple
 ```
+
+Evidence items when each semantic interpretation is independently justified.
+
+### Architecture Alignment - UNKNOWN Is a Valid Classification
+
+Evidence Classification may return:
+
+```text
+UNKNOWN
+```
+
+when available authorized information is insufficient.
+
+The classifier must not fabricate a classification or silently request additional source permissions.
+
+### Architecture Alignment - Deterministic Classification First
+
+Deterministic classification is preferred when explicit rules can reliably interpret an Observation.
+
+AI should primarily address semantic ambiguity.
+
+### Architecture Alignment - Semantic Types Are Provider-Neutral Where Possible
+
+Equivalent semantics from different Providers should map to the same EvidenceType where appropriate.
+
+Provider-specific EvidenceTypes should be introduced only where common semantic types cannot represent the source meaning.
+
+### Architecture Alignment - Evidence Lifecycle
+
+Evidence has an explicit lifecycle:
+
+```text
+ACTIVE
+SUPERSEDED
+REJECTED
+```
+
+Historical classification provenance may remain preserved without all historical interpretations participating simultaneously in current assessment.
+
+### Architecture Alignment - Reclassification Preserves Observation Provenance
+
+Classifier evolution must not require destructive modification of source Observations.
+
+Reclassification changes interpretation, not what was originally observed.
+
+### Architecture Alignment - No Numerical Evidence Confidence
+
+Numerical Evidence Classification Confidence is outside the initial Discovery baseline.
+
+This aligns with:
+
+```text
+D-023 - No Numerical Confidence in Initial Discovery Model
+```
+
+### Remaining Decision Candidate - Evidence Lifecycle Persistence
+
+The lifecycle semantics are defined.
+
+The persistence mechanism is not.
+
+The Implementation Model must determine how ACTIVE, SUPERSEDED and REJECTED Evidence and their lifecycle transitions are stored.
 
 ---
 
 ## 98. Current Contract Baseline
 
-The initial Evidence Classifier contract is:
+The aligned Evidence Classifier contract is:
 
 ```text
 Observation
@@ -3185,6 +3612,7 @@ EvidenceClassifier
       |
       v
 ClassificationResult
+[Processing Result]
       |
       +-- processing_status
       |
@@ -3197,73 +3625,156 @@ ClassificationResult
       +-- reason_codes
       |
       +-- classifier_version
+      |
+      v
+EvidenceCandidate
+[Interface Value Object]
+      |
+      v
+Application Layer
+      |
+      v
+Evidence
+[Core Domain Entity]
+      |
+      +-- EvidenceType
+      |
+      +-- EvidenceStatus
+             |
+             +-- ACTIVE
+             +-- SUPERSEDED
+             +-- REJECTED
 ```
 
 with the guarantees:
 
 ```text
 Observation provenance preserved
+
 classification independent from Entity Resolution
+
 classification independent from Relationship Assessment
-provider-neutral semantics where possible
+
+Provider-neutral semantics where possible
+
 controlled Evidence taxonomy
+
 deterministic-first processing
+
 optional AI escalation
+
 UNKNOWN support
+
 technical failure separated from semantic uncertainty
-no silent permission escalation
+
 zero / one / multiple Evidence items supported
-no arbitrary numerical Confidence
-reclassification-compatible design
+
+EvidenceCandidate distinct from Evidence
+
+ClassificationResult classified as Processing Result
+
+Evidence lifecycle explicit
+
+ACTIVE / SUPERSEDED / REJECTED distinguished
+
+reclassification preserves historical provenance
+
+only currently accepted Evidence normally participates downstream
+
+no numerical Confidence in the initial baseline
+
+no silent permission escalation
 ```
 
 ---
 
-## 99. Next Interface Contract
+## 99. Downstream Contract
 
-The Discovery pipeline now has contracts for:
-
-```text
-                   Observation
-                   /         \
-                  /           \
-                 v             v
-ServiceCandidateDetector   EvidenceClassifier
-          |                     |
-          v                     v
-   CandidateIdentifier       Evidence
-          |
-          v
-    EntityResolver
-          |
-          v
-       Service
-```
-
-The next interface should define:
+The next contract in the Discovery pipeline is:
 
 ```text
 EvidenceAggregator
 ```
 
-Its responsibility is:
+and has already been defined in:
 
-> Given Evidence associated with the same Service or discovery context, construct a structured aggregate suitable for Relationship Assessment without destroying individual Evidence provenance.
+```text
+docs/interfaces/06-evidence-aggregator-contract.md
+```
 
-The next contract should establish:
+The relevant dependency is:
 
-- grouping boundaries;
-- Service-level aggregation;
-- Identity-aware aggregation;
-- cross-source Evidence;
-- deduplication;
-- Evidence frequency;
-- temporal information;
-- conflicting Evidence;
-- source diversity;
-- historical Evidence;
-- unresolved-Service Evidence;
-- aggregation provenance;
-- re-aggregation after reclassification or deletion.
+```text
+Observation
+      |
+      v
+EvidenceClassifier
+      |
+      v
+ClassificationResult
+      |
+      v
+EvidenceCandidate
+      |
+      v
+Application Layer
+      |
+      v
+ACTIVE Evidence
+      |
+      v
+EvidenceAggregator
+```
 
-The aggregator must not itself decide the final Relationship state.
+while Entity Resolution remains an independent branch:
+
+```text
+                     Observation
+                     /         \
+                    /           \
+                   v             v
+       Candidate Detection    Evidence Classification
+                   |             |
+                   v             v
+          CandidateIdentifier  EvidenceCandidate
+                   |             |
+                   v             v
+           Entity Resolution   Evidence
+                   |             |
+                   v             |
+                Service          |
+                   \             /
+                    \           /
+                     v         v
+                 EvidenceAggregator
+```
+
+The EvidenceAggregator must consume Evidence lifecycle according to explicit aggregation policy.
+
+For the default current Discovery view:
+
+```text
+ACTIVE
+      -> normally included
+
+SUPERSEDED
+      -> normally excluded
+
+REJECTED
+      -> excluded
+```
+
+The Evidence Classifier Contract is now aligned with:
+
+- Architecture Draft v0.3;
+- Domain Model Draft v0.3;
+- D-020 parallel Entity Resolution / Evidence Classification;
+- Evidence as a Core Domain Entity;
+- EvidenceCandidate as an Interface Value Object;
+- ClassificationResult as a Processing Result;
+- EvidenceStatus lifecycle;
+- ACTIVE / SUPERSEDED / REJECTED semantics;
+- reclassification provenance;
+- D-023 exclusion of numerical Confidence.
+
+No additional Evidence Classification abstraction is required before the Implementation Model phase.
