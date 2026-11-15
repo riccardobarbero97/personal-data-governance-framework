@@ -79,6 +79,26 @@ Processing Result != Core Domain Entity
 
 Implementation convenience must not collapse these distinctions.
 
+The implementation should prefer:
+
+```text
+explicit types
+
+explicit states
+
+explicit provenance
+
+replaceable infrastructure
+
+deterministic behavior
+
+small interfaces
+
+local-first execution
+```
+
+over implicit coupling or framework-specific abstractions.
+
 ---
 
 ## 3. Implementation Scope
@@ -133,6 +153,8 @@ Credential Boundary
 Rule / Policy Configuration
 ```
 
+It also defines the application-level wiring required to preserve the semantic boundaries between these concepts.
+
 ---
 
 ## 4. Explicit Non-Goals
@@ -173,7 +195,7 @@ These concepts must not be introduced into the initial codebase merely because t
 
 ---
 
-# 5. Architectural Style
+## 5. Architectural Style
 
 The initial implementation should use a:
 
@@ -193,7 +215,7 @@ The implementation should nevertheless preserve boundaries that could later be s
 
 ---
 
-# 6. Dependency Direction
+## 6. Dependency Direction
 
 The preferred dependency direction is:
 
@@ -249,9 +271,11 @@ LLM SDKs
 cloud-provider SDKs
 ```
 
+The infrastructure layer implements ports defined by the application or Domain-facing boundaries.
+
 ---
 
-# 7. Proposed Project Structure
+## 7. Proposed Project Structure
 
 The initial Python project structure should be:
 
@@ -292,6 +316,9 @@ src/
     │   │   ├── repositories.py
     │   │   └── credential_store.py
     │   │
+    │   ├── values/
+    │   │   └── evidence_contribution.py
+    │   │
     │   ├── results/
     │   │   ├── candidate_detection.py
     │   │   ├── resolution.py
@@ -329,13 +356,14 @@ Tests should mirror the source structure:
 ```text
 tests/
 ├── unit/
+├── contract/
 ├── integration/
 └── vertical/
 ```
 
 ---
 
-# 8. Domain Representation Strategy
+## 8. Domain Representation Strategy
 
 Core immutable or mostly immutable Domain structures should initially use Python:
 
@@ -377,14 +405,17 @@ This keeps the Domain:
 
 ```text
 simple
+
 typed
+
 testable
+
 infrastructure-independent
 ```
 
 ---
 
-# 9. Identifier Types
+## 9. Identifier Types
 
 Domain identifiers should not initially be represented as arbitrary strings throughout the codebase.
 
@@ -424,7 +455,7 @@ should become difficult to express accidentally.
 
 ---
 
-# 10. User
+## 10. User
 
 `User` is a Core Domain Entity.
 
@@ -442,8 +473,11 @@ Information such as:
 
 ```text
 name
+
 address
+
 preferences
+
 profile picture
 ```
 
@@ -451,7 +485,7 @@ must not be introduced unless required by Discovery.
 
 ---
 
-# 11. IdentitySeed
+## 11. IdentitySeed
 
 Initial representation:
 
@@ -487,7 +521,7 @@ Other enum values may be introduced only when required.
 
 ---
 
-# 12. ConnectedSource
+## 12. ConnectedSource
 
 `ConnectedSource` is a Core Domain Entity.
 
@@ -519,11 +553,11 @@ password
 OAuth client secret
 ```
 
-Those belong behind the CredentialStore port.
+Those belong behind the `CredentialStore` port.
 
 ---
 
-# 13. SourceType
+## 13. SourceType
 
 Initial enum:
 
@@ -544,7 +578,7 @@ EMAIL
 
 ---
 
-# 14. Provider
+## 14. Provider
 
 `Provider` should initially be a lightweight value rather than a complex Domain Entity.
 
@@ -576,7 +610,7 @@ even when the same real-world company occupies both roles.
 
 ---
 
-# 15. Observation
+## 15. Observation
 
 Observation is a Core Domain Entity.
 
@@ -592,15 +626,32 @@ class Observation:
     observation_type: ObservationType
     schema_version: SchemaVersion
     source_reference: SourceReference | None
-    observed_at: datetime | None
+    observed_at: TemporalValue | None
     collected_at: datetime
-    temporal_semantics: TemporalSemantics
     payload: ObservationPayload
 ```
 
+`observed_at` combines the source-derived timestamp with its temporal semantics.
+
+`collected_at` remains a framework collection timestamp and therefore does not require a source temporal semantic.
+
+The implementation must not duplicate temporal semantics in both:
+
+```text
+Observation.temporal_semantics
+```
+
+and:
+
+```text
+TemporalValue.semantics
+```
+
+The semantics belong to `TemporalValue`.
+
 ---
 
-# 16. ObservationPayload
+## 16. ObservationPayload
 
 `ObservationPayload` should be a Protocol or tagged union over explicitly supported payload types.
 
@@ -629,7 +680,7 @@ Untyped dictionaries would weaken the schema boundary established by the Observa
 
 ---
 
-# 17. EMAIL_MESSAGE_METADATA v1
+## 17. EMAIL_MESSAGE_METADATA v1
 
 The first concrete payload for the Gmail Vertical MVP should be:
 
@@ -649,9 +700,17 @@ Message body must not be part of this payload.
 
 Attachment content must not be part of this payload.
 
+The Gmail Provider message identifier should normally be represented through:
+
+```text
+Observation.source_reference
+```
+
+rather than duplicated inside the payload.
+
 ---
 
-# 18. ObservationType
+## 18. ObservationType
 
 Initial MVP enum:
 
@@ -666,7 +725,7 @@ The codebase should not populate enums with every hypothetical future Observatio
 
 ---
 
-# 19. SchemaVersion
+## 19. SchemaVersion
 
 A lightweight value object is sufficient:
 
@@ -684,9 +743,9 @@ EMAIL_MESSAGE_METADATA v1
 
 ---
 
-# 20. TemporalSemantics
+## 20. TemporalSemantics and TemporalValue
 
-Initial values relevant to Gmail:
+Initial temporal semantics relevant to Gmail:
 
 ```python
 class TemporalSemantics(StrEnum):
@@ -694,19 +753,54 @@ class TemporalSemantics(StrEnum):
     UNKNOWN = "UNKNOWN"
 ```
 
+The Domain `TemporalValue` concept is represented as:
+
+```python
+@dataclass(frozen=True)
+class TemporalValue:
+    timestamp: datetime
+    semantics: TemporalSemantics
+```
+
+`TemporalValue` ensures that a timestamp cannot silently lose the meaning provided by its source.
+
+For example:
+
+```text
+2026-01-01
++
+MESSAGE_TIME
+```
+
+must remain distinguishable from:
+
+```text
+2026-01-01
++
+SOURCE_RECORD_MODIFIED
+```
+
 Additional semantics such as:
 
 ```text
+SOURCE_EVENT_TIME
+
 SOURCE_RECORD_CREATED
+
 SOURCE_RECORD_MODIFIED
+
 VISIT_TIME
+
+USER_DECLARED_TIME
 ```
 
 can be introduced when corresponding ObservationTypes are implemented.
 
+The implementation must remain capable of carrying more than one typed TemporalValue where a future ObservationType exposes multiple independently meaningful timestamps.
+
 ---
 
-# 21. CandidateIdentifier
+## 21. CandidateIdentifier
 
 `CandidateIdentifier` remains an application-processing value.
 
@@ -722,9 +816,13 @@ class CandidateIdentifier:
 
 It does not require persistent Domain identity in the first MVP.
 
+CandidateIdentifier represents information detected in one processing execution.
+
+It is not itself the retained Domain representation used by Entity Resolution.
+
 ---
 
-# 22. ServiceIdentifier
+## 22. ServiceIdentifier
 
 `ServiceIdentifier` is a Domain Value Concept.
 
@@ -752,12 +850,70 @@ The Gmail MVP primarily requires:
 
 ```text
 EMAIL_DOMAIN
+
 DOMAIN
 ```
 
+Original and normalized values must remain distinguishable.
+
 ---
 
-# 23. Service
+### 22.1 CandidateIdentifier Materialization
+
+`CandidateIdentifier` is a transient processing representation produced by Service Candidate Detection.
+
+`ServiceIdentifier` is the Domain Value Concept consumed by Entity Resolution.
+
+For the initial implementation, materialization occurs in the Application Layer:
+
+```text
+CandidateDetectionResult
+        |
+        v
+CandidateIdentifier
+        |
+        v
+Application Layer
+        |
+        v
+ServiceIdentifier
+        |
+        v
+ResolutionRequest
+        |
+        v
+EntityResolver
+```
+
+The EntityResolver therefore receives ServiceIdentifier values rather than owning the CandidateIdentifier-to-ServiceIdentifier materialization step.
+
+This preserves the boundary:
+
+```text
+CandidateIdentifier
+        !=
+ServiceIdentifier
+        !=
+Service
+```
+
+Materialization must preserve:
+
+```text
+original identifier value
+
+identifier type
+
+source Observation reference
+
+normalization provenance where applicable
+```
+
+The materialization step does not resolve the identifier to a canonical Service.
+
+---
+
+## 23. Service
 
 `Service` is a Core Domain Entity.
 
@@ -788,11 +944,11 @@ Known identifiers belong through the ServiceRegistry rather than requiring the S
 
 ---
 
-# 24. EvidenceType
+## 24. EvidenceType
 
 The first implementation should use a controlled enum.
 
-The Gmail MVP should initially support the EvidenceTypes required by Scenario 001:
+The Gmail MVP should initially support EvidenceTypes required by Gmail Service Discovery:
 
 ```python
 class EvidenceType(StrEnum):
@@ -818,7 +974,7 @@ Evidence taxonomy should remain versionable.
 
 ---
 
-# 25. EvidenceStatus
+## 25. EvidenceStatus
 
 ```python
 class EvidenceStatus(StrEnum):
@@ -833,9 +989,11 @@ Newly materialized accepted Evidence should normally start as:
 ACTIVE
 ```
 
+`SUPERSEDED` and `REJECTED` remain semantically different.
+
 ---
 
-# 26. Evidence
+## 26. Evidence
 
 Initial representation:
 
@@ -853,15 +1011,37 @@ class Evidence:
     reason_codes: tuple[str, ...]
 ```
 
-Temporal provenance should remain available through supporting Observations.
+Evidence must remain traceable to supporting Observations.
+
+Source provenance should not be duplicated unnecessarily inside Evidence.
+
+Temporal provenance should remain recoverable through the supporting Observations.
 
 If implementation demonstrates that Evidence requires independent derived TemporalValues, they may be introduced without changing the Entity boundary.
 
+Evidence may exist with:
+
+```python
+service_id = None
+```
+
+when Entity Resolution remains:
+
+```text
+UNRESOLVED
+```
+
+or:
+
+```text
+AMBIGUOUS
+```
+
 ---
 
-# 27. EvidenceCandidate
+## 27. EvidenceCandidate
 
-Classifier output should not construct Domain Evidence directly.
+Classifier output should not construct persistent Domain Evidence directly.
 
 Conceptually:
 
@@ -881,12 +1061,21 @@ The application layer is responsible for materialization:
 EvidenceCandidate
         |
         v
+Application Layer
+        |
+        v
 Evidence
+```
+
+A newly materialized accepted interpretation normally receives:
+
+```text
+EvidenceStatus.ACTIVE
 ```
 
 ---
 
-# 28. RelationshipStatus
+## 28. RelationshipStatus
 
 ```python
 class RelationshipStatus(StrEnum):
@@ -900,7 +1089,9 @@ No:
 
 ```text
 POSSIBLE
+
 PROBABLE
+
 CONFIRMED
 ```
 
@@ -908,7 +1099,7 @@ values should be introduced into the initial implementation.
 
 ---
 
-# 29. TemporalStatus
+## 29. TemporalStatus
 
 ```python
 class TemporalStatus(StrEnum):
@@ -921,7 +1112,7 @@ TemporalStatus remains independent from RelationshipStatus.
 
 ---
 
-# 30. Relationship
+## 30. Relationship
 
 Initial representation:
 
@@ -937,18 +1128,33 @@ class Relationship:
     evidence_ids: tuple[EvidenceId, ...]
     reason_codes: tuple[str, ...]
     warnings: tuple[str, ...]
+    assessment_method: AssessmentMethod
     assessor_version: str
     assessment_policy_version: str
     assessed_at: datetime
 ```
 
-The Relationship represents the current materialized assessment.
+The Relationship represents the current materialized User-Service assessment.
+
+The following provenance remains explicit:
+
+```text
+Assessment Method
+
+Assessor Version
+
+Assessment Policy Version
+
+Assessment Time
+
+Evidence Basis
+```
 
 Historical assessment results remain separate.
 
 ---
 
-# 31. Processing Status
+## 31. ProcessingStatus
 
 A shared controlled enum should initially support:
 
@@ -971,9 +1177,19 @@ ResolutionStatus.UNRESOLVED
 
 is valid.
 
+Likewise:
+
+```text
+ProcessingStatus.SUCCESS
++
+ClassificationStatus.UNKNOWN
+```
+
+is valid.
+
 ---
 
-# 32. CandidateDetectionResult
+## 32. CandidateDetectionResult
 
 ```python
 @dataclass(frozen=True)
@@ -989,15 +1205,31 @@ class CandidateDetectionResult:
 
 This remains a Processing Result.
 
+It must not become a Domain Entity merely because it may later be persisted for provenance.
+
 ---
 
-# 33. ResolutionResult
+## 33. ResolutionRequest and ResolutionResult
+
+Entity Resolution consumes Domain ServiceIdentifiers rather than CandidateIdentifiers.
+
+The request is:
+
+```python
+@dataclass(frozen=True)
+class ResolutionRequest:
+    observation_id: ObservationId
+    service_identifiers: tuple[ServiceIdentifier, ...]
+    context: ResolutionContext
+```
+
+The result is:
 
 ```python
 @dataclass(frozen=True)
 class ResolutionResult:
     observation_id: ObservationId
-    input_identifiers: tuple[CandidateIdentifier, ...]
+    input_identifiers: tuple[ServiceIdentifier, ...]
     normalized_identifiers: tuple[ServiceIdentifier, ...]
     processing_status: ProcessingStatus
     resolution_status: ResolutionStatus | None
@@ -1008,7 +1240,13 @@ class ResolutionResult:
     resolver_version: str
 ```
 
-This remains:
+`ResolutionRequest` receives ServiceIdentifier values materialized by the Application Layer.
+
+The EntityResolver must not implicitly convert CandidateIdentifiers into ServiceIdentifiers.
+
+`normalized_identifiers` preserve normalization results without destroying the original ServiceIdentifier values.
+
+ResolutionResult remains:
 
 ```text
 Processing Result / Value Object
@@ -1018,7 +1256,7 @@ and not a Service Entity.
 
 ---
 
-# 34. ClassificationResult
+## 34. ClassificationResult
 
 ```python
 @dataclass(frozen=True)
@@ -1032,9 +1270,19 @@ class ClassificationResult:
     classifier_version: str
 ```
 
+ClassificationResult remains a Processing Result.
+
+It must remain distinct from:
+
+```text
+EvidenceCandidate
+
+Evidence
+```
+
 ---
 
-# 35. EvidenceAggregate
+## 35. EvidenceAggregate
 
 EvidenceAggregate is a Derived View.
 
@@ -1044,22 +1292,159 @@ Conceptually:
 @dataclass(frozen=True)
 class EvidenceAggregate:
     scope: AggregationScope
+
     service_id: ServiceId | None
+
+    unresolved_identifiers: tuple[ServiceIdentifier, ...]
+
+    alternative_service_ids: tuple[ServiceId, ...]
+
     identity_seed_ids: tuple[IdentitySeedId, ...]
+
     evidence_ids: tuple[EvidenceId, ...]
+
     evidence_summary: EvidenceSummary
+
     source_summary: SourceSummary
+
     temporal_summary: TemporalSummary
+
     conflict_summary: ConflictSummary
+
     coverage_summary: CoverageSummary | None
+
     aggregator_version: str
 ```
 
-It must remain rebuildable.
+The Aggregate must support all initial Discovery aggregation scopes:
+
+```text
+SERVICE
+
+UNRESOLVED_SERVICE_CANDIDATE
+
+AMBIGUOUS_SERVICE_CANDIDATE
+```
+
+Their expected representations are:
+
+```text
+SERVICE
+    -> service_id populated
+```
+
+```text
+UNRESOLVED_SERVICE_CANDIDATE
+    -> unresolved_identifiers populated
+```
+
+```text
+AMBIGUOUS_SERVICE_CANDIDATE
+    -> unresolved_identifiers populated
+    -> alternative_service_ids populated
+```
+
+Fields that do not apply to a selected scope remain empty.
+
+Evidence must not disappear solely because Entity Resolution returns:
+
+```text
+UNRESOLVED
+```
+
+or:
+
+```text
+AMBIGUOUS
+```
+
+EvidenceAggregate must remain rebuildable.
 
 ---
 
-# 36. AggregationResult
+### 35.1 EvidenceContribution and Source Provenance
+
+Evidence does not duplicate ConnectedSource or SourceType provenance already available through supporting Observations.
+
+Before invoking the EvidenceAggregator, the Application Layer resolves the minimum provenance required for aggregation.
+
+The initial implementation uses:
+
+```python
+@dataclass(frozen=True)
+class EvidenceContribution:
+    evidence: Evidence
+    connected_source_ids: tuple[ConnectedSourceId, ...]
+    source_types: tuple[SourceType, ...]
+    providers: tuple[Provider, ...]
+    temporal_values: tuple[TemporalValue, ...]
+```
+
+Conceptually:
+
+```text
+Evidence
+   |
+   v
+supporting Observation IDs
+   |
+   v
+ObservationRepository
+   |
+   v
+Observations
+   |
+   v
+ConnectedSource IDs
+   |
+   v
+ConnectedSourceRepository
+   |
+   v
+SourceType / Provider
+   |
+   v
+EvidenceContribution
+   |
+   v
+EvidenceAggregator
+```
+
+`EvidenceContribution` is an Application Value Object.
+
+It is not a Core Domain Entity.
+
+It must not become an alternative authoritative provenance representation.
+
+Its purpose is to provide the Aggregator with already-resolved context necessary to construct:
+
+```text
+EvidenceSummary
+
+SourceSummary
+
+TemporalSummary
+
+ConflictSummary
+```
+
+without requiring the EvidenceAggregator to query infrastructure repositories directly.
+
+The authoritative provenance remains:
+
+```text
+Evidence
+   |
+   v
+Observation
+   |
+   v
+ConnectedSource
+```
+
+---
+
+## 36. AggregationResult
 
 ```python
 @dataclass(frozen=True)
@@ -1072,9 +1457,17 @@ class AggregationResult:
 
 This remains a Processing Result.
 
+It must remain distinct from:
+
+```text
+EvidenceAggregate
+```
+
+which is a Derived View.
+
 ---
 
-# 37. RelationshipAssessmentResult
+## 37. RelationshipAssessmentResult
 
 ```python
 @dataclass(frozen=True)
@@ -1092,11 +1485,13 @@ class RelationshipAssessmentResult:
     assessment_policy_version: str
 ```
 
-The application layer uses this result to create or update `Relationship`.
+The application layer uses this result to create or update Relationship only when a canonical Service context exists.
+
+An assessment over unresolved or ambiguous aggregation context must not fabricate a canonical User-Service Relationship.
 
 ---
 
-# 38. Protocol Strategy
+## 38. Protocol Strategy
 
 Behavioral boundaries should initially use:
 
@@ -1123,9 +1518,9 @@ This allows alternative implementations without forcing shared inheritance.
 
 ---
 
-# 39. Connector Port
+## 39. Connector Port
 
-Conceptually:
+The minimum Connector port is:
 
 ```python
 class Connector(Protocol):
@@ -1154,18 +1549,43 @@ class Connector(Protocol):
     ) -> PermissionRequirements:
         ...
 
+    def prepare_authorization(
+        self,
+        connected_source: ConnectedSource,
+        capability: Capability,
+    ) -> AuthorizationRequest:
+        ...
+
     def collect(
         self,
         request: CollectionRequest,
     ) -> CollectionResult:
         ...
+
+    def disconnect(
+        self,
+        connected_source: ConnectedSource,
+    ) -> DisconnectResult:
+        ...
 ```
 
-Disconnect/revoke operations may be added when needed by the Gmail integration lifecycle.
+`disconnect()` belongs to the minimum Connector port because ConnectedSource lifecycle is independently managed per source instance.
+
+Optional operations such as:
+
+```text
+refresh_authorization()
+
+revoke()
+```
+
+may be represented through additional capability-specific Protocols or added to Connector implementations when required.
+
+The core port must not assume OAuth as the only authorization mechanism.
 
 ---
 
-# 40. ServiceCandidateDetector Port
+## 40. ServiceCandidateDetector Port
 
 ```python
 class ServiceCandidateDetector(Protocol):
@@ -1180,9 +1600,11 @@ class ServiceCandidateDetector(Protocol):
 
 The first implementation should be deterministic.
 
+The detector returns CandidateIdentifiers rather than Domain Services.
+
 ---
 
-# 41. EntityResolver Port
+## 41. EntityResolver Port
 
 ```python
 class EntityResolver(Protocol):
@@ -1194,7 +1616,9 @@ class EntityResolver(Protocol):
         ...
 ```
 
-The Resolver should depend on:
+The Resolver receives ServiceIdentifiers.
+
+It depends on:
 
 ```text
 ServiceRegistry
@@ -1202,11 +1626,16 @@ ServiceRegistry
 
 through an interface.
 
-It must not directly depend on the concrete Registry implementation.
+It must not:
+
+- materialize CandidateIdentifiers;
+- create new Services implicitly;
+- persist Relationships;
+- depend on concrete Registry persistence.
 
 ---
 
-# 42. EvidenceClassifier Port
+## 42. EvidenceClassifier Port
 
 ```python
 class EvidenceClassifier(Protocol):
@@ -1223,9 +1652,11 @@ The first Gmail implementation should be deterministic-first.
 
 AI should not be necessary to prove the first vertical slice.
 
+The classifier returns EvidenceCandidates rather than persisting Evidence itself.
+
 ---
 
-# 43. EvidenceAggregator Port
+## 43. EvidenceAggregator Port
 
 ```python
 class EvidenceAggregator(Protocol):
@@ -1237,6 +1668,10 @@ class EvidenceAggregator(Protocol):
         ...
 ```
 
+The AggregationRequest should contain already-resolved EvidenceContribution values or equivalent application-prepared aggregation input.
+
+The Aggregator must not depend directly on infrastructure repositories.
+
 The current-view policy should include:
 
 ```text
@@ -1247,6 +1682,7 @@ and exclude:
 
 ```text
 SUPERSEDED
+
 REJECTED
 ```
 
@@ -1254,7 +1690,7 @@ by default.
 
 ---
 
-# 44. RelationshipAssessor Port
+## 44. RelationshipAssessor Port
 
 ```python
 class RelationshipAssessor(Protocol):
@@ -1269,22 +1705,26 @@ class RelationshipAssessor(Protocol):
 
 The initial implementation should use deterministic policy.
 
+The Assessor determines Relationship semantics.
+
+It does not persist Relationship entities.
+
 ---
 
-# 45. Repository Boundaries
+## 45. Repository Boundaries
 
 The Domain must not depend on a specific persistence implementation.
 
 Initial repository ports should include only what the vertical slice requires.
 
-Potential interfaces include:
+Initial interfaces include:
 
 ```text
 ConnectedSourceRepository
 
 ObservationRepository
 
-ServiceRepository / ServiceRegistry
+ServiceRegistry
 
 EvidenceRepository
 
@@ -1295,7 +1735,7 @@ Repositories should expose use-case-oriented operations rather than generic pers
 
 ---
 
-# 46. ObservationRepository
+## 46. ObservationRepository
 
 Conceptually:
 
@@ -1308,6 +1748,12 @@ class ObservationRepository(Protocol):
     ) -> None:
         ...
 
+    def get(
+        self,
+        observation_id: ObservationId,
+    ) -> Observation | None:
+        ...
+
     def find_by_source_reference(
         self,
         connected_source_id: ConnectedSourceId,
@@ -1316,11 +1762,13 @@ class ObservationRepository(Protocol):
         ...
 ```
 
-The second operation supports idempotent collection.
+`find_by_source_reference()` supports idempotent source collection.
+
+`get()` supports provenance resolution for Evidence aggregation.
 
 ---
 
-# 47. ServiceRegistry Port
+## 47. ServiceRegistry Port
 
 The initial ServiceRegistry needs enough behavior for deterministic lookup.
 
@@ -1344,11 +1792,33 @@ class ServiceRegistry(Protocol):
 
 For the first MVP, an in-memory or local-file-backed Registry is acceptable.
 
-The Domain must not know which implementation is used.
+A return value of:
+
+```python
+()
+```
+
+means no canonical Service match exists.
+
+One returned Service may produce:
+
+```text
+RESOLVED
+```
+
+Multiple plausible Services may produce:
+
+```text
+AMBIGUOUS
+```
+
+The Domain and Resolver must not know which concrete Registry implementation is being used.
 
 ---
 
-# 48. EvidenceRepository
+## 48. EvidenceRepository
+
+The EvidenceRepository must support both persistence and lifecycle operations.
 
 Conceptually:
 
@@ -1361,28 +1831,69 @@ class EvidenceRepository(Protocol):
     ) -> None:
         ...
 
+    def get(
+        self,
+        evidence_id: EvidenceId,
+    ) -> Evidence | None:
+        ...
+
+    def find_by_observation(
+        self,
+        observation_id: ObservationId,
+    ) -> tuple[Evidence, ...]:
+        ...
+
     def find_active_by_service(
         self,
         service_id: ServiceId,
     ) -> tuple[Evidence, ...]:
         ...
+
+    def change_status(
+        self,
+        evidence_id: EvidenceId,
+        new_status: EvidenceStatus,
+        provenance: EvidenceLifecycleProvenance,
+    ) -> None:
+        ...
 ```
 
-Lifecycle operations may later require:
+Lifecycle provenance is represented conceptually as:
+
+```python
+@dataclass(frozen=True)
+class EvidenceLifecycleProvenance:
+    changed_at: datetime
+    reason_code: str
+    actor: str
+    superseded_by: EvidenceId | None = None
+```
+
+For Draft v0.1 the repository must support transitions required by the consolidated lifecycle:
 
 ```text
-supersede
-
-reject
-
-find_by_observation
+ACTIVE
+  |
+  +--> SUPERSEDED
+  |
+  +--> REJECTED
 ```
 
-They should be added when concrete orchestration requires them.
+Lifecycle transitions must preserve provenance.
+
+A new interpretation replacing an older interpretation should normally be materialized as a separate Evidence Entity while the previous Evidence becomes:
+
+```text
+SUPERSEDED
+```
+
+`REJECTED` remains semantically different.
+
+The repository must not silently mutate one EvidenceType into another EvidenceType.
 
 ---
 
-# 49. RelationshipRepository
+## 49. RelationshipRepository
 
 Conceptually:
 
@@ -1403,11 +1914,13 @@ class RelationshipRepository(Protocol):
         ...
 ```
 
-The initial Domain invariant implies at most one current User-Service Relationship for a given pair under the current model.
+The current Domain invariant implies one current User-Service Relationship for a given pair under the initial model.
+
+Historical RelationshipAssessmentResults, if persisted later, remain separate from the current Relationship.
 
 ---
 
-# 50. CredentialStore Port
+## 50. CredentialStore Port
 
 Credential storage must be isolated.
 
@@ -1438,21 +1951,31 @@ class CredentialStore(Protocol):
 
 `CredentialMaterial` must not be part of the ordinary Domain model.
 
+The Domain must never import Provider credential representations.
+
 ---
 
-# 51. First Persistence Strategy
+## 51. First Persistence Strategy
 
 The first Gmail Vertical MVP should prefer the simplest persistence capable of validating the architecture.
 
-The initial implementation may therefore use:
+The initial implementation should therefore use:
 
 ```text
 in-memory repositories
 ```
 
-for unit and vertical tests.
+for:
 
-A local durable implementation may subsequently use:
+```text
+unit tests
+
+contract tests
+
+vertical tests
+```
+
+A durable local implementation may subsequently use:
 
 ```text
 SQLite
@@ -1466,17 +1989,19 @@ The architecture must not depend on SQLite.
 
 ---
 
-# 52. No Graph Database Requirement
+## 52. No Graph Database Requirement
 
 Although the output is conceptually a Service Graph, the first vertical slice does not require:
 
 ```text
 Neo4j
+
 Amazon Neptune
+
 Azure Cosmos DB Gremlin
 ```
 
-The graph semantics can initially be represented through:
+The initial graph semantics can be represented through:
 
 ```text
 Relationship entities
@@ -1485,42 +2010,42 @@ Service references
 
 Identity references
 
+Evidence references
+
 repository queries
 ```
 
-A graph database should be introduced only if concrete query and scale requirements justify it.
+A graph database should be introduced only when concrete graph-query or scale requirements justify it.
 
 ---
 
-# 53. Gmail Connector Adapter
+## 53. Gmail Connector Adapter
 
-The first infrastructure adapter will be:
+The first external-source adapter will be:
 
 ```text
 GmailConnector
 ```
 
-located conceptually under:
+The preferred conceptual location is:
 
 ```text
 connectors/gmail/
 ```
 
-or:
+while reusable Google-specific authorization or API infrastructure may live under:
 
 ```text
 infrastructure/google/
 ```
 
-depending on final package ownership.
-
-It implements:
+`GmailConnector` implements:
 
 ```text
 Connector
 ```
 
-and translates Gmail-specific data into:
+and translates Gmail-specific information into:
 
 ```text
 EMAIL_MESSAGE_METADATA v1
@@ -1530,14 +2055,16 @@ Observations.
 
 ---
 
-# 54. Gmail API Isolation
+## 54. Gmail API Isolation
 
-Only the Gmail infrastructure adapter should directly depend on Google-specific API representations.
+Only Gmail-specific infrastructure may directly depend on Google API representations.
 
 The following must not import Gmail API types:
 
 ```text
 domain/
+
+application/
 
 discovery/candidate_detection/
 
@@ -1550,21 +2077,21 @@ discovery/evidence_aggregation/
 discovery/relationship_assessment/
 ```
 
-This dependency rule should be enforced through tests or static architecture checks if practical.
+This dependency rule should be enforced through tests or static architecture checks where practical.
 
 ---
 
-# 55. Gmail MVP Collection Capability
+## 55. Gmail MVP Collection Capability
 
-The first implemented capability should be:
+The first implemented Gmail capability should be:
 
 ```text
 SERVICE_DISCOVERY_METADATA
 ```
 
-It should collect only the information required for metadata-based Discovery.
+It should collect only information required for metadata-based Service Discovery.
 
-The first vertical slice should not require:
+The first vertical slice must not require:
 
 ```text
 EMAIL_MESSAGE_CONTENT
@@ -1576,7 +2103,7 @@ Progressive Permission must therefore be preserved from the first implementation
 
 ---
 
-# 56. Gmail Observation Mapping
+## 56. Gmail Observation Mapping
 
 The Gmail adapter should conceptually map:
 
@@ -1605,17 +2132,21 @@ as:
 SourceReference
 ```
 
-where appropriate.
+where technically appropriate.
+
+Provider message representations must not cross the Connector boundary.
 
 ---
 
-# 57. Initial Candidate Detection Policy
+## 57. Initial Candidate Detection Policy
 
-The Gmail MVP should begin with deterministic candidate detection.
+The Gmail MVP should begin with deterministic Candidate Detection.
 
 Initial signals may include:
 
 ```text
+sender address
+
 sender domain
 
 known User IdentitySeeds
@@ -1627,11 +2158,13 @@ local/internal exclusion rules
 known infrastructure patterns
 ```
 
-The actual rule vocabulary should be stored outside the Domain entity classes.
+The actual rule vocabulary should be stored outside Domain entity classes.
+
+A rule-set version should become traceable when changes materially affect results.
 
 ---
 
-# 58. Initial Identifier Extraction
+## 58. Initial Identifier Extraction
 
 For Gmail:
 
@@ -1639,7 +2172,10 @@ For Gmail:
 sender email
       |
       v
-email-domain parser
+email-address parser
+      |
+      v
+email domain
       |
       v
 EMAIL_DOMAIN CandidateIdentifier
@@ -1656,60 +2192,85 @@ spotify.com
 
 Parsing must be deterministic.
 
+The result remains:
+
+```text
+CandidateIdentifier
+```
+
+until Application Layer materialization.
+
 ---
 
-# 59. Initial Entity Resolution Strategy
+## 59. Initial Entity Resolution Strategy
 
-The first Resolver should implement a small deterministic pipeline:
+The initial pipeline is:
 
 ```text
 CandidateIdentifier
         |
         v
-normalize
+Application Layer
         |
         v
-ServiceRegistry exact lookup
+ServiceIdentifier
         |
-    +---+---+
-    |       |
- match    no match
-    |       |
-    v       v
-RESOLVED  UNRESOLVED
+        v
+ResolutionRequest
+        |
+        v
+EntityResolver
+        |
+        v
+normalize where required
+        |
+        v
+ServiceRegistry lookup
+        |
+    +---+----------------+
+    |         |          |
+    v         v          v
+RESOLVED  UNRESOLVED  AMBIGUOUS
 ```
 
-`AMBIGUOUS` must still exist even if early Registry data rarely produces it.
+Normalization must remain distinguishable from canonical Service Resolution.
+
+`AMBIGUOUS` must exist even if the first curated Registry rarely produces it.
 
 ---
 
-# 60. Initial ServiceRegistry Data
+## 60. Initial ServiceRegistry Data
 
 The initial ServiceRegistry should be intentionally small.
 
 It may contain a curated set of Services needed by:
 
 - unit tests;
+- contract fixtures;
 - vertical fixtures;
 - first empirical Gmail samples.
 
 The Registry must not attempt to become a universal Internet Service database before the MVP.
 
-Unknown domains should remain:
+Unknown identifiers should remain:
 
 ```text
 UNRESOLVED
 ```
 
+The Resolver must never create a Service merely to avoid UNRESOLVED.
+
 ---
 
-# 61. Initial Evidence Classification Strategy
+## 61. Initial Evidence Classification Strategy
 
 The Gmail MVP should begin with deterministic classification rules over:
 
 ```text
 sender metadata
+
 subject
+
 ObservationType
 ```
 
@@ -1745,7 +2306,7 @@ AI is not required for MVP completion.
 
 ---
 
-# 62. Unknown Classification
+## 62. Unknown Classification
 
 If no rule safely matches:
 
@@ -1763,17 +2324,28 @@ UNKNOWN
 
 as an error.
 
+Likewise, unsupported ObservationTypes should use:
+
+```text
+ProcessingStatus.UNSUPPORTED
+```
+
+rather than semantic UNKNOWN.
+
 ---
 
-# 63. Evidence Materialization
+## 63. Evidence Materialization
 
-The application layer should perform:
+The Application Layer performs:
 
 ```text
 ClassificationResult
        |
        v
 EvidenceCandidate
+       |
+       v
+Application Layer
        |
        v
 Evidence
@@ -1789,55 +2361,86 @@ is assigned during materialization.
 
 Classifier implementations must not persist Evidence directly.
 
----
-
-# 64. Evidence Lifecycle Operations
-
-The application layer should eventually expose explicit operations conceptually equivalent to:
+If the same Observation already has an earlier accepted Evidence interpretation, lifecycle policy determines whether that Evidence must first become:
 
 ```text
-activate
-
-supersede
-
-reject
+SUPERSEDED
 ```
 
-Draft v0.1 does not require a generic lifecycle engine.
+or:
 
-For the Gmail Vertical MVP, initial Evidence materialization as:
+```text
+REJECTED
+```
+
+---
+
+## 64. Evidence Lifecycle Operations
+
+The initial lifecycle is:
 
 ```text
 ACTIVE
+  |
+  +--> SUPERSEDED
+  |
+  +--> REJECTED
 ```
 
-is sufficient until reclassification is exercised.
+The Application Layer coordinates lifecycle changes through EvidenceRepository.
 
-Tests should nevertheless model SUPERSEDED and REJECTED behavior.
+No generic lifecycle engine is required for Draft v0.1.
+
+The Gmail Vertical MVP may initially exercise primarily:
+
+```text
+new Evidence -> ACTIVE
+```
+
+but automated tests must validate:
+
+```text
+ACTIVE -> SUPERSEDED
+```
+
+and:
+
+```text
+ACTIVE -> REJECTED
+```
+
+with provenance.
+
+A new semantic interpretation should normally be a new Evidence Entity rather than a destructive mutation of the previous EvidenceType.
 
 ---
 
-# 65. Initial Aggregation Strategy
+## 65. Initial Aggregation Strategy
 
 The first Aggregator should:
 
-1. accept a Service scope;
-2. select eligible Evidence;
+1. accept one explicit aggregation scope;
+2. receive Application-prepared EvidenceContribution values;
 3. include ACTIVE Evidence;
 4. exclude SUPERSEDED Evidence;
 5. exclude REJECTED Evidence;
-6. count Evidence by EvidenceType;
+6. count eligible Evidence by EvidenceType;
 7. preserve Evidence IDs;
 8. preserve Identity references;
-9. preserve ConnectedSource / SourceType provenance;
-10. calculate typed temporal summaries;
-11. preserve conflicts explicitly.
+9. preserve ConnectedSource provenance;
+10. preserve SourceType provenance;
+11. preserve Provider provenance where relevant;
+12. calculate typed temporal summaries;
+13. preserve conflicts explicitly;
+14. support SERVICE scope;
+15. support UNRESOLVED_SERVICE_CANDIDATE scope;
+16. support AMBIGUOUS_SERVICE_CANDIDATE scope.
 
 No weighting is required.
 
 ---
 
-# 66. Aggregate Persistence Strategy
+## 66. Aggregate Persistence Strategy
 
 For the first vertical slice:
 
@@ -1847,25 +2450,39 @@ compute EvidenceAggregate on demand
 
 is preferred.
 
-Reason:
+Reasons:
 
 ```text
 Evidence count is initially small
+
 +
+
 Aggregate is derived state
+
 +
+
 simpler consistency model
+
 +
+
 easy validation against contracts
 ```
 
 Materialized aggregates may be introduced later if performance measurements justify them.
 
+A persisted materialized Aggregate would still remain:
+
+```text
+Derived View
+```
+
+rather than authoritative Domain state.
+
 ---
 
-# 67. Initial Relationship Assessment Policy
+## 67. Initial Relationship Assessment Policy
 
-The first MVP requires an explicit deterministic policy.
+The first MVP requires explicit deterministic policy.
 
 It should remain conservative.
 
@@ -1873,35 +2490,45 @@ A candidate starting point is:
 
 ```text
 No eligible Evidence
-        ->
+        |
+        v
 UNKNOWN
 ```
 
 ```text
 MARKETING / NEWSLETTER / PRIVACY_NOTICE only
-        ->
+        |
+        v
 OBSERVED
 ```
 
 ```text
 account-related or authentication Evidence
-        ->
+        |
+        v
 candidate for ESTABLISHED
 ```
 
 ```text
 explicit User rejection
-        ->
+        |
+        v
 REJECTED
 ```
 
-However, the exact `ESTABLISHED` rules must be validated against Scenario 001 fixtures before being treated as stable Domain policy.
+The exact rules for:
 
-The policy should therefore be represented explicitly rather than embedded throughout application code.
+```text
+ESTABLISHED
+```
+
+must be validated against Gmail fixtures before being treated as stable Domain policy.
+
+This policy must remain independently testable and versioned.
 
 ---
 
-# 68. Relationship Policy Representation
+## 68. Relationship Policy Representation
 
 Conceptually:
 
@@ -1915,41 +2542,60 @@ class RelationshipPolicy(Protocol):
         ...
 ```
 
-The initial implementation may instead use one concrete deterministic policy if additional abstraction provides no immediate value.
+The first implementation may instead use one concrete deterministic policy if introducing a Protocol provides no immediate implementation value.
 
-The policy itself must remain separately testable.
+Regardless of representation, policy rules must remain:
+
+```text
+explicit
+
+testable
+
+versionable
+
+explainable
+```
+
+They must not become hidden conditions distributed throughout DiscoveryService.
 
 ---
 
-# 69. Initial Temporal Policy
+## 69. Initial Temporal Policy
 
 The first temporal policy should remain conservative.
 
 Potential principles:
 
 ```text
-ACCOUNT_DELETION with no later meaningful activity
-        ->
+ACCOUNT_DELETION
++
+no later meaningful activity
+        |
+        v
 HISTORICAL candidate
 ```
 
 ```text
 recent meaningful Evidence
-        ->
+        |
+        v
 CURRENTLY_OBSERVED candidate
 ```
 
 ```text
 insufficient temporal semantics
-        ->
+        |
+        v
 UNKNOWN
 ```
 
 A source-record modification timestamp must not automatically establish current Service activity.
 
+Temporal policy must operate on typed temporal information.
+
 ---
 
-# 70. Discovery Application Service
+## 70. Discovery Application Service
 
 The primary application orchestration boundary should be:
 
@@ -1957,7 +2603,7 @@ The primary application orchestration boundary should be:
 DiscoveryService
 ```
 
-or an equivalently named application use case.
+or another equivalently scoped application use case.
 
 Conceptually:
 
@@ -1973,60 +2619,104 @@ class DiscoveryService:
 
 Its responsibility is orchestration.
 
-It must not absorb component-specific semantic logic.
+It must not absorb:
+
+```text
+Candidate Detection rules
+
+Entity Resolution rules
+
+Evidence Classification rules
+
+Aggregation semantics
+
+Relationship Assessment policy
+```
+
+Those remain in their respective components or policies.
 
 ---
 
-# 71. Observation Processing Orchestration
+## 71. Observation Processing Orchestration
 
 Conceptually:
 
 ```text
 Observation
      |
-     +------------------------------+
-     |                              |
-     v                              v
-CandidateDetector             EvidenceClassifier
-     |                              |
-     v                              v
-CandidateDetectionResult      ClassificationResult
-     |                              |
-     v                              v
-ServiceIdentifier             EvidenceCandidate
-     |                              |
-     v                              v
-EntityResolver                Evidence Materialization
-     |                              |
-     v                              v
-ResolutionResult                  Evidence
-     |                              |
-     +---------------+--------------+
-                     |
-                     v
-             Service-Level Evidence
-                     |
-                     v
-             EvidenceAggregator
-                     |
-                     v
-             EvidenceAggregate
-                     |
-                     v
-           RelationshipAssessor
-                     |
-                     v
-      RelationshipAssessmentResult
-                     |
-                     v
-         Relationship Materialization
+     +--------------------------------+
+     |                                |
+     v                                v
+CandidateDetector               EvidenceClassifier
+     |                                |
+     v                                v
+CandidateDetectionResult        ClassificationResult
+     |                                |
+     v                                v
+CandidateIdentifier             EvidenceCandidate
+     |                                |
+     v                                v
+Application Layer               Evidence Materialization
+     |                                |
+     v                                v
+ServiceIdentifier                   Evidence
+     |                                |
+     v                                |
+EntityResolver                        |
+     |                                |
+     +----------+----------+          |
+     |          |          |          |
+     v          v          v          |
+ RESOLVED   UNRESOLVED  AMBIGUOUS     |
+     |          |          |          |
+     +----------+----------+----------+
+                |
+                v
+      Aggregation Context
+                |
+                v
+       EvidenceAggregator
+                |
+                v
+       EvidenceAggregate
+ SERVICE / UNRESOLVED / AMBIGUOUS
+                |
+                v
+      RelationshipAssessor
+                |
+                v
+ RelationshipAssessmentResult
+                |
+                v
+       Application Layer
+                |
+                v
+         Relationship
 ```
 
-The application service coordinates this flow.
+Canonical Relationship materialization requires a resolved canonical Service.
+
+Evidence associated with:
+
+```text
+UNRESOLVED
+```
+
+or:
+
+```text
+AMBIGUOUS
+```
+
+Service contexts remains available through the corresponding EvidenceAggregate scope.
+
+It must not be arbitrarily materialized as a canonical User-Service Relationship.
+
+An unresolved or ambiguous assessment may still be useful as an application processing result without creating a Domain Relationship.
 
 ---
 
-# 72. Parallel Semantics vs Sequential Execution
+## 72. Parallel Semantics vs Sequential Execution
 
 Architecture defines Entity Resolution and Evidence Classification as independent branches.
 
@@ -2036,11 +2726,23 @@ It may execute:
 
 ```text
 Candidate Detection
+
 Entity Resolution
+
 Evidence Classification
 ```
 
-sequentially in one process for simplicity, provided no semantic dependency is introduced between resolution success and classification success.
+sequentially in one process for simplicity, provided no semantic dependency is introduced between:
+
+```text
+resolution success
+```
+
+and:
+
+```text
+classification success
+```
 
 Therefore:
 
@@ -2050,13 +2752,27 @@ parallel architecture
 mandatory parallel threads/tasks
 ```
 
-This distinction prevents unnecessary concurrency in the MVP.
+Valid combinations remain:
+
+```text
+Service RESOLVED
++
+Evidence UNKNOWN
+```
+
+and:
+
+```text
+Service UNRESOLVED
++
+Evidence PAYMENT
+```
 
 ---
 
-# 73. DiscoveryOutcome
+## 73. DiscoveryOutcome
 
-A higher-level application result may be useful for the vertical slice.
+A higher-level Application DTO may be useful for vertical orchestration.
 
 Conceptually:
 
@@ -2071,25 +2787,57 @@ class DiscoveryOutcome:
     relationship_id: RelationshipId | None
 ```
 
-This is an application DTO rather than a Core Domain concept.
+This is an Application DTO rather than a Core Domain concept.
 
-It should only be introduced if it simplifies vertical orchestration or testing.
+It should only be introduced if it simplifies orchestration or testing.
+
+For:
+
+```text
+UNRESOLVED
+```
+
+or:
+
+```text
+AMBIGUOUS
+```
+
+cases:
+
+```python
+relationship_id = None
+```
+
+may be valid while Evidence is still retained.
 
 ---
 
-# 74. Transaction Boundary
+## 74. Transaction Boundary
 
-For the initial local MVP, one processed Observation may be one logical application transaction.
+For the initial local MVP, processing one Observation may represent one logical Application transaction.
 
-However, Gmail collection may produce batches.
+However, Gmail collection may return batches.
 
-Therefore the implementation should avoid coupling Domain semantics to one database transaction model.
+Therefore the implementation must not couple Domain semantics to one database transaction model.
 
 Persistence transaction strategy belongs to infrastructure.
 
+The Application Layer is responsible for coordinating consistency between:
+
+```text
+Evidence lifecycle changes
+
+Evidence materialization
+
+Relationship updates
+```
+
+when those operations eventually share durable persistence.
+
 ---
 
-# 75. Error Model
+## 75. Error Model
 
 Expected Domain outcomes must not use exceptions.
 
@@ -2097,16 +2845,19 @@ For example:
 
 ```text
 UNKNOWN
+
 UNRESOLVED
+
 AMBIGUOUS
+
 NOT_CANDIDATE
 ```
 
-are valid processing outcomes.
+are valid semantic outcomes.
 
-Exceptions should represent unexpected technical failures.
+Exceptions represent unexpected technical failures.
 
-This means:
+Therefore:
 
 ```python
 resolve(...)
@@ -2126,9 +2877,17 @@ ServiceNotFoundError
 
 for an ordinary unresolved identifier.
 
+Likewise:
+
+```text
+ClassificationStatus.UNKNOWN
+```
+
+must not be implemented as a classification exception.
+
 ---
 
-# 76. Infrastructure Exceptions
+## 76. Infrastructure Exceptions
 
 Provider-specific failures should be translated at the adapter boundary.
 
@@ -2146,9 +2905,11 @@ provider-independent collection error
 
 Downstream Discovery components must not depend on Google exception classes.
 
+Previously valid Domain data must not become invalid simply because a later Provider interaction fails.
+
 ---
 
-# 77. Configuration
+## 77. Configuration
 
 Rules and policies likely to evolve should not all be hard-coded inside component classes.
 
@@ -2172,14 +2933,19 @@ Configuration should remain:
 
 ```text
 versionable
+
 testable
+
 local-first
+
 human-reviewable
 ```
 
+Material configuration changes should remain traceable when they affect reproducibility.
+
 ---
 
-# 78. Configuration Format
+## 78. Configuration Format
 
 The first implementation may use:
 
@@ -2199,18 +2965,33 @@ Python code remains appropriate for:
 
 ```text
 complex deterministic algorithms
+
 validation
+
 normalization
+
 policy composition
 ```
 
-The exact format should be selected based on readability and testing rather than abstract configurability.
+The exact format should be selected according to:
+
+```text
+clarity
+
+testability
+
+versionability
+
+implementation simplicity
+```
+
+rather than abstract configurability.
 
 ---
 
-# 79. Testing Strategy
+## 79. Testing Strategy
 
-The implementation requires multiple testing layers.
+The implementation requires multiple testing layers:
 
 ```text
 Unit Tests
@@ -2222,39 +3003,53 @@ Integration Tests
 Vertical Tests
 ```
 
+Tests are part of architecture validation rather than only regression protection.
+
 ---
 
-# 80. Unit Tests
+## 80. Unit Tests
 
 Unit tests should cover:
 
 ```text
-email parsing
+email-address parsing
 
 domain normalization
 
 Candidate Detection
 
+CandidateIdentifier materialization
+
+ServiceIdentifier normalization
+
 Evidence Classification rules
+
+Evidence lifecycle transitions
 
 EvidenceStatus filtering
 
-aggregation
+EvidenceContribution construction
+
+resolved aggregation
+
+unresolved aggregation
+
+ambiguous aggregation
 
 Relationship policy
 
-temporal policy
+Temporal policy
 
 Domain invariants
 ```
 
-These tests should not require Gmail connectivity.
+These tests must not require Gmail connectivity.
 
 ---
 
-# 81. Contract Tests
+## 81. Contract Tests
 
-Connector adapters should be tested against the common Connector expectations.
+Connector adapters should be tested against common Connector expectations.
 
 For example:
 
@@ -2266,13 +3061,17 @@ no Provider credential appears in Observation payload
 partial collection is not reported as complete
 
 Provider failures are translated
+
+authorization requirements can be prepared before collection
+
+one ConnectedSource can be disconnected independently
 ```
 
-Equivalent contract tests can later be reused for Outlook or other Connectors.
+Equivalent contract tests should later be reusable for Outlook or other Connectors.
 
 ---
 
-# 82. Integration Tests
+## 82. Integration Tests
 
 Gmail adapter integration tests should validate:
 
@@ -2284,6 +3083,9 @@ GmailConnector
         |
         v
 EmailMessageMetadataV1
+        |
+        v
+Observation
 ```
 
 External Gmail API calls should normally be isolated or mocked for automated tests.
@@ -2292,37 +3094,42 @@ Controlled live integration tests may be maintained separately.
 
 ---
 
-# 83. Vertical Tests
+## 83. Vertical Tests
 
 The most important architecture-validation tests should exercise:
 
 ```text
 Observation
       |
-      v
-Candidate Detection
+      +--------------------+
+      |                    |
+      v                    v
+Candidate Detection   Classification
+      |                    |
+      v                    v
+CandidateIdentifier      EvidenceCandidate
+      |                    |
+      v                    v
+ServiceIdentifier       Evidence
       |
       v
 Resolution
       |
-      +
-      |
-Classification
-      |
-      v
-Evidence
-      |
-      v
-Aggregation
-      |
-      v
-Assessment
-      |
-      v
-Relationship
+   +--+---------+
+   |     |      |
+   v     v      v
+ RES   UNR     AMB
+   \     |      /
+    \    |     /
+     v   v    v
+     Aggregation
+         |
+         v
+     Assessment
+         |
+         v
+Relationship when resolvable
 ```
-
-using fixed fixtures.
 
 Example fixture:
 
@@ -2340,7 +3147,10 @@ Expected:
 Candidate:
 CANDIDATE
 
-Service:
+ServiceIdentifier:
+spotify.com
+
+Resolution:
 Spotify
 
 Evidence:
@@ -2352,7 +3162,7 @@ according to explicit MVP policy
 
 ---
 
-# 84. Unknown-State Tests
+## 84. Unknown-State Tests
 
 Tests must deliberately validate uncertainty.
 
@@ -2361,7 +3171,13 @@ Examples:
 ```text
 unknown domain
         ->
-UNRESOLVED
+ResolutionStatus.UNRESOLVED
+```
+
+```text
+multiple Registry matches
+        ->
+ResolutionStatus.AMBIGUOUS
 ```
 
 ```text
@@ -2382,11 +3198,11 @@ insufficient Relationship Evidence
 RelationshipStatus.UNKNOWN
 ```
 
-UNKNOWN paths are first-class test cases.
+UNKNOWN, UNRESOLVED and AMBIGUOUS paths are first-class test cases.
 
 ---
 
-# 85. Privacy Tests
+## 85. Privacy Tests
 
 Automated tests should verify that:
 
@@ -2400,6 +3216,8 @@ refresh token
 OTP seed
 
 recovery code
+
+private key
 ```
 
 cannot appear in ordinary Discovery Observations where schemas do not allow them.
@@ -2410,11 +3228,21 @@ For Gmail specifically, tests should demonstrate that:
 EMAIL_MESSAGE_METADATA
 ```
 
-does not contain the message body.
+does not contain:
+
+```text
+message body
+
+attachment content
+
+OAuth credentials
+```
+
+Credential material must remain behind CredentialStore.
 
 ---
 
-# 86. Dependency Tests
+## 86. Dependency Tests
 
 The codebase should, where practical, test architectural dependency rules.
 
@@ -2428,14 +3256,25 @@ must not import modules from:
 
 ```text
 connectors/
+
 infrastructure/
+```
+
+Likewise, Discovery components should not import:
+
+```text
+Google Gmail API types
+
+concrete repositories
+
+SQLite implementations
 ```
 
 A lightweight import-boundary test is sufficient initially.
 
 ---
 
-# 87. Logging
+## 87. Logging
 
 Logs must not become an uncontrolled copy of User data.
 
@@ -2451,6 +3290,8 @@ raw message bodies
 password-manager secrets
 
 complete Observation payloads
+
+credentials
 ```
 
 Logs should prefer:
@@ -2469,9 +3310,11 @@ counts
 sanitized references
 ```
 
+Diagnostic usefulness does not override data minimization.
+
 ---
 
-# 88. Provenance
+## 88. Provenance
 
 The implementation must preserve sufficient provenance to reconstruct:
 
@@ -2484,21 +3327,37 @@ Observation
       +------------------+
       |                  |
       v                  v
-Resolution           Classification
+ServiceIdentifier      Evidence
       |                  |
-      v                  v
-Service             Evidence
-      \                  /
-       \                /
-        v              v
-          Relationship
+      v                  |
+Resolution              |
+      |                  |
+      v                  |
+Service ----------------+
+            |
+            v
+EvidenceAggregate
+            |
+            v
+RelationshipAssessmentResult
+            |
+            v
+Relationship
 ```
+
+Application helper objects such as:
+
+```text
+EvidenceContribution
+```
+
+must not replace source provenance.
 
 Version fields should be retained where materially relevant.
 
 ---
 
-# 89. Versioning
+## 89. Versioning
 
 The first implementation should distinguish versions of:
 
@@ -2507,53 +3366,64 @@ Observation schemas
 
 Candidate Detector
 
+Candidate Detection rule sets where material
+
 Entity Resolver
+
+Service Registry data
 
 Evidence Classifier
 
+Evidence Classification rule sets where material
+
 Aggregator
+
+Aggregation Policy
 
 Relationship Assessor
 
 Relationship Policy
-
-Service Registry data
 ```
 
 Version identifiers may initially be simple strings or integers.
 
-A complex framework-wide versioning system is not required.
+A framework-wide semantic versioning system is not required for the MVP.
 
 ---
 
-# 90. AI Provider Boundary
+## 90. AI Provider Boundary
 
 No AI Provider is required for the Gmail Vertical MVP.
 
-If AI is later introduced, it must sit behind a port such as:
+If AI is later introduced, it must sit behind a task-specific port such as:
 
 ```text
 SemanticClassifier
+
+ResolutionAssistant
+
+ExplanationGenerator
 ```
 
-or another task-specific interface.
+depending on the task.
 
-The Domain and primary Discovery interfaces must not import:
+The Domain and primary Discovery interfaces must not import SDK types from providers such as:
 
 ```text
 OpenAI
-Gemini
+
+Google Gemini
+
 Azure OpenAI
+
 Anthropic
 ```
-
-SDK types.
 
 AI integration remains replaceable infrastructure.
 
 ---
 
-# 91. Local-First MVP
+## 91. Local-First MVP
 
 The first MVP should be executable as a local application.
 
@@ -2571,13 +3441,15 @@ distributed queue
 remote graph database
 ```
 
-unless Gmail authorization itself requires external Provider interaction.
+except for interaction with the explicitly authorized external source itself.
 
-This provides a concrete interpretation of the project's local-first principle.
+For Gmail, Provider interaction is remote by definition.
+
+Discovery processing should nevertheless remain local where practical.
 
 ---
 
-# 92. Gmail Authorization
+## 92. Gmail Authorization
 
 Google authorization is a Connector concern.
 
@@ -2589,19 +3461,33 @@ GmailConnector
 CredentialStore
 ```
 
-and not stored inside:
+and not stored inside ordinary:
 
 ```text
 ConnectedSource
 ```
 
-ordinary Domain fields.
+Domain fields.
 
-The exact OAuth implementation must be validated against current official Gmail API documentation during implementation.
+The Connector must support:
+
+```text
+authorization status
+
+permission requirements
+
+authorization preparation
+
+collection
+
+disconnect
+```
+
+The exact Google OAuth implementation must be validated against current official Gmail API documentation during implementation.
 
 ---
 
-# 93. First Vertical Slice Boundary
+## 93. First Vertical Slice Boundary
 
 The Gmail Vertical MVP should exercise:
 
@@ -2618,24 +3504,36 @@ EMAIL_MESSAGE_METADATA v1
 
 deterministic Candidate Detection
 
+Application-level CandidateIdentifier materialization
+
+ServiceIdentifier
+
 deterministic Entity Resolution through local ServiceRegistry
+
+RESOLVED / UNRESOLVED / AMBIGUOUS handling
 
 deterministic Evidence Classification
 
 ACTIVE Evidence materialization
 
+Evidence lifecycle repository semantics
+
+EvidenceContribution construction
+
 on-demand Evidence Aggregation
+
+SERVICE / UNRESOLVED / AMBIGUOUS aggregation scopes
 
 deterministic Relationship Assessment
 
-Relationship output
+Relationship materialization for canonical Service contexts
 ```
 
 This scope is intentionally narrow.
 
 ---
 
-# 94. MVP Success Criteria
+## 94. MVP Success Criteria
 
 The vertical slice is successful when it can demonstrate, with controlled Gmail-derived fixtures or authorized metadata:
 
@@ -2644,11 +3542,19 @@ Gmail-specific information remains inside GmailConnector
 
 Observations conform to typed schemas
 
+source timestamps preserve TemporalSemantics
+
 Candidate Detection does not treat every sender as a Service
 
-known domains can resolve to canonical Services
+CandidateIdentifier remains distinct from ServiceIdentifier
 
-unknown domains remain UNRESOLVED
+Application Layer materializes ServiceIdentifier
+
+known identifiers resolve to canonical Services
+
+unknown identifiers remain UNRESOLVED
+
+ambiguous resolution remains representable
 
 clear email subjects produce deterministic Evidence
 
@@ -2656,16 +3562,26 @@ ambiguous subjects may remain UNKNOWN
 
 Evidence is materialized as ACTIVE
 
+Evidence lifecycle transitions are representable
+
+unresolved Evidence is preserved
+
+ambiguous Evidence is preserved
+
 Aggregates contain only eligible current Evidence
 
+SourceSummary can be reconstructed from provenance
+
 RelationshipStatus and TemporalStatus are evaluated independently
+
+canonical Relationships reference one User and one Service
 
 every Relationship remains explainable through Evidence provenance
 ```
 
 ---
 
-# 95. MVP Does Not Require
+## 95. MVP Does Not Require
 
 The first vertical slice does not require:
 
@@ -2686,6 +3602,10 @@ Account Entity
 
 Organization Entity
 
+Service creation workflow
+
+automatic Registry expansion
+
 graph database
 
 production synchronization
@@ -2697,55 +3617,69 @@ commercial-scale Service Registry
 numerical Confidence
 ```
 
+An unknown Service may remain UNRESOLVED throughout the MVP.
+
 ---
 
-# 96. Implementation Order
+## 96. Implementation Order
 
 The preferred implementation order is:
 
 ```text
 1. Domain identifiers and enums
 
-2. Core Domain entities
+2. TemporalValue and Domain value objects
 
-3. Processing Result objects
+3. Core Domain entities
 
-4. Typed Observation payloads
+4. Processing Result objects
 
-5. Ports / Protocols
+5. Typed Observation payloads
 
-6. In-memory repositories
+6. Ports / Protocols
 
-7. ServiceRegistry implementation
+7. In-memory repositories
 
-8. deterministic CandidateDetector
+8. ServiceRegistry implementation
 
-9. deterministic EntityResolver
+9. deterministic CandidateDetector
 
-10. deterministic EvidenceClassifier
+10. CandidateIdentifier -> ServiceIdentifier materialization
 
-11. Evidence materialization
+11. deterministic EntityResolver
 
-12. EvidenceAggregator
+12. deterministic EvidenceClassifier
 
-13. RelationshipAssessor
+13. Evidence materialization
 
-14. application orchestration
+14. Evidence lifecycle operations
 
-15. GmailConnector adapter
+15. EvidenceContribution construction
 
-16. end-to-end vertical tests
+16. EvidenceAggregator
 
-17. authorized Gmail integration
+17. RelationshipAssessor
+
+18. Relationship materialization
+
+19. application orchestration
+
+20. GmailConnector adapter
+
+21. Connector contract tests
+
+22. end-to-end vertical tests
+
+23. authorized Gmail integration
 ```
 
-This allows most of the architecture to be validated without depending immediately on the Gmail API.
+This allows almost the entire architecture to be validated without depending immediately on live Gmail connectivity.
 
 ---
 
-# 97. Decisions Made by Draft v0.1
+## 97. Decisions Made by Draft v0.1
 
-The Implementation Model makes the following initial technical decisions:
+The Implementation Model makes the following initial technical decisions.
 
 ### IM-001 - Python Modular Monolith
 
@@ -2769,11 +3703,29 @@ Behavioral boundaries use Python Protocols where practical.
 
 ### IM-006 - Typed Observation Payloads
 
-Observation payloads must not default to arbitrary `dict[str, Any]`.
+Observation payloads must not default to arbitrary:
+
+```python
+dict[str, Any]
+```
 
 ### IM-007 - Processing Results Are Separate Types
 
-CandidateDetectionResult, ResolutionResult, ClassificationResult, AggregationResult and RelationshipAssessmentResult remain distinct processing objects.
+The implementation preserves separate:
+
+```text
+CandidateDetectionResult
+
+ResolutionResult
+
+ClassificationResult
+
+AggregationResult
+
+RelationshipAssessmentResult
+```
+
+types.
 
 ### IM-008 - ServiceRegistry Is a Port
 
@@ -2793,7 +3745,11 @@ Repository interfaces are validated first using in-memory implementations.
 
 ### IM-012 - Gmail Metadata First
 
-The first Gmail capability is `SERVICE_DISCOVERY_METADATA`.
+The first Gmail capability is:
+
+```text
+SERVICE_DISCOVERY_METADATA
+```
 
 ### IM-013 - No Graph Database Initially
 
@@ -2801,11 +3757,115 @@ Relationship and Service structures provide sufficient graph semantics for the f
 
 ### IM-014 - Expected Uncertainty Uses Results, Not Exceptions
 
-UNKNOWN, UNRESOLVED, AMBIGUOUS and NOT_CANDIDATE remain ordinary semantic outcomes.
+```text
+UNKNOWN
+
+UNRESOLVED
+
+AMBIGUOUS
+
+NOT_CANDIDATE
+```
+
+remain ordinary semantic outcomes.
+
+### IM-015 - ServiceIdentifier Materialization Belongs to the Application Layer
+
+CandidateIdentifier is converted into the Domain ServiceIdentifier representation before EntityResolver invocation.
+
+The Resolver therefore operates on:
+
+```text
+ServiceIdentifier
+```
+
+rather than:
+
+```text
+CandidateIdentifier
+```
+
+### IM-016 - Aggregation Supports Resolved, Unresolved and Ambiguous Contexts
+
+Evidence is not discarded when canonical Service resolution is incomplete.
+
+The Aggregator supports:
+
+```text
+SERVICE
+
+UNRESOLVED_SERVICE_CANDIDATE
+
+AMBIGUOUS_SERVICE_CANDIDATE
+```
+
+scopes.
+
+### IM-017 - Aggregation Provenance Is Prepared by the Application Layer
+
+The Application Layer resolves Observation and ConnectedSource provenance into EvidenceContribution values before invoking the EvidenceAggregator.
+
+The Aggregator does not query infrastructure repositories directly.
+
+### IM-018 - Temporal Information Uses Typed TemporalValue
+
+Source-derived timestamps are represented together with their TemporalSemantics.
+
+The implementation must preserve:
+
+```text
+timestamp
++
+meaning
+```
+
+as one typed value.
+
+### IM-019 - Evidence Lifecycle Transitions Are Explicit
+
+EvidenceRepository supports explicit:
+
+```text
+ACTIVE
+
+SUPERSEDED
+
+REJECTED
+```
+
+lifecycle transitions with provenance.
+
+Evidence reinterpretation does not silently rewrite the previous EvidenceType.
+
+### IM-020 - Relationship Materializes Assessment Provenance
+
+Current Relationship state preserves:
+
+```text
+AssessmentMethod
+
+AssessorVersion
+
+AssessmentPolicyVersion
+
+Evidence basis
+```
+
+### IM-021 - Minimum Connector Port Includes Authorization Preparation and Disconnect
+
+The initial Connector interface includes:
+
+```text
+prepare_authorization()
+
+disconnect()
+```
+
+in addition to capability inspection, permission analysis, authorization-state inspection and collection.
 
 ---
 
-# 98. Decisions Deferred
+## 98. Decisions Deferred
 
 The following implementation decisions remain deliberately deferred:
 
@@ -2815,6 +3875,12 @@ SQLite vs another durable local store
 final persistence schema
 
 final Service Registry source
+
+Service creation workflow
+
+Service merge implementation
+
+Service split implementation
 
 final Gmail OAuth library integration
 
@@ -2841,11 +3907,19 @@ Organization implementation
 
 They should be decided only when required by the vertical slice or subsequent empirical validation.
 
+In particular:
+
+```text
+UNRESOLVED
+```
+
+must remain a valid outcome rather than forcing an early Service-creation policy.
+
 ---
 
-# 99. Validation Strategy
+## 99. Validation Strategy
 
-Implementation should proceed through a sequence of increasingly realistic tests:
+Implementation should proceed through increasingly realistic validation layers:
 
 ```text
 Domain unit tests
@@ -2854,7 +3928,10 @@ Domain unit tests
 Component unit tests
         |
         v
-Contract tests
+Repository and lifecycle tests
+        |
+        v
+Connector contract tests
         |
         v
 In-memory Discovery vertical tests
@@ -2872,15 +3949,55 @@ Empirical findings
 Architecture / Domain refinement if justified
 ```
 
+The first important milestone is not Gmail API connectivity.
+
+It is successful execution of the complete Discovery pipeline using controlled in-memory fixtures.
+
+That pipeline must demonstrate:
+
+```text
+Observation
+        |
+        +---------------------+
+        |                     |
+        v                     v
+Candidate Detection     Classification
+        |                     |
+        v                     v
+CandidateIdentifier       EvidenceCandidate
+        |                     |
+        v                     v
+ServiceIdentifier          Evidence
+        |                     |
+        v                     |
+Resolution                  |
+        |                     |
+ RES / UNR / AMB             |
+        \                     /
+         \                   /
+          v                 v
+          Evidence Aggregation
+                   |
+                   v
+           EvidenceAggregate
+                   |
+                   v
+        Relationship Assessment
+                   |
+                   v
+       Relationship materialization
+       when canonical Service exists
+```
+
 This preserves the project principle:
 
-> Implementation evidence before new abstractions.
+> **Implementation evidence before new abstractions.**
 
 ---
 
-# 100. Next Step
+## 100. Next Step
 
-After this Implementation Model is accepted, the project should stop producing additional abstract Discovery design layers and begin the first executable implementation.
+After this Implementation Model passes consistency review, the project should stop producing additional abstract Discovery design layers and begin executable implementation.
 
 The next repository work should be:
 
@@ -2888,19 +4005,55 @@ The next repository work should be:
 Python project skeleton
         |
         v
-Domain types
+Domain IDs and Enums
+        |
+        v
+Domain Value Objects
+        |
+        v
+Core Domain Entities
+        |
+        v
+Processing Results
         |
         v
 Ports
         |
         v
-In-memory implementations
+In-Memory Repositories
         |
         v
-Deterministic Discovery components
+ServiceRegistry
         |
         v
-Application orchestration
+Deterministic CandidateDetector
+        |
+        v
+ServiceIdentifier Materialization
+        |
+        v
+Deterministic EntityResolver
+        |
+        v
+Deterministic EvidenceClassifier
+        |
+        v
+Evidence Materialization
+        |
+        v
+Evidence Lifecycle
+        |
+        v
+EvidenceContribution
+        |
+        v
+EvidenceAggregator
+        |
+        v
+RelationshipAssessor
+        |
+        v
+Application Orchestration
         |
         v
 GmailConnector
@@ -2919,11 +4072,51 @@ Architecture v0.3
 Domain Model v0.3
 +
 Discovery Contracts v0.1
++
+Implementation Model v0.1
 ```
 
 survive contact with executable code and real Gmail-derived data.
 
-Any subsequent change should be justified by:
+The initial implementation must preserve:
+
+```text
+Provider isolation
+
+data minimization
+
+Progressive Permission
+
+typed Observations
+
+explicit temporal semantics
+
+CandidateIdentifier / ServiceIdentifier separation
+
+explicit uncertainty
+
+unresolved Evidence preservation
+
+ambiguous Evidence preservation
+
+Evidence lifecycle
+
+derived Aggregate semantics
+
+RelationshipStatus / TemporalStatus separation
+
+no numerical Confidence
+
+deterministic-first processing
+
+local-first processing
+
+explainability
+
+source provenance
+```
+
+Any subsequent architecture, Domain or contract change should be justified by:
 
 ```text
 implementation evidence
@@ -2934,7 +4127,11 @@ test results
 
 privacy constraints
 
-or new validated cross-source requirements
+new validated cross-source requirements
+
+or a demonstrated inconsistency
 ```
 
 rather than speculative abstraction.
+
+The implementation phase may now begin without introducing another Discovery processing layer.
