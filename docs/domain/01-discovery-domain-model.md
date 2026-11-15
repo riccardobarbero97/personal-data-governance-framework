@@ -3755,45 +3755,310 @@ Account is not promoted because meaningful Relationships may exist without ident
 
 ---
 
-# 61. Next Design Step
+## 61. Next Design Step
 
-With Architecture Draft v0.3 and Domain Model Draft v0.3 aligned, the next step is a limited terminology alignment across the existing software contracts.
+Architecture Draft v0.3, Domain Model Draft v0.3 and the seven Discovery software contracts are now aligned.
 
-The alignment should update only affected concepts:
+The first conceptual Discovery design cycle is therefore complete.
+
+The current baseline includes:
+
+```text
+Architecture v0.3
+        ✓
+
+Domain Model v0.3
+        ✓
+
+Connector Contract
+        ✓
+
+Observation Contract
+        ✓
+
+Service Candidate Detector Contract
+        ✓
+
+Entity Resolver Contract
+        ✓
+
+Evidence Classifier Contract
+        ✓
+
+Evidence Aggregator Contract
+        ✓
+
+Relationship Assessor Contract
+        ✓
+```
+
+The next design phase is the:
+
+```text
+IMPLEMENTATION MODEL
+```
+
+The objective of the Implementation Model is to translate the Domain concepts and processing boundaries defined in this document into concrete software structures without redefining their semantic responsibilities.
+
+The Implementation Model should define:
+
+```text
+concrete Python package boundaries
+
+Domain entity representations
+
+Value Objects
+
+Enums and controlled vocabularies
+
+typed identifiers and references
+
+Observation typed payload representations
+
+Processing Result representations
+
+Protocols or abstract interfaces
+
+repository ports
+
+ServiceRegistry port
+
+application services
+
+Discovery orchestration
+
+Evidence lifecycle operations
+
+Relationship materialization
+
+assessment-policy representation
+
+configuration and rule loading
+
+persistence boundaries
+
+dependency direction
+
+testing boundaries
+```
+
+In particular, the Implementation Model must determine concrete representations for the stable Domain concepts:
+
+```text
+User
+
+IdentitySeed
+
+ConnectedSource
+
+Observation
+
+ServiceIdentifier
+
+Service
+
+Evidence
+
+EvidenceStatus
+
+Relationship
+
+RelationshipStatus
+
+TemporalStatus
+```
+
+and for the derived or processing concepts:
+
+```text
+CandidateDetectionResult
+
+ResolutionResult
+
+ClassificationResult
+
+EvidenceCandidate
+
+AggregationResult
+
+EvidenceAggregate
+
+RelationshipAssessmentResult
+```
+
+The Implementation Model must preserve their Domain classifications.
+
+For example:
 
 ```text
 Evidence
-    -> include EvidenceStatus lifecycle
-
-EvidenceAggregator
-    -> aggregate ACTIVE Evidence by default
-
-Relationship
-    -> primarily User-Service
-
-RelationshipAssessor
-    -> use consolidated RelationshipStatus and TemporalStatus
-
-EvidenceAggregate
-    -> explicitly derived view
-
-Confidence
-    -> outside initial Discovery model
+=
+Core Domain Entity
 ```
 
-The seven contracts should not be rewritten from scratch.
+must remain distinct from:
 
-After alignment, the project can begin an implementation-oriented model defining:
+```text
+EvidenceCandidate
+=
+Interface Value Object / Processing Output
+```
 
-- concrete value-object boundaries;
-- Python protocols or abstract interfaces;
-- package structure;
-- repositories;
-- Service Registry boundary;
-- application orchestration;
-- first Observation payload schemas;
-- first Evidence taxonomy;
-- first deterministic assessment policy;
-- vertical Gmail Discovery MVP.
+and:
 
-Implementation must preserve the Domain boundaries established in this document rather than collapsing the pipeline into provider-specific application code.
+```text
+ClassificationResult
+=
+Processing Result
+```
+
+Likewise:
+
+```text
+EvidenceAggregate
+=
+Derived View
+```
+
+must not become authoritative persisted Domain state merely because an implementation chooses to materialize it.
+
+The following application boundaries require concrete implementation decisions:
+
+```text
+ServiceRegistry
+
+Observation Repository
+
+Evidence Repository
+
+Relationship Repository
+
+ConnectedSource Repository
+
+credential-storage boundary
+
+collection / synchronization state
+
+application orchestration
+```
+
+These decisions should be made without introducing infrastructure dependencies into the Core Domain.
+
+The Implementation Model should also resolve the minimum subset of currently open questions required to build the first vertical implementation.
+
+Examples include:
+
+```text
+initial ObservationType representation
+
+EMAIL_MESSAGE_METADATA v1 payload
+
+initial ServiceIdentifier types
+
+initial EvidenceType taxonomy
+
+EvidenceStatus persistence strategy
+
+ServiceRegistry lookup model
+
+initial deterministic Candidate Detection rules
+
+initial deterministic Entity Resolution rules
+
+initial deterministic Evidence Classification rules
+
+initial Relationship Assessment policy
+
+Aggregate computation strategy
+
+repository interfaces
+```
+
+Open questions that do not block the first vertical slice should remain open.
+
+In particular, the Implementation Model should not prematurely require final decisions for:
+
+```text
+Account as a Core Domain Entity
+
+Organization model
+
+Brand model
+
+Legal Data Controller model
+
+universal Service ontology
+
+final Service granularity
+
+IdentityServiceAssociation
+
+advanced AI usage
+
+numerical Confidence
+
+final graph technology
+
+production-scale synchronization
+```
+
+The first implementation target after the Implementation Model is:
+
+```text
+Gmail Vertical MVP
+```
+
+The Gmail Vertical MVP should exercise one complete Discovery path:
+
+```text
+GmailConnector
+      |
+      v
+EMAIL_MESSAGE_METADATA
+      |
+      +-----------------------+
+      |                       |
+      v                       v
+Candidate Detection      Evidence Classification
+      |                       |
+      v                       v
+ServiceIdentifier            Evidence
+      |                       |
+      v                       |
+Entity Resolution             |
+      |                       |
+      v                       |
+Service ----------------------+
+              |
+              v
+Evidence Aggregation
+              |
+              v
+EvidenceAggregate
+              |
+              v
+Relationship Assessment
+              |
+              v
+Relationship
+```
+
+The purpose of this MVP is not to finalize the full framework.
+
+Its purpose is to test whether the consolidated Domain Model and software boundaries survive contact with executable code and real Gmail-derived data.
+
+Any subsequent Domain Model change should therefore be justified by:
+
+```text
+implementation evidence
+
+empirical validation
+
+new cross-source scenarios
+
+or a demonstrated inconsistency
+```
+
+rather than by speculative abstraction.
+
+Implementation must preserve the Domain boundaries established in this document.
