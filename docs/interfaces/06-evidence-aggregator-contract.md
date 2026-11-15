@@ -3,9 +3,9 @@
 **Status:** Draft v0.1  
 **Scope:** Identity and Service Discovery  
 **Last updated:** November 2026  
-**Related Architecture:** `docs/architecture/01-identity-and-service-discovery.md`  
-**Related Domain Model:** `docs/domain/01-discovery-domain-model.md`  
-**Related Interfaces:**  
+**Related Architecture:** `docs/architecture/01-identity-and-service-discovery.md` - Draft v0.3  
+**Related Domain Model:** `docs/domain/01-discovery-domain-model.md` - Draft v0.3  
+**Related Interfaces:**
 - `docs/interfaces/01-connector-contract.md`
 - `docs/interfaces/02-observation-contract.md`
 - `docs/interfaces/03-service-candidate-detector-contract.md`
@@ -25,53 +25,62 @@ The Evidence Aggregator combines individual Evidence items into a structured rep
 Conceptually:
 
 ```text
-Evidence A
-Evidence B
-Evidence C
-    |
-    v
+ACTIVE Evidence A
+ACTIVE Evidence B
+ACTIVE Evidence C
+        |
+        v
 Evidence Aggregator
-    |
-    v
+        |
+        v
 Evidence Aggregate
-    |
-    v
+[Derived View]
+        |
+        v
 Relationship Assessor
 ```
 
 Its purpose is not to determine whether a Relationship is:
 
 ```text
-CONFIRMED
-PROBABLE
-HISTORICAL
-ACTIVE
+UNKNOWN
+OBSERVED
+ESTABLISHED
+REJECTED
 ```
 
-or any other final Relationship state.
+or whether its temporal state is:
+
+```text
+UNKNOWN
+CURRENTLY_OBSERVED
+HISTORICAL
+```
 
 Its responsibility is narrower:
 
-> Given the Evidence currently associated with a Service and relevant Identity context, what structured body of Evidence is available for Relationship Assessment?
+> Given the currently accepted Evidence associated with a Service or unresolved discovery context, what structured body of Evidence is available for Relationship Assessment?
 
-The aggregator must preserve the individual Evidence and its provenance while deriving useful aggregate information such as:
+The Aggregator must preserve individual Evidence and its provenance while deriving useful information such as:
 
-- Evidence Types;
+- EvidenceTypes;
 - Evidence counts;
 - source diversity;
 - ConnectedSource diversity;
 - temporal distribution;
 - Identity references;
 - conflicting Evidence;
-- historical Evidence;
+- coverage context;
 - duplicate handling;
 - unresolved information.
+
+The consolidated Domain Model classifies `EvidenceAggregate` as a Derived View rather than a Core Domain Entity.
 
 ---
 
 ## 2. Architectural Position
 
-The Evidence Aggregator operates after individual Evidence has been classified and relevant Service identifiers have been resolved where possible.
+The Evidence Aggregator operates after individual Evidence has been classified and relevant ServiceIdentifiers have been resolved where possible.
 
 Conceptually:
 
@@ -87,10 +96,11 @@ Conceptually:
                        \             /
                         \           /
                          v         v
-                     EVIDENCE AGGREGATOR
+                    EVIDENCE AGGREGATOR
                             |
                             v
                      Evidence Aggregate
+                      [Derived View]
                             |
                             v
                    Relationship Assessor
@@ -99,7 +109,7 @@ Conceptually:
                        Relationship
 ```
 
-The aggregator brings together two different kinds of output:
+The Aggregator brings together two different kinds of output:
 
 ```text
 What Service is involved?
@@ -108,7 +118,7 @@ What Service is involved?
 and:
 
 ```text
-What Evidence has been observed?
+What currently accepted Evidence has been observed?
 ```
 
 without deciding the final Relationship state.
@@ -125,18 +135,18 @@ EVIDENCE AGGREGATION
 RELATIONSHIP ASSESSMENT
 ```
 
-For example, the aggregator may produce:
+For example, the Aggregator may produce:
 
 ```text
 Service:
 Spotify
 
 Evidence Summary:
-ACCOUNT_VERIFICATION    1
-SUBSCRIPTION            4
-PAYMENT                12
-MARKETING              30
-PASSWORD_MANAGER_ENTRY  1
+ACCOUNT_VERIFICATION       1
+SUBSCRIPTION               4
+PAYMENT                   12
+MARKETING                 30
+PASSWORD_MANAGER_ENTRY     1
 
 Source Types:
 EMAIL
@@ -152,11 +162,14 @@ Last Observed:
 It must not itself conclude:
 
 ```text
-Relationship:
-CONFIRMED ACTIVE ACCOUNT
+RelationshipStatus:
+ESTABLISHED
+
+TemporalStatus:
+CURRENTLY_OBSERVED
 ```
 
-That belongs to the `RelationshipAssessor`.
+Those conclusions belong to `RelationshipAssessor`.
 
 ---
 
@@ -175,7 +188,7 @@ Evidence 4
 Evidence 150
 ```
 
-The aggregator creates a structured view:
+The Aggregator creates a structured view:
 
 ```text
 150 individual Evidence items
@@ -187,32 +200,32 @@ The aggregator creates a structured view:
 Service:
 Spotify
 
-Evidence Types:
-ACCOUNT_VERIFICATION  1
-PAYMENT              15
-SUBSCRIPTION          8
-MARKETING           125
-PASSWORD_MANAGER_ENTRY 1
+EvidenceTypes:
+ACCOUNT_VERIFICATION       1
+PAYMENT                    15
+SUBSCRIPTION                8
+MARKETING                 125
+PASSWORD_MANAGER_ENTRY      1
 
-Connected Sources:
+ConnectedSources:
 2
 
-Source Types:
+SourceTypes:
 2
 
 Timeline:
 2020 -> 2026
 ```
 
-The original Evidence remains available.
+The authoritative Evidence remains available.
 
-The aggregate is a derived view over that Evidence.
+The Aggregate is a derived view over that Evidence.
 
 ---
 
 ## 5. Aggregation Does Not Replace Evidence
 
-The aggregator must not collapse individual Evidence into an irreversible summary.
+The Aggregator must not collapse individual Evidence into an irreversible summary.
 
 Therefore:
 
@@ -225,7 +238,7 @@ REPLACEMENT FOR EVIDENCE
 The relationship:
 
 ```text
-Evidence Aggregate
+EvidenceAggregate
        |
        +-- Evidence A
        +-- Evidence B
@@ -245,11 +258,17 @@ This is required for:
 - Entity re-resolution;
 - User correction.
 
+This is now a consolidated architectural decision:
+
+```text
+D-021 - Evidence Aggregates Are Derived State
+```
+
 ---
 
 ## 6. Input Contract
 
-The aggregator should receive explicitly identified Evidence and relevant context.
+The Aggregator should receive explicitly identified Evidence and relevant context.
 
 Conceptually:
 
@@ -266,7 +285,9 @@ The request may contain:
 ```text
 AggregationRequest
 
+- aggregation_scope
 - service_reference
+- unresolved_identifier_reference
 - identity_references
 - evidence_items
 - context
@@ -274,20 +295,22 @@ AggregationRequest
 
 The exact implementation remains open.
 
+Evidence lifecycle must be respected before semantic summaries are calculated.
+
 ---
 
 ## 7. Service-Oriented Aggregation
 
-The primary aggregation boundary is currently the canonical `Service`.
+The primary aggregation boundary is the canonical Service.
 
 Conceptually:
 
 ```text
 Service
    |
-   +-- Evidence A
-   +-- Evidence B
-   +-- Evidence C
+   +-- ACTIVE Evidence A
+   +-- ACTIVE Evidence B
+   +-- ACTIVE Evidence C
 ```
 
 For example:
@@ -307,7 +330,7 @@ This creates a coherent Service-level Evidence context.
 
 ## 8. Why Service Is the Primary Boundary
 
-The final Discovery objective is to identify Relationships between the User or their Identities and Services.
+The final Discovery objective is to identify Relationships between the User and Services.
 
 Therefore aggregation around:
 
@@ -320,13 +343,13 @@ is more useful than aggregation around:
 ```text
 Provider
 Connector
-Observation Type
+ObservationType
 ConnectedSource
 ```
 
 Those concepts remain provenance dimensions.
 
-They should not define separate canonical Relationships merely because the Evidence originated from different sources.
+They should not define separate canonical Relationships merely because Evidence originated from different sources.
 
 ---
 
@@ -349,7 +372,7 @@ Spotify
         identity: oldmail@example.net
 ```
 
-The aggregator must not automatically merge:
+The Aggregator must not automatically merge:
 
 ```text
 personal@example.com
@@ -363,39 +386,45 @@ oldmail@example.net
 
 into one Identity.
 
-The aggregate should retain the Identity references associated with its Evidence.
+The Aggregate should retain Identity references associated with its Evidence.
 
 ---
 
 ## 10. User-Level vs Identity-Level Aggregation
 
-The Domain Model has not yet fully resolved whether a Relationship is fundamentally:
+The consolidated Domain Model now defines the primary Relationship as:
 
 ```text
-User <-> Service
+User -> Relationship -> Service
 ```
 
-or:
+Relevant Identity Seeds remain associated with the Relationship and its Evidence basis.
 
-```text
-IdentitySeed <-> Service
-```
+Therefore Service-level aggregation is primarily intended to support the User-Service Relationship.
 
-or whether both views are required.
+At the same time, Identity information must remain preserved so that the framework can answer questions such as:
 
-The aggregator must therefore avoid prematurely destroying Identity granularity.
+> Which Services were associated with `oldmail@example.net`?
 
-A future Relationship Assessor may need:
+Conceptually:
 
 ```text
 User-level Service Evidence
-
-AND
-
-Identity-level Service Evidence
+        +
+Identity references
 ```
 
-The Evidence Aggregate should support both views where the underlying Evidence provides sufficient information.
+must coexist.
+
+A separate:
+
+```text
+IdentityServiceAssociation
+```
+
+remains a Candidate Domain Concept.
+
+The Aggregator must not create that concept implicitly.
 
 ---
 
@@ -417,9 +446,9 @@ Spotify
  +-- Account using oldmail@example.net
 ```
 
-The aggregator must not invent Account entities merely because multiple Identity references exist.
+The Aggregator must not invent Account entities merely because multiple Identity references exist.
 
-Until `Account` is formally introduced:
+Until Account is formally introduced:
 
 ```text
 Identity-specific Evidence
@@ -427,7 +456,7 @@ Identity-specific Evidence
 Confirmed separate Accounts
 ```
 
-The aggregate should preserve the distinction without making the inference.
+The Aggregate should preserve the distinction without making the inference.
 
 ---
 
@@ -436,7 +465,7 @@ The aggregate should preserve the distinction without making the inference.
 The normal aggregation case is:
 
 ```text
-Evidence
+ACTIVE Evidence
     +
 Resolved Service
     |
@@ -450,6 +479,9 @@ Example:
 Evidence:
 ACCOUNT_VERIFICATION
 
+EvidenceStatus:
+ACTIVE
+
 Service:
 Spotify
 ```
@@ -457,7 +489,7 @@ Spotify
 can contribute to:
 
 ```text
-Spotify Evidence Aggregate
+Spotify EvidenceAggregate
 ```
 
 ---
@@ -485,16 +517,16 @@ UNRESOLVED
 
 This Evidence must not disappear.
 
-The aggregator must support unresolved aggregation contexts.
+The Aggregator must support unresolved aggregation contexts.
 
 Conceptually:
 
 ```text
 Unresolved Service Context
         |
-        +-- Candidate Identifier
+        +-- ServiceIdentifier
         |
-        +-- Evidence
+        +-- ACTIVE Evidence
 ```
 
 This allows later re-resolution.
@@ -524,7 +556,7 @@ Ambiguous Service Context
    +-- Candidate Service B
 ```
 
-The Evidence may remain outside canonical Service aggregates until ambiguity is resolved.
+The Evidence may remain outside canonical Service Aggregates until ambiguity is resolved.
 
 ---
 
@@ -552,7 +584,7 @@ Evidence
 Unresolved Aggregation Context
 ```
 
-The framework should preserve useful semantic information even before canonical identity is known.
+The framework should preserve useful semantic information even before canonical Service identity is known.
 
 ---
 
@@ -591,7 +623,13 @@ AMBIGUOUS_SERVICE_CANDIDATE
 
 Additional scopes may emerge later.
 
-For the current Discovery workflow, `SERVICE` is the primary case.
+For the current Discovery workflow:
+
+```text
+SERVICE
+```
+
+is the primary case.
 
 ---
 
@@ -604,24 +642,41 @@ AggregationResult
 
 - processing_status
 - aggregation_status
-- scope
-- service_reference
-- identity_references
-- evidence_references
-- evidence_summary
-- source_summary
-- temporal_summary
-- conflict_summary
+- aggregate
 - aggregator_version
 ```
 
-The exact representation remains open.
+where:
+
+```text
+EvidenceAggregate
+```
+
+contains the semantic derived view.
+
+The consolidated Domain Model distinguishes:
+
+```text
+AggregationResult
+=
+Processing Result
+```
+
+from:
+
+```text
+EvidenceAggregate
+=
+Derived View
+```
+
+The exact software representation remains open.
 
 ---
 
 ## 19. Processing Status
 
-Technical processing state must remain separate from domain aggregation state.
+Technical processing state must remain separate from Domain aggregation state.
 
 Potential processing states include:
 
@@ -631,33 +686,31 @@ UNSUPPORTED
 FAILED
 ```
 
-A processing failure must not silently produce an empty Evidence Aggregate.
+A processing failure must not silently produce an empty EvidenceAggregate.
 
 ---
 
 ## 20. Aggregation Status
 
-Potential domain states may include:
+Potential Domain states may include:
 
 ```text
 AGGREGATED
-
 EMPTY
-
 PARTIAL
 ```
 
 ### AGGREGATED
 
-One or more Evidence items were successfully aggregated.
+One or more eligible Evidence items were successfully aggregated.
 
 ### EMPTY
 
-The request contained no usable Evidence.
+The request contained no Evidence eligible under the active aggregation policy.
 
 ### PARTIAL
 
-Some Evidence could be aggregated while other items could not be processed.
+Some Evidence could be aggregated while other eligible Evidence could not be processed.
 
 The final taxonomy remains open.
 
@@ -665,7 +718,7 @@ The final taxonomy remains open.
 
 ## 21. Empty Aggregate
 
-An empty aggregate must not be interpreted as:
+An empty Aggregate must not be interpreted as:
 
 ```text
 No Relationship exists.
@@ -674,7 +727,8 @@ No Relationship exists.
 It means only:
 
 ```text
-No usable Evidence is currently present in this aggregation context.
+No usable Evidence is currently present
+under this aggregation scope and policy.
 ```
 
 The absence of Evidence is not proof of absence of a Relationship.
@@ -683,7 +737,7 @@ The absence of Evidence is not proof of absence of a Relationship.
 
 ## 22. Evidence References
 
-Every aggregate must preserve references to the Evidence items from which it was derived.
+Every Aggregate must preserve references to the Evidence items from which it was derived.
 
 Conceptually:
 
@@ -695,42 +749,48 @@ EvidenceAggregate
  +-- evidence_003
 ```
 
-Summary values must remain reproducible from the underlying Evidence where practical.
+Summary values must remain reproducible from underlying eligible Evidence where practical.
 
 ---
 
 ## 23. Evidence Summary
 
-The aggregate should provide counts grouped by Evidence Type.
+The Aggregate should provide counts grouped by EvidenceType.
 
 Example:
 
 ```text
-Evidence Summary
+EvidenceSummary
 
-ACCOUNT_VERIFICATION      1
-PASSWORD_RESET            2
-SECURITY_NOTIFICATION     3
-SUBSCRIPTION              5
-PAYMENT                  12
-MARKETING                40
-PASSWORD_MANAGER_ENTRY    1
+ACCOUNT_VERIFICATION       1
+PASSWORD_RESET             2
+SECURITY_NOTIFICATION      3
+SUBSCRIPTION               5
+PAYMENT                   12
+MARKETING                 40
+PASSWORD_MANAGER_ENTRY     1
 ```
 
 This is a summary.
 
 It does not assign relative strength.
 
+For the default current Discovery view, these counts should normally be derived from:
+
+```text
+ACTIVE Evidence
+```
+
+only.
+
 ---
 
 ## 24. Evidence Frequency Is Not Evidence Strength
 
-The aggregator must preserve the distinction:
+The Aggregator must preserve the distinction:
 
 ```text
-COUNT
-  !=
-STRENGTH
+COUNT != STRENGTH
 ```
 
 For example:
@@ -745,15 +805,15 @@ must not automatically outweigh:
 1 ACCOUNT_VERIFICATION
 ```
 
-The aggregator reports frequency.
+The Aggregator reports frequency.
 
-The Relationship Assessor determines semantic importance.
+The RelationshipAssessor determines semantic importance.
 
 ---
 
 ## 25. No Implicit Weighting
 
-The aggregator must not calculate hidden formulas such as:
+The Aggregator must not calculate hidden formulas such as:
 
 ```text
 ACCOUNT_VERIFICATION * 0.8
@@ -771,27 +831,43 @@ Draft v0.1 contains no Evidence weight model.
 
 ## 26. No Aggregate Confidence
 
-The aggregator must not produce arbitrary outputs such as:
+Numerical Confidence is outside the initial Discovery model.
+
+The Aggregator must not produce arbitrary outputs such as:
 
 ```text
 aggregate_confidence:
 0.93
 ```
 
-The aggregate is a structured representation of observed Evidence.
+The Aggregate is a structured representation of currently eligible Evidence.
 
-Confidence belongs, if introduced at all, to a later explicitly defined assessment model.
+The framework instead preserves:
+
+- EvidenceTypes;
+- counts;
+- provenance;
+- source diversity;
+- temporal semantics;
+- conflicts;
+- coverage.
+
+This aligns with:
+
+```text
+D-023 - No Numerical Confidence in Initial Discovery Model
+```
 
 ---
 
 ## 27. Source Summary
 
-The aggregate should preserve which Connected Sources contributed Evidence.
+The Aggregate should preserve which ConnectedSources contributed Evidence.
 
 Example:
 
 ```text
-Connected Sources:
+ConnectedSources:
 
 Personal Gmail
 Primary Password Manager
@@ -802,9 +878,10 @@ Conceptually, the summary may include:
 
 ```text
 connected_source_count
-source_type_count
-provider_count
-evidence_count_by_source
+source_types
+providers
+evidence_count_by_connected_source
+evidence_count_by_source_type
 ```
 
 These values describe provenance diversity.
@@ -813,7 +890,7 @@ They do not independently determine Relationship strength.
 
 ---
 
-## 28. Source Type Diversity
+## 28. SourceType Diversity
 
 Example:
 
@@ -824,7 +901,7 @@ PASSWORD_MANAGER
 
 represents two structurally different source categories.
 
-The aggregator may expose:
+The Aggregator may expose:
 
 ```text
 source_types:
@@ -855,7 +932,7 @@ Personal Gmail
 Old Gmail
 ```
 
-represents two Connected Sources.
+represents two ConnectedSources.
 
 However, both may belong to:
 
@@ -864,7 +941,7 @@ SourceType:
 EMAIL
 ```
 
-Therefore the aggregate should distinguish:
+Therefore the Aggregate should distinguish:
 
 ```text
 ConnectedSource diversity
@@ -880,7 +957,7 @@ SourceType diversity
 
 ## 30. Provider Diversity
 
-Evidence may also originate from different providers.
+Evidence may also originate from different Providers.
 
 Example:
 
@@ -895,18 +972,18 @@ Provider diversity may be useful provenance.
 However:
 
 ```text
-provider diversity
+Provider diversity
        !=
-independent semantic proof
+Independent semantic proof
 ```
 
-The Relationship Assessor may eventually decide how much this matters.
+Relationship Assessment may later decide whether this matters.
 
 ---
 
 ## 31. Source Independence
 
-The aggregator must not create different aggregate schemas for:
+The Aggregator must not create different aggregate schemas for:
 
 ```text
 Gmail Evidence
@@ -922,10 +999,10 @@ Evidence from Gmail --------+
                             |
 Evidence from Outlook ------+
                             |
-Evidence from Password -----+--> Evidence Aggregator
+Evidence from Password -----+--> EvidenceAggregator
 Manager                     |           |
                             |           v
-Evidence from Browser ------+      Common Aggregate
+Evidence from Browser ------+    Common EvidenceAggregate
 ```
 
 Provider-specific details remain in Evidence and Observation provenance.
@@ -934,9 +1011,9 @@ Provider-specific details remain in Evidence and Observation provenance.
 
 ## 32. Temporal Summary
 
-The aggregate should preserve temporal information derived from Evidence and supporting Observations.
+The Aggregate should preserve temporal information derived from Evidence and supporting Observations.
 
-Potential summary fields include:
+Potential summary information includes:
 
 ```text
 first_observed
@@ -944,6 +1021,7 @@ last_observed
 evidence_type_first_observed
 evidence_type_last_observed
 timeline
+typed_temporal_values
 ```
 
 The exact structure remains open.
@@ -970,7 +1048,7 @@ Password Manager Record Modified:
 
 cannot automatically be interpreted as equivalent Service activity events.
 
-The aggregate may preserve both timestamps but must retain their temporal semantics.
+The Aggregate may preserve both timestamps but must retain their temporal semantics.
 
 ---
 
@@ -988,7 +1066,7 @@ It must not silently become:
 Account creation date
 ```
 
-because the earliest observed Evidence may simply be:
+because the earliest observed Evidence may simply represent:
 
 ```text
 oldest Evidence currently available
@@ -1010,7 +1088,7 @@ must not automatically mean:
 last Service usage
 ```
 
-It means only the latest relevant observation under the aggregation semantics.
+It means only the latest relevant Observation under the aggregation semantics.
 
 For example:
 
@@ -1024,7 +1102,7 @@ may not represent actual Service use.
 
 ## 36. Evidence Timeline
 
-The aggregate may expose a semantic Evidence timeline.
+The Aggregate may expose a semantic Evidence timeline.
 
 Example:
 
@@ -1045,9 +1123,9 @@ ACCOUNT_DELETION
 MARKETING
 ```
 
-The Relationship Assessor may then reason about historical state.
+The RelationshipAssessor may then reason about historical state.
 
-The aggregator itself must not interpret this timeline as:
+The Aggregator itself must not interpret this timeline as:
 
 ```text
 account deleted but reopened
@@ -1059,7 +1137,7 @@ without sufficient Evidence.
 
 ## 37. Historical Evidence
 
-Historical Evidence must remain included in aggregation.
+Historical Evidence must remain available to aggregation when it is still ACTIVE.
 
 For example:
 
@@ -1069,15 +1147,37 @@ ACCOUNT_VERIFICATION
 ACCOUNT_DELETION
 ```
 
-should not be discarded merely because:
+should not be discarded merely because the Evidence refers to historical events.
+
+The distinction is important:
 
 ```text
-ACCOUNT_DELETION
+historical semantic event
+        !=
+SUPERSEDED Evidence
 ```
 
-appears later.
+An `ACCOUNT_VERIFICATION` Evidence item from 2021 may still be:
 
-Historical Evidence remains part of the observed digital Relationship history.
+```text
+ACTIVE
+```
+
+because it is still the currently accepted interpretation of that historical Observation.
+
+Therefore:
+
+```text
+historical Evidence semantics
+```
+
+and:
+
+```text
+Evidence lifecycle state
+```
+
+must remain distinct.
 
 ---
 
@@ -1085,7 +1185,7 @@ Historical Evidence remains part of the observed digital Relationship history.
 
 Evidence may be ordered temporally where source semantics support it.
 
-However, an aggregator must not imply causal ordering merely because timestamps are ordered.
+However, an Aggregator must not imply causal ordering merely because timestamps are ordered.
 
 For example:
 
@@ -1132,7 +1232,7 @@ timestamp semantics differ
 shared account
 ```
 
-The aggregator must preserve the conflict.
+The Aggregator must preserve the conflict.
 
 It must not decide the explanation.
 
@@ -1140,10 +1240,10 @@ It must not decide the explanation.
 
 ## 40. Conflict Summary
 
-A future aggregate may expose:
+An Aggregate may expose:
 
 ```text
-conflict_summary
+ConflictSummary
 ```
 
 with information such as:
@@ -1161,7 +1261,7 @@ Draft v0.1 allows conflict reporting but does not define a complete conflict tax
 
 ## 41. Conflicting Evidence Must Not Be Discarded
 
-The aggregator must not resolve conflicts by deleting or ignoring one Evidence item.
+The Aggregator must not resolve conflicts by deleting or ignoring one Evidence item.
 
 Conceptually:
 
@@ -1204,22 +1304,23 @@ may produce duplicate Observations.
 
 Repeated classification may produce duplicate Evidence.
 
-The aggregator must not blindly count every Evidence record as an independent semantic event.
+The Aggregator must not blindly count every Evidence record as an independent semantic event.
 
 ---
 
 ## 43. Evidence Deduplication
 
-The aggregator may require a concept of logical Evidence uniqueness.
+The Aggregator may require a concept of logical Evidence uniqueness.
 
 Possible factors include:
 
 ```text
 supporting Observation
-Evidence Type
+EvidenceType
 classifier version
 semantic event identity
 source reference
+EvidenceStatus
 ```
 
 The exact deduplication model remains open.
@@ -1244,7 +1345,7 @@ same logical event
 
 their provenance should not necessarily be deleted.
 
-A future aggregate may represent:
+A future Aggregate may represent:
 
 ```text
 logical event count:
@@ -1272,7 +1373,7 @@ Financial Source:
 PAYMENT
 ```
 
-may represent the same underlying transaction or two separate semantic observations.
+may represent the same underlying transaction or two separate semantic Observations.
 
 Without a reliable correlation mechanism, they should remain independently traceable.
 
@@ -1301,37 +1402,71 @@ and both produce:
 PAYMENT
 ```
 
-The aggregator should not necessarily count this as two separate payment events.
+The Aggregator should not necessarily count this as two separate payment events.
 
-Classification history and semantic Evidence count must remain distinguishable.
+The Evidence lifecycle provides an explicit mechanism for determining which interpretation participates in the current view.
+
+For example:
+
+```text
+Classifier v1 Evidence:
+PAYMENT
+SUPERSEDED
+
+Classifier v2 Evidence:
+PAYMENT
+ACTIVE
+```
+
+produces one current semantic contribution.
+
+Classification history and current semantic Evidence count must remain distinguishable.
 
 ---
 
 ## 47. Current vs Superseded Evidence
 
-If Evidence versioning is introduced, the aggregator may need to distinguish:
+The consolidated Domain Model defines:
 
 ```text
-CURRENT
+EvidenceStatus
+
+ACTIVE
 SUPERSEDED
 REJECTED
 ```
 
-Evidence states.
+These lifecycle states are no longer a future candidate.
 
-For example:
+For the default current aggregation policy:
 
 ```text
-Classifier v1:
-MARKETING
+ACTIVE
+    -> include
 
-Classifier v2:
-PRIVACY_NOTICE
+SUPERSEDED
+    -> exclude
+
+REJECTED
+    -> exclude
 ```
 
-Relationship Assessment should not necessarily consume both as simultaneous current interpretations.
+Conceptually:
 
-The exact Evidence lifecycle remains an open Domain Model question.
+```text
+Evidence
+ |
+ +-- ACTIVE --------+
+ |                  |
+ |                  v
+ |             Current Aggregate
+ |
+ +-- SUPERSEDED --> provenance/history
+ |
+ +-- REJECTED ----> provenance/history
+```
+
+Historical classification provenance remains available without artificially increasing current Evidence.
 
 ---
 
@@ -1349,37 +1484,81 @@ to:
 NEWSLETTER
 ```
 
-the aggregate should reflect the current accepted Evidence semantics while preserving correction provenance.
+the Aggregate should reflect the currently accepted Evidence semantics while preserving correction provenance.
 
-The aggregator should not silently count both categories as independent semantic events if one supersedes the other.
+For example:
+
+```text
+MARKETING
+SUPERSEDED
+
+NEWSLETTER
+ACTIVE
+```
+
+results in:
+
+```text
+Current Aggregate:
+NEWSLETTER = 1
+MARKETING = 0
+```
+
+assuming no other independent ACTIVE MARKETING Evidence exists.
+
+If the original interpretation was explicitly invalidated rather than replaced, it may instead be:
+
+```text
+REJECTED
+```
+
+according to Evidence lifecycle policy.
 
 ---
 
 ## 49. Evidence Validity Filtering
 
-Aggregation may require input Evidence state.
+Aggregation uses explicit Evidence lifecycle state.
 
 Conceptually:
 
 ```text
 Evidence
-
-- ACTIVE
-- SUPERSEDED
-- REJECTED
+ |
+ +-- ACTIVE
+ |
+ +-- SUPERSEDED
+ |
+ +-- REJECTED
 ```
 
-The Domain Model does not yet define these fields.
+The default current Discovery aggregation policy consumes:
 
-This contract therefore exposes a future requirement:
+```text
+ACTIVE
+```
 
-> Evidence lifecycle semantics may be necessary before production aggregation can be fully specified.
+Evidence.
+
+`SUPERSEDED` and `REJECTED` Evidence remain available for provenance or specifically requested historical/audit views.
+
+This filtering is controlled by:
+
+```text
+EvidenceStatePolicy
+```
+
+within the AggregationContext.
+
+The lifecycle semantics belong to the consolidated Domain Model.
+
+The exact software implementation belongs to the Implementation Model.
 
 ---
 
 ## 50. Evidence from Multiple Identities
 
-One Service may be associated with Evidence involving multiple Identity Seeds.
+One Service may be associated with Evidence involving multiple IdentitySeeds.
 
 Example:
 
@@ -1391,7 +1570,7 @@ Spotify
  +-- oldmail@example.net
 ```
 
-The aggregate must retain both.
+The Aggregate must retain both.
 
 It must not automatically conclude:
 
@@ -1411,7 +1590,7 @@ These remain separate interpretation questions.
 
 ## 51. Unassociated Identity Evidence
 
-Some Evidence may not be safely linked to a known Identity Seed.
+Some Evidence may not be safely linked to a known IdentitySeed.
 
 Example:
 
@@ -1420,9 +1599,9 @@ Password Manager username:
 old-address@example.com
 ```
 
-where the address has not been confirmed as a User Identity Seed.
+where the address has not been confirmed as a User IdentitySeed.
 
-The aggregate may preserve:
+The Aggregate may preserve:
 
 ```text
 unassociated identity reference
@@ -1434,7 +1613,7 @@ rather than fabricating an Identity relationship.
 
 ## 52. Identity Completeness
 
-An aggregate should not require every Evidence item to have an Identity reference.
+An Aggregate should not require every Evidence item to have an Identity reference.
 
 Valid state:
 
@@ -1444,22 +1623,24 @@ Spotify
 
 Evidence:
 ACCOUNT_VERIFICATION
+
 Identity:
 personal@example.com
 
 Evidence:
 MARKETING
+
 Identity:
 UNKNOWN
 ```
 
-Both may belong to the Service-level aggregate.
+Both may belong to the Service-level Aggregate.
 
 ---
 
 ## 53. Aggregation Context
 
-The aggregator may require explicitly versioned policy or rules.
+The Aggregator may require explicitly versioned policy or rules.
 
 Conceptually:
 
@@ -1469,11 +1650,25 @@ AggregationContext
 - deduplication_policy
 - evidence_state_policy
 - temporal_policy
-- conflict_rules
+- conflict_policy
 - aggregation_version
 ```
 
-This context must not contain provider credentials.
+The context must not contain Provider credentials.
+
+For the default current Discovery view:
+
+```text
+evidence_state_policy:
+
+ACTIVE      -> include
+SUPERSEDED  -> exclude
+REJECTED    -> exclude
+```
+
+Historical or audit views may intentionally use different policies.
+
+Such deviations must be explicit.
 
 ---
 
@@ -1484,14 +1679,14 @@ Aggregation should be deterministic where practical.
 Given the same:
 
 ```text
-Evidence set
+eligible Evidence set
 +
-Aggregation Context
+AggregationContext
 +
-Aggregator Version
+AggregatorVersion
 ```
 
-the same aggregate should be produced.
+the same Aggregate should be produced.
 
 This improves:
 
@@ -1510,8 +1705,9 @@ Operations such as:
 
 ```text
 group by Service
-count Evidence Types
-list Connected Sources
+filter by EvidenceStatus
+count EvidenceTypes
+list ConnectedSources
 calculate first/last observed
 preserve Identity references
 detect exact duplicates
@@ -1539,7 +1735,7 @@ Evidence from privacy export
 
 may need richer interpretation.
 
-However, such reasoning should not automatically become part of the basic Evidence Aggregator.
+However, such reasoning should not automatically become part of the basic EvidenceAggregator.
 
 A separate correlation or advanced reasoning capability may eventually be more appropriate.
 
@@ -1549,7 +1745,7 @@ Draft v0.1 keeps aggregation deterministic-first.
 
 ## 57. No Permission Escalation
 
-The aggregator operates only on already available Evidence and provenance.
+The Aggregator operates only on already available Evidence and provenance.
 
 It must not request additional ConnectedSource permissions.
 
@@ -1577,6 +1773,7 @@ There is no default justification for transmitting the complete Evidence graph t
 ```text
 count
 group
+filter
 sort
 summarize
 ```
@@ -1618,7 +1815,7 @@ Evidence Set
          Aggregate v2
 ```
 
-Individual Evidence remains unchanged unless separately reclassified.
+Individual Evidence remains unchanged unless separately reclassified or its lifecycle state changes.
 
 ---
 
@@ -1627,15 +1824,19 @@ Individual Evidence remains unchanged unless separately reclassified.
 Re-aggregation may be required when:
 
 ```text
-new Evidence arrives
+new ACTIVE Evidence arrives
 Evidence is deleted
+Evidence becomes SUPERSEDED
+Evidence becomes REJECTED
 Evidence is reclassified
 Service Resolution changes
 User correction occurs
 ConnectedSource data is removed
 Identity association changes
 deduplication logic changes
-aggregation rules change
+aggregation policy changes
+Service merge occurs
+Service split occurs
 ```
 
 The exact event mechanism remains an implementation concern.
@@ -1658,7 +1859,7 @@ Candidate A
 Spotify
 ```
 
-The Evidence should then become eligible for the Spotify aggregate.
+The Evidence should then become eligible for the Spotify Aggregate.
 
 Conceptually:
 
@@ -1699,9 +1900,9 @@ are later merged into:
 Service C
 ```
 
-their Evidence aggregates must be recalculable.
+their EvidenceAggregates must be recalculable.
 
-The aggregator should not store irreversible summary state that prevents reconstructing the combined Evidence context.
+The Aggregator should not store irreversible summary state that prevents reconstructing the combined Evidence context.
 
 ---
 
@@ -1712,20 +1913,18 @@ Similarly, a Service split may require redistribution of Evidence based on prese
 This reinforces:
 
 ```text
-aggregate derived state
+EvidenceAggregate
+=
+Derived View
 ```
 
-must remain reconstructable from:
-
-```text
-individual Evidence
-```
+which must remain reconstructable from authoritative Evidence.
 
 ---
 
 ## 65. Aggregation Persistence
 
-An Evidence Aggregate may be:
+An EvidenceAggregate may be:
 
 ```text
 computed on demand
@@ -1743,15 +1942,31 @@ Materialization may improve performance.
 
 On-demand computation may reduce synchronization complexity.
 
-The implementation should depend on scale and usage requirements.
+Regardless of persistence:
+
+```text
+EvidenceAggregate
+```
+
+remains:
+
+```text
+Derived View
+```
+
+and not:
+
+```text
+Core Domain Entity
+```
 
 ---
 
 ## 66. Aggregate Identity
 
-If persisted, an aggregate may require stable identity.
+If materialized, an Aggregate may require stable identity or a deterministic cache/materialization key.
 
-Potential conceptual identity:
+Potential conceptual identity may derive from:
 
 ```text
 Aggregation Scope
@@ -1760,38 +1975,48 @@ Service Reference
 +
 Identity Scope
 +
-Aggregation Version
+Aggregation Policy Version
++
+Aggregator Version
 ```
 
 The exact identity model remains undefined.
+
+Persistence identity must not transform EvidenceAggregate into authoritative Domain state.
 
 ---
 
 ## 67. Aggregate Is Derived State
 
-An Evidence Aggregate must always be considered derived state.
+An EvidenceAggregate must always be considered derived state.
 
 Therefore:
 
 ```text
-Evidence Aggregate
+EvidenceAggregate
        |
        v
 can be rebuilt
        |
        v
-from authoritative Evidence inputs
+from authoritative eligible Evidence
 ```
 
 where preserved Evidence remains available.
 
-The aggregate must not become the sole source of semantic provenance.
+The Aggregate must not become the sole source of semantic provenance.
+
+This is formalized by:
+
+```text
+D-021 - Evidence Aggregates Are Derived State
+```
 
 ---
 
 ## 68. Aggregate Deletion
 
-Deleting a materialized aggregate should not delete underlying Evidence.
+Deleting a materialized Aggregate should not delete underlying Evidence.
 
 Conceptually:
 
@@ -1802,7 +2027,7 @@ Delete Aggregate
 Evidence remains
 ```
 
-The aggregate can later be rebuilt.
+The Aggregate can later be rebuilt.
 
 ---
 
@@ -1842,7 +2067,7 @@ Personal Gmail
 
 Evidence derived exclusively from that ConnectedSource may need to be deleted or invalidated according to lifecycle policy.
 
-The aggregate must then be recomputed from remaining Evidence.
+The Aggregate must then be recomputed from remaining ACTIVE Evidence.
 
 Example:
 
@@ -1854,39 +2079,41 @@ Spotify
  +-- Gmail ACCOUNT_VERIFICATION
  +-- Gmail PAYMENT
  +-- Password Manager Entry
+```
 
-After Gmail evidence removal:
+After Gmail-derived Evidence removal:
 
+```text
 Spotify
  |
  +-- Password Manager Entry
 ```
 
-The Relationship may still exist but require reassessment.
+The Relationship may still exist but requires reassessment.
 
 ---
 
 ## 71. Partial Evidence Sets
 
-Aggregation may sometimes operate over incomplete Evidence.
+Aggregation may sometimes operate over incomplete source coverage.
 
 For example:
 
 ```text
 ConnectedSource A:
-complete
+COMPLETE
 
 ConnectedSource B:
-partial collection
+PARTIAL
 
 ConnectedSource C:
-temporarily unavailable
+FAILED
 ```
 
-The aggregate should not claim:
+The Aggregate should not claim:
 
 ```text
-complete evidence footprint
+complete Evidence footprint
 ```
 
 merely because aggregation succeeded over available Evidence.
@@ -1895,21 +2122,29 @@ merely because aggregation succeeded over available Evidence.
 
 ## 72. Coverage Metadata
 
-A future Evidence Aggregate may need to expose coverage context.
+EvidenceAggregate may include a `CoverageSummary` when reliable collection context is available.
 
 Conceptually:
 
 ```text
-coverage:
+CoverageSummary
 
 ConnectedSource A = COMPLETE
 ConnectedSource B = PARTIAL
 ConnectedSource C = FAILED
 ```
 
-However, collection completeness originates upstream.
+Collection completeness originates upstream.
 
-The aggregator may summarize it when relevant but must not invent it.
+The Aggregator may summarize it when relevant but must not invent it.
+
+The consolidated Domain Model classifies `CoverageSummary` as:
+
+```text
+Derived Processing Context
+```
+
+rather than a Core Domain Entity.
 
 ---
 
@@ -1923,14 +2158,14 @@ All Evidence that could possibly exist
 
 because Discovery itself is incomplete.
 
-Therefore an aggregate should not claim absolute completeness.
+Therefore an Aggregate must not claim absolute completeness.
 
-At most it can describe completeness relative to:
+At most it can describe known coverage relative to:
 
 ```text
-configured Connected Sources
-and
-completed collection runs
+configured ConnectedSources
++
+available collection/synchronization context
 ```
 
 ---
@@ -1943,24 +2178,32 @@ Input Evidence:
 Evidence 1
 Type:
 ACCOUNT_VERIFICATION
+Status:
+ACTIVE
 Source:
 Personal Gmail
 
 Evidence 2
 Type:
 SUBSCRIPTION
+Status:
+ACTIVE
 Source:
 Personal Gmail
 
 Evidence 3
 Type:
 PAYMENT
+Status:
+ACTIVE
 Source:
 Personal Gmail
 
 Evidence 4
 Type:
 PASSWORD_MANAGER_ENTRY
+Status:
+ACTIVE
 Source:
 Primary Password Manager
 ```
@@ -1971,34 +2214,37 @@ All resolve to:
 Spotify
 ```
 
-Possible aggregate:
+Possible Aggregate:
 
 ```text
 Service:
 Spotify
 
-Evidence Summary:
+EvidenceSummary:
 ACCOUNT_VERIFICATION      1
 SUBSCRIPTION              1
 PAYMENT                   1
 PASSWORD_MANAGER_ENTRY    1
 
-Connected Sources:
+ConnectedSources:
 2
 
-Source Types:
+SourceTypes:
 EMAIL
 PASSWORD_MANAGER
 
-Identity References:
+IdentityReferences:
 personal@example.com
 ```
 
-The aggregate still does not say:
+The Aggregate still does not assign:
 
 ```text
-Relationship = CONFIRMED
+RelationshipStatus:
+ESTABLISHED
 ```
+
+That remains Relationship Assessment responsibility.
 
 ---
 
@@ -2010,29 +2256,29 @@ Input:
 Spotify
 
 Gmail:
-150 MARKETING
+150 ACTIVE MARKETING Evidence items
 ```
 
 Aggregate:
 
 ```text
-Evidence Summary:
+EvidenceSummary:
 MARKETING 150
 
-Connected Sources:
+ConnectedSources:
 1
 
-Source Types:
+SourceTypes:
 EMAIL
 ```
 
-The aggregator must not transform this into:
+The Aggregator must not transform this into:
 
 ```text
 strong Relationship
 ```
 
-simply because the Evidence count is high.
+simply because Evidence count is high.
 
 ---
 
@@ -2044,36 +2290,37 @@ Input:
 Spotify
 
 Gmail:
-1 ACCOUNT_VERIFICATION
+1 ACTIVE ACCOUNT_VERIFICATION
 
 Password Manager:
-1 PASSWORD_MANAGER_ENTRY
+1 ACTIVE PASSWORD_MANAGER_ENTRY
 ```
 
 Aggregate:
 
 ```text
-Evidence Summary:
+EvidenceSummary:
+
 ACCOUNT_VERIFICATION      1
 PASSWORD_MANAGER_ENTRY    1
 
-Connected Sources:
+ConnectedSources:
 2
 
-Source Types:
+SourceTypes:
 EMAIL
 PASSWORD_MANAGER
 ```
 
-The Relationship Assessor may later consider this differently from 150 marketing emails.
+The RelationshipAssessor may later consider this differently from 150 marketing emails.
 
-The aggregator itself does not assign that meaning.
+The Aggregator itself does not assign that meaning.
 
 ---
 
 ## 77. Historical Example
 
-Input:
+Input ACTIVE Evidence:
 
 ```text
 2021 ACCOUNT_CREATION
@@ -2085,29 +2332,31 @@ Input:
 Aggregate:
 
 ```text
-Evidence Types:
+EvidenceTypes:
+
 ACCOUNT_CREATION
 ACCOUNT_VERIFICATION
 PAYMENT
 ACCOUNT_DELETION
 
-First Observed:
+FirstObserved:
 2021
 
-Last Relevant Evidence:
+LastRelevantEvidence:
 2024
 
 Timeline:
 preserved
 ```
 
-The aggregator does not conclude:
+The Aggregator does not conclude:
 
 ```text
+TemporalStatus:
 HISTORICAL
 ```
 
-although it provides the information needed for the Relationship Assessor to consider that state.
+although it provides the information needed for Relationship Assessment.
 
 ---
 
@@ -2117,13 +2366,17 @@ Input:
 
 ```text
 2024 ACCOUNT_DELETION
+ACTIVE
+
 2026 AUTHENTICATION
+ACTIVE
 ```
 
 Aggregate:
 
 ```text
-Evidence Summary:
+EvidenceSummary:
+
 ACCOUNT_DELETION 1
 AUTHENTICATION   1
 
@@ -2131,7 +2384,7 @@ Conflict:
 potential temporal-semantic inconsistency
 ```
 
-The aggregator does not decide whether:
+The Aggregator does not decide whether:
 
 ```text
 account was recreated
@@ -2156,11 +2409,15 @@ Spotify
 
 Evidence 1:
 PASSWORD_MANAGER_ENTRY
+Status:
+ACTIVE
 Identity:
 personal@example.com
 
 Evidence 2:
 PASSWORD_MANAGER_ENTRY
+Status:
+ACTIVE
 Identity:
 oldmail@example.net
 ```
@@ -2171,21 +2428,21 @@ Aggregate:
 Service:
 Spotify
 
-Identity References:
+IdentityReferences:
 - personal@example.com
 - oldmail@example.net
 
-Evidence Summary:
+EvidenceSummary:
 PASSWORD_MANAGER_ENTRY 2
 ```
 
-The aggregator must not infer:
+The Aggregator must not infer:
 
 ```text
 Two Spotify Accounts
 ```
 
-because `Account` is not yet a core Domain Entity.
+because Account remains a Candidate Domain Concept.
 
 ---
 
@@ -2197,14 +2454,17 @@ Input:
 Evidence:
 PAYMENT
 
-Candidate Identifier:
+Status:
+ACTIVE
+
+ServiceIdentifier:
 unknownservice.example
 
 Resolution:
 UNRESOLVED
 ```
 
-Possible aggregate:
+Possible Aggregate:
 
 ```text
 Scope:
@@ -2213,11 +2473,11 @@ UNRESOLVED_SERVICE_CANDIDATE
 Identifier:
 unknownservice.example
 
-Evidence Summary:
+EvidenceSummary:
 PAYMENT 1
 ```
 
-Later re-resolution may move this Evidence into a canonical Service aggregate.
+Later re-resolution may move this Evidence into a canonical Service Aggregate.
 
 ---
 
@@ -2228,6 +2488,9 @@ Input:
 ```text
 Evidence:
 SUBSCRIPTION
+
+Status:
+ACTIVE
 
 Resolution:
 AMBIGUOUS
@@ -2243,7 +2506,7 @@ The Evidence should remain:
 Ambiguous Service Context
 ```
 
-rather than being counted in both Service aggregates as if both were true.
+rather than being counted in both Service Aggregates as though both mappings were true.
 
 ---
 
@@ -2263,15 +2526,15 @@ aggregation_status:
 EMPTY
 ```
 
-An empty aggregate is a domain condition.
+An empty Aggregate is a Domain condition.
 
-A failed aggregate is a technical condition.
+A failed aggregation is a technical condition.
 
 ---
 
 ## 83. Unsupported Evidence Version
 
-If the aggregator receives an Evidence format it cannot understand:
+If the Aggregator receives an Evidence format or version it cannot understand:
 
 ```text
 processing_status:
@@ -2280,7 +2543,7 @@ UNSUPPORTED
 
 should be possible.
 
-The framework must not silently ignore unsupported Evidence and present the remaining aggregate as complete.
+The framework must not silently ignore unsupported eligible Evidence and present the remaining Aggregate as complete.
 
 ---
 
@@ -2305,7 +2568,7 @@ Amazon
 
 together.
 
-Each Service must still receive an independently traceable aggregate.
+Each aggregation scope must still receive an independently traceable AggregationResult and EvidenceAggregate.
 
 ---
 
@@ -2324,7 +2587,7 @@ New Evidence
 Updated Aggregate
 ```
 
-However, incremental updates must produce the same logical result as rebuilding the aggregate from authoritative Evidence under the same Aggregator version and policy.
+However, incremental updates must produce the same logical result as rebuilding the Aggregate from authoritative current Evidence under the same Aggregator version and policy.
 
 ---
 
@@ -2343,7 +2606,17 @@ Aggregate(Evidence A)
 then add Evidence B
 ```
 
-under the same rules, the implementation contains an aggregation consistency problem.
+under the same:
+
+```text
+EvidenceStatePolicy
+DeduplicationPolicy
+TemporalPolicy
+ConflictPolicy
+AggregatorVersion
+```
+
+the implementation contains an aggregation consistency problem.
 
 The contract expects deterministic equivalence where practical.
 
@@ -2368,6 +2641,19 @@ AggregationContext {
 }
 ```
 
+The default `EvidenceStatePolicy` for the current Discovery view is conceptually:
+
+```text
+ACTIVE:
+INCLUDE
+
+SUPERSEDED:
+EXCLUDE
+
+REJECTED:
+EXCLUDE
+```
+
 This is pseudocode.
 
 The exact implementation remains open.
@@ -2384,7 +2670,6 @@ interface EvidenceAggregator {
     AggregationResult aggregate(
         AggregationRequest request
     )
-
 }
 ```
 
@@ -2415,6 +2700,10 @@ AggregationRequest {
 }
 ```
 
+Evidence references may include lifecycle states, or the application layer may resolve them before Aggregator invocation.
+
+The exact application boundary remains an Implementation Model decision.
+
 ---
 
 ## 90. Aggregation Result Contract
@@ -2428,29 +2717,39 @@ AggregationResult {
 
     Optional<AggregationStatus> aggregationStatus
 
-    AggregationScope scope
-
-    Optional<ServiceReference> serviceReference
-
-    List<IdentityReference> identityReferences
-
-    List<EvidenceReference> evidenceReferences
-
-    EvidenceSummary evidenceSummary
-
-    SourceSummary sourceSummary
-
-    TemporalSummary temporalSummary
-
-    ConflictSummary conflictSummary
+    Optional<EvidenceAggregate> aggregate
 
     AggregatorVersion aggregatorVersion
 }
 ```
 
+`AggregationResult` is classified as:
+
+```text
+Processing Result
+```
+
+It describes execution of the aggregation operation.
+
+`EvidenceAggregate` is classified as:
+
+```text
+Derived View
+```
+
+It represents the structured semantic result.
+
+Therefore:
+
+```text
+AggregationResult
+        !=
+EvidenceAggregate
+```
+
 ---
 
-## 91. Evidence Summary Contract
+## 91. EvidenceSummary Contract
 
 Conceptually:
 
@@ -2461,19 +2760,29 @@ EvidenceSummary {
 
     evidenceCountByType
 
-    currentEvidenceTypes
-
-    historicalEvidenceTypes
+    activeEvidenceTypes
 }
 ```
 
-The distinction between current and historical Evidence remains dependent on future Evidence lifecycle semantics.
+For the default current Discovery view:
 
-Therefore these fields are illustrative.
+```text
+totalEvidenceCount
+```
+
+and:
+
+```text
+evidenceCountByType
+```
+
+refer to Evidence eligible under the active EvidenceStatePolicy, normally ACTIVE Evidence only.
+
+Historical classification interpretations remain available through Evidence provenance rather than being mixed into current semantic counts.
 
 ---
 
-## 92. Source Summary Contract
+## 92. SourceSummary Contract
 
 Conceptually:
 
@@ -2498,7 +2807,7 @@ The summary should remain privacy-minimized.
 
 ---
 
-## 93. Temporal Summary Contract
+## 93. TemporalSummary Contract
 
 Conceptually:
 
@@ -2517,9 +2826,11 @@ TemporalSummary {
 
 Temporal values must preserve their semantics.
 
+Historical event time and Evidence lifecycle state must not be conflated.
+
 ---
 
-## 94. Conflict Summary Contract
+## 94. ConflictSummary Contract
 
 Conceptually:
 
@@ -2536,211 +2847,179 @@ ConflictSummary {
 
 The final conflict taxonomy remains open.
 
+ConflictSummary must describe detected conflicts without inventing their explanation.
+
 ---
 
 ## 95. Evidence Aggregator Invariants
 
 ### EA-INV-001
 
-The aggregator must operate on framework Evidence rather than raw provider objects.
-
----
+The Aggregator must operate on framework Evidence rather than raw Provider objects.
 
 ### EA-INV-002
 
 Aggregation must not destructively replace individual Evidence.
 
----
-
 ### EA-INV-003
 
-Every aggregate must remain traceable to its contributing Evidence.
-
----
+Every Aggregate must remain traceable to its contributing Evidence.
 
 ### EA-INV-004
 
 Evidence frequency must not be interpreted as Evidence strength.
 
----
-
 ### EA-INV-005
 
-The aggregator must not assign final Relationship state.
-
----
+The Aggregator must not assign RelationshipStatus.
 
 ### EA-INV-006
 
-The aggregator must not assign arbitrary numerical Relationship Confidence.
-
----
+The Aggregator must not assign numerical Relationship Confidence.
 
 ### EA-INV-007
 
-Evidence from multiple Connected Sources may contribute to one Service aggregate.
-
----
+Evidence from multiple ConnectedSources may contribute to one Service Aggregate.
 
 ### EA-INV-008
 
-Evidence from multiple SourceTypes may contribute to one Service aggregate.
-
----
+Evidence from multiple SourceTypes may contribute to one Service Aggregate.
 
 ### EA-INV-009
 
-Provider identity must not create separate canonical Service aggregates.
-
----
+Provider identity must not create separate canonical Service Aggregates.
 
 ### EA-INV-010
 
 Identity references must not be discarded during Service-level aggregation.
 
----
-
 ### EA-INV-011
 
 Multiple Identity references must not automatically imply multiple Accounts.
-
----
 
 ### EA-INV-012
 
 Evidence without a known Identity reference may still participate in Service-level aggregation.
 
----
-
 ### EA-INV-013
 
 Unresolved-Service Evidence must not be discarded.
-
----
 
 ### EA-INV-014
 
 Ambiguous-Service Evidence must not be arbitrarily assigned to one Service.
 
----
-
 ### EA-INV-015
 
-Ambiguous Evidence must not be duplicated across all possible Services as if each resolution were true.
-
----
+Ambiguous Evidence must not be duplicated across all possible Services as though each resolution were true.
 
 ### EA-INV-016
 
 Technical duplicate Evidence must not artificially increase semantic Evidence frequency.
 
----
-
 ### EA-INV-017
 
 Similar Evidence from independent sources must not automatically be treated as duplicates.
-
----
 
 ### EA-INV-018
 
 Conflicting Evidence must remain preserved.
 
----
-
 ### EA-INV-019
 
-The aggregator must not resolve Evidence conflicts by silently deleting one side.
-
----
+The Aggregator must not resolve Evidence conflicts by silently deleting one side.
 
 ### EA-INV-020
 
 Temporal aggregation must preserve source-specific temporal semantics.
 
----
-
 ### EA-INV-021
 
 `first_observed` must not automatically be interpreted as account creation.
-
----
 
 ### EA-INV-022
 
 `last_observed` must not automatically be interpreted as last Service usage.
 
----
-
 ### EA-INV-023
 
 Historical Evidence must not be discarded merely because later Evidence exists.
 
----
-
 ### EA-INV-024
 
-The aggregator must not request additional source permissions.
-
----
+The Aggregator must not request additional source permissions.
 
 ### EA-INV-025
 
-Provider credentials must not be required by the aggregator.
-
----
+Provider credentials must not be required by the Aggregator.
 
 ### EA-INV-026
 
 Basic aggregation must not require AI.
 
----
-
 ### EA-INV-027
 
 Re-aggregation must not require source retrieval when preserved Evidence is sufficient.
 
----
-
 ### EA-INV-028
 
-Service merge or split operations must remain compatible with rebuilding aggregates from underlying Evidence.
-
----
+Service merge or split operations must remain compatible with rebuilding Aggregates from underlying Evidence.
 
 ### EA-INV-029
 
-Deleting a materialized aggregate must not delete underlying Evidence.
-
----
+Deleting a materialized Aggregate must not delete underlying Evidence.
 
 ### EA-INV-030
 
-Deleting or invalidating underlying Evidence must trigger eventual aggregate reassessment where affected.
-
----
+Deleting or invalidating underlying Evidence must trigger eventual Aggregate reassessment where affected.
 
 ### EA-INV-031
 
-Processing failure must remain distinguishable from an empty Evidence aggregate.
-
----
+Processing failure must remain distinguishable from an EMPTY EvidenceAggregate.
 
 ### EA-INV-032
 
-An aggregate must not claim perfect completeness of the User's real-world Evidence footprint.
-
----
+An Aggregate must not claim perfect completeness of the User's real-world Evidence footprint.
 
 ### EA-INV-033
 
-Aggregation should be deterministic for the same Evidence set, context and Aggregator version where practical.
-
----
+Aggregation should be deterministic for the same eligible Evidence set, context and Aggregator version where practical.
 
 ### EA-INV-034
 
 Incremental aggregation and full rebuild should produce logically equivalent results under the same rules where practical.
+
+### EA-INV-035
+
+Current Discovery aggregation should normally consume only ACTIVE Evidence.
+
+### EA-INV-036
+
+SUPERSEDED Evidence must not contribute to current semantic Evidence counts under the default current-view policy.
+
+### EA-INV-037
+
+REJECTED Evidence must not contribute to current Relationship Assessment.
+
+### EA-INV-038
+
+Historical or audit aggregation including non-ACTIVE Evidence must require an explicit EvidenceStatePolicy.
+
+### EA-INV-039
+
+Evidence lifecycle state and temporal semantics must remain distinct.
+
+### EA-INV-040
+
+EvidenceAggregate must remain classified as a Derived View even when materialized or persisted.
+
+### EA-INV-041
+
+AggregationResult must remain classified as a Processing Result even when persisted.
+
+### EA-INV-042
+
+Deleting an EvidenceAggregate must not change authoritative Evidence lifecycle state.
 
 ---
 
@@ -2753,14 +3032,18 @@ Service:
 Spotify
 ```
 
-Evidence Classification has produced:
+Evidence Classification and lifecycle management have produced:
 
 ```text
 Evidence 001
+
 Type:
 ACCOUNT_VERIFICATION
 
-Connected Source:
+Status:
+ACTIVE
+
+ConnectedSource:
 Personal Gmail
 
 Identity:
@@ -2772,10 +3055,14 @@ Observed:
 
 ```text
 Evidence 002
+
 Type:
 SUBSCRIPTION
 
-Connected Source:
+Status:
+ACTIVE
+
+ConnectedSource:
 Personal Gmail
 
 Identity:
@@ -2787,10 +3074,14 @@ Observed:
 
 ```text
 Evidence 003
+
 Type:
 PAYMENT
 
-Connected Source:
+Status:
+ACTIVE
+
+ConnectedSource:
 Personal Gmail
 
 Identity:
@@ -2802,48 +3093,74 @@ Observed:
 
 ```text
 Evidence 004
+
 Type:
 PASSWORD_MANAGER_ENTRY
 
-Connected Source:
+Status:
+ACTIVE
+
+ConnectedSource:
 Primary Password Manager
 
 Identity:
 personal@example.com
 
-Temporal Semantics:
+TemporalSemantics:
 SOURCE_RECORD_MODIFIED
 
 Observed:
 2025-08-20
 ```
 
-The aggregator may produce:
+Suppose an older classification also remains:
+
+```text
+Evidence 005
+
+Type:
+MARKETING
+
+Status:
+SUPERSEDED
+
+ConnectedSource:
+Personal Gmail
+```
+
+The default current Aggregate should use Evidence 001-004 and exclude Evidence 005.
+
+Conceptually:
 
 ```text
 Service:
 Spotify
 
-Evidence Count:
+Current Evidence Count:
 4
 
-Evidence Summary:
+EvidenceSummary:
+
 ACCOUNT_VERIFICATION       1
 SUBSCRIPTION               1
 PAYMENT                    1
 PASSWORD_MANAGER_ENTRY     1
 
-Identity References:
+MARKETING:
+not counted in current view
+
+IdentityReferences:
 personal@example.com
 
-ConnectedSource Count:
+ConnectedSourceCount:
 2
 
-Source Types:
+SourceTypes:
 EMAIL
 PASSWORD_MANAGER
 
 Temporal Information:
+
 2021-03-10 EMAIL EVENT
 2021-03-11 EMAIL EVENT
 2021-03-11 EMAIL EVENT
@@ -2853,14 +3170,14 @@ Temporal Information:
 It must not produce:
 
 ```text
-Relationship:
-CONFIRMED
+RelationshipStatus:
+ESTABLISHED
 ```
 
-or:
+nor:
 
 ```text
-Account Active:
+AccountActive:
 true
 ```
 
@@ -2872,80 +3189,111 @@ Those interpretations belong downstream.
 
 ### Aggregation Scope
 
-- Is Service the correct primary aggregation boundary?
-- Should Identity-level aggregates exist separately?
-- Should User-level and Identity-level aggregates coexist?
+The primary Relationship is now User-Service and Service remains the primary aggregation boundary.
+
+The remaining questions are:
+
+- Are separate Identity-level derived views necessary?
+- Should User-level and Identity-filtered views coexist?
 - How should unresolved Service candidates be grouped?
+- When would `IdentityServiceAssociation` become necessary?
 
 ### Evidence Lifecycle
 
-- Does Evidence require states such as `ACTIVE`, `SUPERSEDED`, `REJECTED`?
-- How should reclassified Evidence be represented?
-- Which Evidence versions participate in current aggregation?
-- Should User-corrected Evidence supersede automated Evidence?
+The Domain Model now defines:
+
+```text
+EvidenceStatus
+
+ACTIVE
+SUPERSEDED
+REJECTED
+```
+
+The remaining questions are:
+
+- What exact EvidenceStatus transitions are permitted?
+- Can REJECTED Evidence become ACTIVE again?
+- When should Evidence become SUPERSEDED rather than REJECTED?
+- How should User-corrected Evidence affect automated Evidence?
+- How should historical/audit Aggregates request non-ACTIVE Evidence?
+- How is EvidenceStatePolicy versioned?
 
 ### Deduplication
 
 - What defines one logical Evidence event?
 - Should duplicate Observations be removed before Evidence Classification?
-- Should the aggregator own semantic deduplication?
+- Should the Aggregator own semantic deduplication?
 - How should source imports and migrations be handled?
+- How should multiple classifications of one Observation interact with Evidence lifecycle?
 
 ### Temporal Model
 
 - Is one `first_observed` and `last_observed` value sufficiently precise?
 - Should temporal values always retain typed semantics?
-- Should an aggregate expose multiple temporal dimensions?
+- Should an Aggregate expose multiple temporal dimensions?
 - How should missing or uncertain timestamps be represented?
+- How should historical event semantics remain distinct from EvidenceStatus?
 
 ### Conflicts
 
 - Which Evidence combinations qualify as conflicts?
-- Is `ACCOUNT_DELETION` followed by `AUTHENTICATION` always a conflict?
-- Should the aggregator only expose raw chronology and leave all conflict interpretation downstream?
+- Is ACCOUNT_DELETION followed by AUTHENTICATION always a conflict?
+- Should the Aggregator only expose raw chronology and leave more conflict interpretation downstream?
 - Is a dedicated conflict detector eventually necessary?
 
 ### Source Diversity
 
-- Should source diversity be represented only descriptively?
-- Or will Relationship Assessment eventually use it explicitly?
-- How should multiple connected email accounts compare with different SourceTypes?
+- Should source diversity remain only descriptive?
+- Which SourceType distinctions are useful to Relationship Assessment?
+- How should multiple email accounts compare with multiple structurally different SourceTypes?
 
 ### Identity
 
-- Should aggregation be primarily per `Service + IdentitySeed` instead of Service?
+- Which Identity-filtered Aggregate views are necessary?
 - How should unverified observed identities participate?
-- How should aliases affect grouping?
+- How should aliases affect Identity summaries?
+- When is `IdentityServiceAssociation` necessary?
 
 ### Account
 
-- Does aggregation provide enough evidence to finally justify introducing `Account`?
-- Could multiple Identity-specific Evidence clusters reveal separate accounts?
-- Should that remain a downstream inference rather than aggregation responsibility?
+- Does aggregation eventually provide enough Evidence to justify introducing Account?
+- Could multiple Identity-specific Evidence clusters reveal separate Accounts?
+- Should that remain a downstream inference rather than Aggregation responsibility?
 
 ### Service Resolution
 
-- What happens when Entity Resolution changes after aggregation?
-- How is Evidence moved between aggregates?
+- What happens when Entity Resolution changes after Aggregation?
+- How is Evidence moved between Aggregates?
 - How are ambiguous candidates represented efficiently?
+- How do Service merge and split operations invalidate materialized Aggregates?
 
 ### Persistence
 
-- Should aggregates be materialized?
-- How are they invalidated?
+- Should Aggregates be materialized?
+- What is the cache/materialization identity?
+- How are materialized Aggregates invalidated?
 - Should they be rebuilt on demand?
 - What scale would justify incremental materialization?
+- Where is AggregatorVersion stored?
 
 ### Completeness
 
 - How should ConnectedSource collection completeness be reflected?
-- Should Relationship Assessment receive coverage information directly?
-- Can Evidence Aggregate completeness ever be meaningfully defined?
+- Should Relationship Assessment receive CoverageSummary through EvidenceAggregate?
+- Can EvidenceAggregate completeness ever be meaningfully defined?
+- Is CollectionRun required for reliable coverage semantics?
 
 ### AI
 
 - Is there any justified use of AI in basic aggregation?
-- Should semantic correlation become a separate future component instead?
+- Should semantic event correlation become a separate future capability rather than part of EvidenceAggregator?
+
+### Confidence
+
+Numerical Aggregate Confidence is outside the initial Discovery baseline.
+
+The remaining question is whether any later aggregate-level metric can be clearly defined and empirically validated without duplicating Relationship Assessment semantics.
 
 ---
 
@@ -2953,35 +3301,51 @@ Those interpretations belong downstream.
 
 ### Finding 1 - Aggregates Are Derived State
 
-An Evidence Aggregate is not authoritative source information.
+An EvidenceAggregate is not authoritative source information.
 
 It must remain reconstructable from individual Evidence.
 
-This strongly argues against making aggregate summaries the only persisted representation.
+The consolidated Domain Model now formally classifies:
 
----
+```text
+EvidenceAggregate
+```
+
+as:
+
+```text
+Derived View
+```
+
+This is also captured by:
+
+```text
+D-021 - Evidence Aggregates Are Derived State
+```
+
+Materialization does not change that classification.
 
 ### Finding 2 - Service Is the Primary Aggregation Boundary, but Identity Must Be Preserved
 
-The current domain is Service-oriented:
+The current Domain is Service-oriented:
+
+> Which Services appear connected to me?
+
+The primary Relationship is:
 
 ```text
-Which Services appear connected to me?
+User -> Service
 ```
 
-Therefore Service is the natural primary grouping boundary.
+Therefore Service is the natural primary aggregation boundary.
 
-However, Identity references must remain inside the aggregate because future Relationship or Account semantics may depend on them.
-
----
+Identity references must remain inside the Aggregate because Identity-oriented queries and possible future Account semantics may depend on them.
 
 ### Finding 3 - Unresolved Evidence Requires an Aggregation Path
 
 Evidence semantics may be known before Service identity is resolved.
 
-The system therefore needs an unresolved aggregation context rather than discarding such Evidence.
-
----
+The system therefore requires an unresolved aggregation context rather than discarding such Evidence.
 
 ### Finding 4 - Source Diversity and Evidence Frequency Are Different Dimensions
 
@@ -2999,21 +3363,27 @@ and:
 from Gmail and Password Manager
 ```
 
-The aggregate should describe both dimensions independently.
+The Aggregate should describe both dimensions independently.
 
-It must not decide which is stronger.
+It must not decide which represents the stronger Relationship.
 
----
+### Finding 5 - Evidence Lifecycle Is Now a Consolidated Dependency
 
-### Finding 5 - Evidence Lifecycle Is Becoming Necessary
+Reclassification and User correction require control over which Evidence represents the currently accepted semantic interpretation.
 
-Reclassification and User correction raise the question of which Evidence represents the currently accepted interpretation.
+The Domain Model now defines:
 
-The Domain Model currently does not define Evidence lifecycle states.
+```text
+EvidenceStatus
 
-This issue may need to be resolved before persistence is finalized.
+ACTIVE
+SUPERSEDED
+REJECTED
+```
 
----
+Therefore the default current Aggregate should consume ACTIVE Evidence only.
+
+SUPERSEDED and REJECTED Evidence remain provenance/history unless an explicit aggregation policy requests them.
 
 ### Finding 6 - Account Remains a Candidate Concept
 
@@ -3023,103 +3393,209 @@ Identity-aware aggregation again exposes cases such as:
 Spotify
 
 personal@example.com
+
 oldmail@example.net
 ```
 
 but still does not prove that two separate Accounts exist.
 
-The `Account` abstraction should therefore remain a candidate for now.
-
----
+The Account abstraction therefore remains a Candidate Domain Concept.
 
 ### Finding 7 - Basic Aggregation Does Not Need AI
 
-Grouping, counting, provenance preservation, source diversity and temporal summarization are deterministic operations.
+Grouping, filtering Evidence lifecycle, counting, provenance preservation, source diversity and temporal summarization are deterministic operations.
 
-Any future semantic correlation requiring richer reasoning should be justified separately rather than inserted into the base aggregator.
+Any future semantic correlation requiring richer reasoning should be justified separately rather than inserted into the base Aggregator.
+
+### Finding 8 - AggregationResult and EvidenceAggregate Have Different Roles
+
+The consolidated Domain Model distinguishes:
+
+```text
+AggregationResult
+=
+Processing Result
+```
+
+from:
+
+```text
+EvidenceAggregate
+=
+Derived View
+```
+
+The former represents execution.
+
+The latter represents derived semantic state.
+
+### Finding 9 - Historical Event Semantics and Historical Evidence Versions Are Different
+
+An ACTIVE Evidence item may describe an event from years ago.
+
+A SUPERSEDED Evidence item may describe a recently collected Observation.
+
+Therefore:
+
+```text
+event time
+        !=
+Evidence lifecycle state
+```
+
+and must remain independently represented.
 
 ---
 
-## 99. Decision Candidates
+## 99. Architecture Alignment and Remaining Decision Candidates
 
-### Candidate Decision - Aggregate Is Derived State
+### Architecture Alignment - Aggregate Is Derived State
 
-```text
-Evidence Aggregates should be treated as derived state based on individual
-Evidence and must remain reconstructable where the underlying Evidence is
-retained.
-```
+EvidenceAggregates are Derived Views based on authoritative Evidence.
 
----
+They must remain reconstructable where underlying Evidence is retained.
 
-### Candidate Decision - Service-Level Aggregation with Identity Preservation
+This is formalized by:
 
 ```text
-Service should be the primary Evidence aggregation boundary for Service
-Discovery, while Identity references associated with individual Evidence
-must remain preserved.
+D-021 - Evidence Aggregates Are Derived State
 ```
 
----
+### Architecture Alignment - Service-Level Aggregation with Identity Preservation
 
-### Candidate Decision - Evidence Frequency Is Descriptive
+Service is the primary Evidence aggregation boundary for Service Discovery.
+
+The primary Relationship is User-Service.
+
+Identity references associated with Evidence remain preserved inside the Aggregate.
+
+### Architecture Alignment - Evidence Lifecycle Filtering
+
+The default current Discovery Aggregate consumes:
 
 ```text
-Evidence frequency should be represented descriptively and must not
-automatically determine Relationship strength.
+ACTIVE Evidence
 ```
 
----
-
-### Candidate Decision - Preserve Source Diversity
+while:
 
 ```text
-Evidence Aggregation should preserve ConnectedSource, SourceType and relevant
-provider provenance so Relationship Assessment can distinguish repeated
-Evidence from independent source support.
+SUPERSEDED Evidence
+REJECTED Evidence
 ```
 
----
+are excluded from current semantic counts.
 
-### Candidate Decision - Preserve Unresolved Evidence
+Historical or audit views may use separate explicit policy.
+
+### Architecture Alignment - Evidence Frequency Is Descriptive
+
+Evidence frequency is represented descriptively.
+
+It must not automatically determine Relationship strength.
+
+### Architecture Alignment - Preserve Source Diversity
+
+Evidence Aggregation preserves:
 
 ```text
-Evidence associated with unresolved or ambiguous Service candidates must not
-be discarded solely because canonical Entity Resolution is incomplete.
+ConnectedSource
+SourceType
+Provider provenance where relevant
 ```
 
----
+so Relationship Assessment can distinguish repeated observations from structurally different source support.
 
-### Candidate Decision - Aggregator Does Not Assess Relationship
+### Architecture Alignment - Preserve Unresolved Evidence
+
+Evidence associated with unresolved or ambiguous Service candidates must not be discarded solely because canonical Entity Resolution is incomplete.
+
+### Architecture Alignment - Aggregator Does Not Assess Relationship
+
+EvidenceAggregator structures Evidence for Relationship Assessment.
+
+It does not assign:
 
 ```text
-The Evidence Aggregator must structure Evidence for Relationship Assessment
-but must not assign the final Relationship state or arbitrary numerical
-Relationship Confidence.
+RelationshipStatus
 ```
 
----
-
-### Candidate Decision - Deterministic Aggregation
+or:
 
 ```text
-Basic Evidence aggregation should remain deterministic and local-first where
-technically practical.
-
-AI should not be a required dependency for grouping, counting, provenance
-preservation or temporal summarization.
+TemporalStatus
 ```
+
+and does not calculate arbitrary numerical Confidence.
+
+### Architecture Alignment - Deterministic Aggregation
+
+Basic Evidence Aggregation remains deterministic and local-first where technically practical.
+
+AI is not required for:
+
+```text
+filtering
+grouping
+counting
+sorting
+provenance preservation
+temporal summarization
+```
+
+### Architecture Alignment - No Numerical Confidence
+
+Numerical Aggregate Confidence is outside the initial Discovery baseline.
+
+This is consistent with:
+
+```text
+D-023 - No Numerical Confidence in Initial Discovery Model
+```
+
+### Remaining Decision Candidate - Materialized vs On-Demand Aggregate
+
+EvidenceAggregate semantics are now defined as derived state.
+
+The Implementation Model must still determine whether Aggregates are:
+
+```text
+computed on demand
+```
+
+or:
+
+```text
+materialized
+```
+
+for the initial implementation.
+
+### Remaining Decision Candidate - Semantic Deduplication
+
+Technical deduplication requirements are clear.
+
+The exact boundary for semantic event deduplication remains unresolved and should be validated against real Gmail data during the Vertical MVP.
 
 ---
 
 ## 100. Current Contract Baseline
 
-The initial Evidence Aggregator contract is:
+The aligned EvidenceAggregator contract is:
 
 ```text
 Evidence
 Evidence
 Evidence
+    |
+    v
+EvidenceStatePolicy
+    |
+    +-- ACTIVE -------> include
+    |
+    +-- SUPERSEDED ---> exclude from current view
+    |
+    +-- REJECTED -----> exclude from current view
     |
     v
 AggregationRequest
@@ -3129,12 +3605,13 @@ EvidenceAggregator
     |
     v
 AggregationResult
+[Processing Result]
     |
-    +-- processing_status
+    v
+EvidenceAggregate
+[Derived View]
     |
-    +-- aggregation_status
-    |
-    +-- aggregation_scope
+    +-- scope
     |
     +-- service_reference
     |
@@ -3142,13 +3619,15 @@ AggregationResult
     |
     +-- evidence_references
     |
-    +-- evidence_summary
+    +-- EvidenceSummary
     |
-    +-- source_summary
+    +-- SourceSummary
     |
-    +-- temporal_summary
+    +-- TemporalSummary
     |
-    +-- conflict_summary
+    +-- ConflictSummary
+    |
+    +-- CoverageSummary
     |
     +-- aggregator_version
 ```
@@ -3157,29 +3636,73 @@ with the guarantees:
 
 ```text
 individual Evidence preserved
+
+ACTIVE Evidence used by default for current aggregation
+
+SUPERSEDED Evidence excluded from current semantic counts
+
+REJECTED Evidence excluded from current assessment
+
+Evidence lifecycle distinct from temporal semantics
+
 Service-oriented aggregation
+
+User-Service orientation
+
 Identity provenance preserved
+
 cross-source Evidence supported
+
 source diversity preserved
+
 Evidence frequency represented descriptively
+
 temporal semantics preserved
+
 conflicting Evidence retained
+
 unresolved Evidence retained
+
 ambiguous Evidence not arbitrarily assigned
-no Relationship conclusion
-no arbitrary Confidence
+
+no RelationshipStatus conclusion
+
+no TemporalStatus conclusion
+
+no numerical Confidence
+
 deterministic-first operation
-no provider credentials
+
+no Provider credentials
+
 no permission escalation
+
 re-aggregation supported
-derived-state semantics
+
+D-021 derived-state semantics
+
+EvidenceAggregate classified as Derived View
+
+AggregationResult classified as Processing Result
 ```
 
 ---
 
-## 101. Next Interface Contract
+## 101. Downstream Contract
 
-The Discovery pipeline now has contracts for:
+The next contract in the Discovery pipeline is:
+
+```text
+RelationshipAssessor
+```
+
+and has already been defined in:
+
+```text
+docs/interfaces/07-relationship-assessor-contract.md
+```
+
+The consolidated dependency is:
 
 ```text
                          Observation
@@ -3189,50 +3712,99 @@ The Discovery pipeline now has contracts for:
         ServiceCandidateDetector   EvidenceClassifier
                        |             |
                        v             v
-            CandidateIdentifier    Evidence
-                       |
-                       v
-                 EntityResolver
-                       |
-                       v
-                    Service
+            CandidateIdentifier   EvidenceCandidate
+                       |             |
+                       v             v
+              ServiceIdentifier    Evidence
+                       |             |
+                       v             |
+                EntityResolver      |
+                       |             |
+                       v             |
+                    Service          |
                        \             /
                         \           /
                          v         v
                     EvidenceAggregator
                             |
                             v
-                     Evidence Aggregate
+                    EvidenceAggregate
+                     [Derived View]
                             |
                             v
                    RelationshipAssessor
+                            |
+                            v
+              RelationshipAssessmentResult
+                            |
+                            v
+                     Application Layer
+                            |
+                            v
+                       Relationship
 ```
 
-The next interface contract should define:
+For the default current Discovery path:
 
 ```text
-RelationshipAssessor
+Evidence
+   |
+   v
+EvidenceStatus
+   |
+   +-- ACTIVE ------+
+   |                |
+   |                v
+   |          EvidenceAggregator
+   |                |
+   |                v
+   |         EvidenceAggregate
+   |                |
+   |                v
+   |      RelationshipAssessor
+   |
+   +-- SUPERSEDED --> provenance/history
+   |
+   +-- REJECTED ----> provenance/history
 ```
 
-Its responsibility is:
+The RelationshipAssessor consumes the structured Aggregate and determines:
 
-> Given an Evidence Aggregate, what can the framework justifiably conclude about the current or historical Relationship between the User or Identity and the Service?
+```text
+RelationshipStatus
 
-The contract should establish:
+UNKNOWN
+OBSERVED
+ESTABLISHED
+REJECTED
+```
 
-- Relationship state;
-- current vs historical Relationships;
-- active vs unknown state;
-- evidence sufficiency;
-- conflicting Evidence;
-- source diversity;
-- temporal reasoning;
-- account-related Evidence vs weaker communication Evidence;
-- User-confirmed Relationships;
-- Relationship explainability;
-- reassessment after Evidence changes;
-- whether Confidence is necessary at all;
-- how `UNKNOWN`, `POSSIBLE`, `PROBABLE`, `CONFIRMED`, `HISTORICAL` and `REJECTED` should be treated;
-- whether the model should distinguish existence of a Relationship from current status.
+independently from:
 
-The Relationship Assessor must still avoid claiming what personal data the Service currently holds.
+```text
+TemporalStatus
+
+UNKNOWN
+CURRENTLY_OBSERVED
+HISTORICAL
+```
+
+The EvidenceAggregator must not assign either dimension.
+
+The Evidence Aggregator Contract is now aligned with:
+
+- Architecture Draft v0.3;
+- Domain Model Draft v0.3;
+- EvidenceStatus as a consolidated lifecycle concept;
+- ACTIVE / SUPERSEDED / REJECTED semantics;
+- ACTIVE-only default current aggregation;
+- User-Service as the primary Relationship orientation;
+- Identity preservation within the aggregation context;
+- D-021 EvidenceAggregate derived-state semantics;
+- AggregationResult as a Processing Result;
+- CoverageSummary as Derived Processing Context;
+- D-023 exclusion of numerical Confidence;
+- deterministic-first Discovery;
+- the parallel Entity Resolution / Evidence Classification model.
+
+No additional Evidence Aggregation abstraction is required before the Implementation Model phase.
