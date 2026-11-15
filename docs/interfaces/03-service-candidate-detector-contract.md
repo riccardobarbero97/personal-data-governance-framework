@@ -3,9 +3,9 @@
 **Status:** Draft v0.1  
 **Scope:** Identity and Service Discovery  
 **Last updated:** November 2026  
-**Related Architecture:** `docs/architecture/01-identity-and-service-discovery.md`  
-**Related Domain Model:** `docs/domain/01-discovery-domain-model.md`  
-**Related Interfaces:**  
+**Related Architecture:** `docs/architecture/01-identity-and-service-discovery.md` - Draft v0.3  
+**Related Domain Model:** `docs/domain/01-discovery-domain-model.md` - Draft v0.3  
+**Related Interfaces:**
 - `docs/interfaces/01-connector-contract.md`
 - `docs/interfaces/02-observation-contract.md`
 
@@ -68,7 +68,7 @@ SERVICE CANDIDATE DETECTOR
 Candidate          Not Candidate
       |
       v
-Identifier Extraction
+Candidate Identifier
       |
       v
 Entity Resolution
@@ -81,10 +81,28 @@ The Service Candidate Detector operates on framework Observations.
 
 It must not require direct access to:
 
-- provider APIs;
-- provider authentication tokens;
-- raw provider objects;
+- Provider APIs;
+- Provider authentication tokens;
+- raw Provider objects;
 - source credentials.
+
+Evidence Classification operates as an independent semantic branch from the same Observation.
+
+Conceptually:
+
+```text
+             Observation
+             /         \
+            /           \
+           v             v
+Candidate Detection   Evidence Classification
+        |
+        v
+CandidateIdentifier
+        |
+        v
+Entity Resolution
+```
 
 ---
 
@@ -144,7 +162,9 @@ while:
 ```text
 Observation:
 password-manager entry
-URI: https://old-service.example
+
+URI:
+https://old-service.example
 
 Result:
 CANDIDATE
@@ -154,7 +174,7 @@ even if:
 
 ```text
 Resolved Service:
-UNKNOWN
+UNRESOLVED
 ```
 
 The failure to resolve a Service must not retroactively mean that the Observation was not a valid Service candidate.
@@ -165,6 +185,14 @@ Therefore:
 CANDIDATE DETECTION
         !=
 ENTITY RESOLUTION
+```
+
+and:
+
+```text
+CANDIDATE
+        !=
+RESOLVED
 ```
 
 ---
@@ -220,7 +248,7 @@ Candidate Detection therefore limits unnecessary downstream processing.
 
 ## 6. Provider Independence
 
-The Service Candidate Detector must operate on framework Observation semantics rather than provider-specific objects.
+The Service Candidate Detector must operate on framework Observation semantics rather than Provider-specific objects.
 
 For example:
 
@@ -258,15 +286,21 @@ or:
 if provider == Outlook
 ```
 
-when equivalent observations share the same Observation Type.
+when equivalent Observations share the same ObservationType.
 
-Provider-specific logic should remain behind the Connector boundary unless concrete provider differences justify otherwise.
+Provider-specific logic should remain behind the Connector boundary unless concrete Provider differences justify otherwise.
+
+This is consistent with Architecture Decision:
+
+```text
+D-019 - Observation Types Are Provider-Neutral Where Possible
+```
 
 ---
 
 ## 7. Source-Specific Detection Strategies
 
-Provider independence does not mean that every Observation Type must use the same Candidate Detection logic.
+Provider independence does not mean that every ObservationType must use the same Candidate Detection logic.
 
 Different source structures may require different strategies.
 
@@ -287,7 +321,7 @@ ServiceCandidateDetector
 The strategy should normally depend on:
 
 ```text
-Observation Type
+ObservationType
 ```
 
 rather than:
@@ -322,7 +356,7 @@ The detector may also require read-only access to supporting reference informati
 
 ```text
 known Identity Seeds
-known generic email providers
+known generic email Providers
 known infrastructure patterns
 known Service identifiers
 local candidate-detection rules
@@ -367,6 +401,8 @@ CandidateDetectionResult
 
 This is conceptual and does not define the final persistent representation.
 
+The consolidated Domain Model classifies `CandidateDetectionResult` as a Processing Result rather than a Core Domain Entity.
+
 ---
 
 ## 10. Detection Status
@@ -375,9 +411,7 @@ The initial status model should support at least:
 
 ```text
 CANDIDATE
-
 NOT_CANDIDATE
-
 UNKNOWN
 ```
 
@@ -408,7 +442,7 @@ UNKNOWN IS VALID
 For example:
 
 ```text
-Observation Type:
+ObservationType:
 EMAIL_MESSAGE_METADATA
 
 Sender:
@@ -423,7 +457,7 @@ Available information may be insufficient to determine whether this represents:
 - personal correspondence;
 - business communication;
 - a Service interaction;
-- another relevant relationship.
+- another relevant Relationship.
 
 The detector should therefore be able to return:
 
@@ -459,7 +493,7 @@ Candidate Detection may produce:
 CANDIDATE
 ```
 
-Evidence Classification may later produce:
+Evidence Classification may independently produce:
 
 ```text
 ACCOUNT_VERIFICATION
@@ -503,7 +537,7 @@ Observation
 Candidate Detection
      |
      v
-Candidate Identifier
+CandidateIdentifier
      |
      v
 Entity Resolution
@@ -598,7 +632,9 @@ Entity Resolver
 
 This avoids creating a separate interface solely for simple deterministic identifier extraction before evidence demonstrates that such a component is necessary.
 
-The boundary may be revised if future Observation Types require a reusable standalone Identifier Extractor.
+The boundary may be revised if future ObservationTypes require a reusable standalone Identifier Extractor.
+
+The current Architecture v0.3 and Domain Model v0.3 do not introduce a separate `ServiceIdentifierExtractor`.
 
 ---
 
@@ -633,6 +669,8 @@ Deterministic Candidate Logic
   |     |
 Decision  Ambiguous
 ```
+
+This follows the consolidated deterministic-first architecture.
 
 ---
 
@@ -791,7 +829,7 @@ subject patterns
 known personal-email-provider domains
 known mailing infrastructure
 message metadata
-user Identity Seeds
+User Identity Seeds
 ```
 
 However, the exact algorithm remains outside the contract.
@@ -1053,7 +1091,7 @@ would normally not be an external Service candidate.
 
 A browser strategy therefore requires source-aware candidate rules.
 
-This reinforces the value of Observation-Type-specific strategies.
+This reinforces the value of ObservationType-specific strategies.
 
 ---
 
@@ -1069,7 +1107,7 @@ For example:
 
 has already been explicitly declared by the User as Service-related.
 
-Candidate Detection may therefore treat certain manual Observation Types as:
+Candidate Detection may therefore treat certain manual ObservationTypes as:
 
 ```text
 CANDIDATE
@@ -1099,7 +1137,7 @@ outlook.com
 icloud.com
 ```
 
-may identify the sender's email provider rather than the organization with which the User has a Relationship.
+may identify the sender's email Provider rather than the organization with which the User has a Relationship.
 
 Candidate Detection may therefore require reference knowledge about generic infrastructure.
 
@@ -1108,9 +1146,19 @@ This knowledge should be:
 - explicit;
 - versionable;
 - testable;
-- provider-independent where possible.
+- Provider-independent where possible.
 
 The source Provider itself must not automatically become a discovered Service merely because its technical infrastructure appears in an Observation.
+
+The Domain Model also distinguishes:
+
+```text
+Provider Role
+     !=
+Service Role
+```
+
+even where both refer to the same real-world organization.
 
 ---
 
@@ -1145,7 +1193,7 @@ until additional context becomes available.
 
 ## 33. Local Resources
 
-The current Service Discovery domain primarily concerns external digital Services relevant to the User's personal-data footprint.
+The current Service Discovery Domain primarily concerns external digital Services relevant to the User's personal-data footprint.
 
 Identifiers representing local resources may therefore be excluded.
 
@@ -1208,6 +1256,8 @@ Similarly, email aliases may appear in metadata.
 Candidate Detection may require access to known Identity Seeds to prevent incorrect candidate generation.
 
 However, Identity Seed matching must remain explicit and testable.
+
+Observed identities must not automatically become verified Identity Seeds.
 
 ---
 
@@ -1291,7 +1341,7 @@ not Candidate Detection.
 
 ## 38. Candidate Detection and Confidence
 
-Draft v0.1 does not require a numerical Candidate Detection confidence score.
+Numerical Candidate Detection Confidence is outside the initial Discovery baseline.
 
 For example:
 
@@ -1299,9 +1349,9 @@ For example:
 candidate_confidence = 0.78
 ```
 
-should not be introduced without defined semantics and calibration.
+must not be introduced without explicitly defined semantics, representative validation data and calibration.
 
-The initial model prefers:
+The consolidated model uses:
 
 ```text
 CANDIDATE
@@ -1314,9 +1364,17 @@ plus:
 ```text
 reason codes
 method
+detector version
+provenance
 ```
 
 This is more explainable and avoids false precision.
+
+This aligns with Architecture Decision:
+
+```text
+D-023 - No Numerical Confidence in Initial Discovery Model
+```
 
 ---
 
@@ -1344,6 +1402,8 @@ explanation
 ```
 
 The final representation remains open.
+
+The Domain Model classifies `CandidateDetectionResult` as a Processing Result.
 
 ---
 
@@ -1388,6 +1448,32 @@ uri
 ```
 
 Preserving `source_attribute` improves provenance.
+
+`CandidateIdentifier` is an interface-level processing representation.
+
+When an identifier becomes part of retained Discovery Domain state, provenance or resolution history, it should be represented through the `ServiceIdentifier` Domain Value Concept.
+
+Conceptually:
+
+```text
+Observation
+      |
+      v
+Candidate Detection
+      |
+      v
+CandidateIdentifier
+[processing representation]
+      |
+      v
+ServiceIdentifier
+[Domain Value Concept]
+      |
+      v
+Entity Resolution
+```
+
+The exact point at which a CandidateIdentifier is materialized as a ServiceIdentifier remains an Implementation Model decision.
 
 ---
 
@@ -1472,7 +1558,7 @@ candidate_identifiers:
 []
 ```
 
-may be valid for a manual declaration whose text clearly indicates a Service relationship but from which deterministic identifier extraction has not yet succeeded.
+may be valid for a manual declaration whose text clearly indicates a Service Relationship but from which deterministic identifier extraction has not yet succeeded.
 
 Similarly:
 
@@ -1568,11 +1654,19 @@ Candidate Detection results may need to be persisted if doing so provides:
 - auditing;
 - debugging.
 
-However, Draft v0.1 does not require persistent CandidateDetectionResult storage.
+However, Draft v0.1 does not require persistent `CandidateDetectionResult` storage.
 
 An implementation may initially calculate results on demand.
 
 Persistence should be justified rather than assumed.
+
+Persistence does not change the Domain classification of `CandidateDetectionResult`.
+
+It remains:
+
+```text
+Processing Result
+```
 
 ---
 
@@ -1617,7 +1711,7 @@ NOT_CANDIDATE
 
 ## 48. Unsupported Observation Type
 
-A detector may not support every Observation Type.
+A detector may not support every ObservationType.
 
 For example:
 
@@ -1640,13 +1734,13 @@ from:
 UNSUPPORTED_OBSERVATION_TYPE
 ```
 
-The latter is a capability limitation rather than a semantic conclusion.
+The latter is a processing capability limitation rather than a semantic conclusion.
 
 ---
 
 ## 49. Candidate Detector Result vs Processing Error
 
-The contract should distinguish domain outcomes from technical failures.
+The contract should distinguish Domain outcomes from technical failures.
 
 Domain outcomes:
 
@@ -1664,7 +1758,7 @@ INVALID_OBSERVATION
 DETECTOR_FAILURE
 ```
 
-These should not be collapsed into the same status.
+These must not be collapsed into the same status.
 
 A conceptual representation may therefore have:
 
@@ -1679,6 +1773,12 @@ candidate_status
 ```
 
 as separate concepts.
+
+This follows the Domain Model principle:
+
+```text
+DOMAIN OUTCOME != PROCESSING FAILURE
+```
 
 ---
 
@@ -1702,6 +1802,7 @@ where:
 
 ```text
 processing_status:
+
 SUCCESS
 UNSUPPORTED
 FAILED
@@ -1711,12 +1812,30 @@ and, when processing succeeds:
 
 ```text
 candidate_status:
+
 CANDIDATE
 NOT_CANDIDATE
 UNKNOWN
 ```
 
-The final enumerations remain open.
+The exact enumerations remain open.
+
+`CandidateDetectionResult` is formally classified by the consolidated Domain Model as:
+
+```text
+Processing Result
+```
+
+It is not a Core Domain Entity.
+
+It may be persisted for:
+
+- provenance;
+- debugging;
+- comparison across Detector versions;
+- reprocessing analysis;
+
+without changing that classification.
 
 ---
 
@@ -1786,7 +1905,7 @@ generic email-provider domains
 private-network definitions
 known infrastructure patterns
 known non-Service source structures
-user Identity Seeds
+User Identity Seeds
 ```
 
 Reference data should not be silently embedded in unversioned code if changes materially alter detection results.
@@ -1825,9 +1944,9 @@ email body
 
 merely to increase certainty.
 
-Similarly, candidate detection over password-manager metadata must not require password values.
+Similarly, Candidate Detection over password-manager metadata must not require password values.
 
-The detector must respect the permission boundary under which the Observation was created.
+The detector must respect the capability and permission boundary under which the Observation was created.
 
 ---
 
@@ -1851,10 +1970,10 @@ Therefore:
 Candidate Detector
       |
       X
-request provider permissions directly
+request Provider permissions directly
 ```
 
-The detector operates on available authorized Observations.
+The detector operates only on available authorized Observations and explicit permitted context.
 
 ---
 
@@ -1913,9 +2032,9 @@ CandidateDetectionContext
 
 The context should not contain:
 
-- provider credentials;
+- Provider credentials;
 - unrelated raw source data;
-- arbitrary user information not required by the detector.
+- arbitrary User information not required by the detector.
 
 The exact structure remains open.
 
@@ -1944,127 +2063,99 @@ CandidateDetectionResult {
 
 This is conceptual pseudocode.
 
+The value crosses an application-processing boundary and does not itself become a persistent Domain Entity merely because it may be stored for provenance.
+
 ---
 
 ## 60. Detector Invariants
 
 ### SCD-INV-001
 
-The detector must receive a valid framework Observation rather than a provider-specific raw object.
-
----
+The detector must receive a valid framework Observation rather than a Provider-specific raw object.
 
 ### SCD-INV-002
 
-The detector must not require provider credentials.
-
----
+The detector must not require Provider credentials.
 
 ### SCD-INV-003
 
 Candidate Detection must remain distinct from Entity Resolution.
 
----
-
 ### SCD-INV-004
 
 Candidate Detection must remain distinct from Evidence Classification.
-
----
 
 ### SCD-INV-005
 
 `NOT_CANDIDATE` must not mean `UNRESOLVED_SERVICE`.
 
----
-
 ### SCD-INV-006
 
-`CANDIDATE` must not mean `CONFIRMED_RELATIONSHIP`.
-
----
+`CANDIDATE` must not mean `ESTABLISHED` Relationship.
 
 ### SCD-INV-007
 
-`CANDIDATE` must not mean `VALID_OR_LEGITIMATE_SERVICE_COMMUNICATION`.
-
----
+`CANDIDATE` must not mean legitimate or authenticated Service communication.
 
 ### SCD-INV-008
 
 The detector must support `UNKNOWN`.
 
----
-
 ### SCD-INV-009
 
 The detector must not fabricate missing identifiers.
-
----
 
 ### SCD-INV-010
 
 Candidate identifiers must remain distinguishable from canonical Services.
 
----
-
 ### SCD-INV-011
 
 Deterministic logic should be preferred when adequate.
-
----
 
 ### SCD-INV-012
 
 AI availability must not be required for basic Candidate Detection.
 
----
-
 ### SCD-INV-013
 
 Insufficient Observation information must not trigger silent source permission escalation.
-
----
 
 ### SCD-INV-014
 
 Processing failure must remain distinguishable from `NOT_CANDIDATE`.
 
----
-
 ### SCD-INV-015
 
-Unsupported Observation Types must remain distinguishable from semantic `UNKNOWN`.
-
----
+Unsupported ObservationTypes must remain distinguishable from semantic `UNKNOWN`.
 
 ### SCD-INV-016
 
 Candidate Detection results must remain traceable to their source Observation.
 
----
-
 ### SCD-INV-017
 
-Multiple candidate identifiers may be returned for one Observation.
-
----
+Multiple CandidateIdentifiers may be returned for one Observation.
 
 ### SCD-INV-018
 
-Provider identity should not drive detection logic when Observation semantics are provider-neutral.
-
----
+Provider identity should not drive detection logic when Observation semantics are Provider-neutral.
 
 ### SCD-INV-019
 
 Reprocessing must not require modification of the original Observation.
 
----
-
 ### SCD-INV-020
 
-Candidate Detection must not assign final Relationship Confidence.
+Numerical Candidate Detection Confidence is outside the initial Discovery model.
+
+### SCD-INV-021
+
+`CandidateIdentifier` must remain distinguishable from the persistent or provenance-bearing `ServiceIdentifier` Domain Value Concept.
+
+### SCD-INV-022
+
+Persistence of CandidateDetectionResult must not change its classification as a Processing Result.
 
 ---
 
@@ -2170,7 +2261,7 @@ RULE
 Entity Resolver
 ```
 
-This demonstrates that the same contract supports structurally different sources.
+This demonstrates that the same contract supports structurally different source types.
 
 ---
 
@@ -2267,7 +2358,7 @@ candidate_status:
 N/A
 ```
 
-This is a technical capability limitation, not a domain conclusion.
+This is a technical capability limitation, not a Domain conclusion.
 
 ---
 
@@ -2276,8 +2367,9 @@ This is a technical capability limitation, not a domain conclusion.
 ### Responsibility Boundary
 
 - Should candidate identifier extraction remain part of Candidate Detection?
-- Should a separate `ServiceIdentifierExtractor` eventually exist?
+- Should a separate ServiceIdentifierExtractor eventually exist?
 - At what complexity threshold would separation become justified?
+- At what exact application boundary should CandidateIdentifier become ServiceIdentifier?
 
 ### Candidate Status
 
@@ -2288,7 +2380,7 @@ This is a technical capability limitation, not a domain conclusion.
 ### Reason Codes
 
 - What is the minimum initial reason-code vocabulary?
-- Should reason codes be shared across Observation Types?
+- Should reason codes be shared across ObservationTypes?
 - Should strategies define their own namespaced reason codes?
 
 ### Rules
@@ -2336,14 +2428,24 @@ This is a technical capability limitation, not a domain conclusion.
 - Are government portals Services?
 - Are financial institutions always Services?
 - Are local self-hosted Services in scope?
-- Should the definition of Service be user-configurable?
+- Should the definition of Service be User-configurable?
 
 ### Persistence
 
 - Should CandidateDetectionResult be persisted?
 - Or recomputed from Observations?
 - How expensive will reprocessing become?
-- How useful is historical detector provenance?
+- How useful is historical Detector provenance?
+
+### Confidence
+
+Numerical Candidate Detection Confidence is outside the initial Discovery baseline.
+
+The remaining question is not whether the MVP requires it.
+
+It does not.
+
+The open question is whether future empirical validation will demonstrate enough value and calibration data to justify introducing it.
 
 ---
 
@@ -2361,7 +2463,7 @@ Service Candidate
 
 Some valid Observations should not enter Entity Resolution.
 
----
+This finding remains valid in the consolidated architecture.
 
 ### Finding 2 - Candidate and Resolved Are Different States
 
@@ -2375,7 +2477,7 @@ CANDIDATE
 RESOLVED
 ```
 
----
+This distinction is now part of the Architecture v0.3 baseline.
 
 ### Finding 3 - Candidate Identifier Extraction Is Currently Small Enough to Remain Here
 
@@ -2391,14 +2493,26 @@ inside this contract.
 
 A dedicated Identifier Extractor should be introduced only if future scenarios demonstrate sufficient independent complexity.
 
----
+The consolidated Domain Model further distinguishes:
 
-### Finding 4 - Detection Strategies Should Follow Observation Type
+```text
+CandidateIdentifier
+```
+
+as the processing representation from:
+
+```text
+ServiceIdentifier
+```
+
+as the Domain Value Concept used when identifier state and provenance are retained.
+
+### Finding 4 - Detection Strategies Should Follow ObservationType
 
 The preferred extensibility model is:
 
 ```text
-Observation Type
+ObservationType
        |
        v
 Detection Strategy
@@ -2413,9 +2527,7 @@ Provider
 Detection Strategy
 ```
 
-This preserves provider independence.
-
----
+This preserves Provider independence and aligns with Architecture Decision D-019.
 
 ### Finding 5 - UNKNOWN Avoids Premature AI Usage
 
@@ -2428,8 +2540,6 @@ UNKNOWN
 ```
 
 is a valid privacy-preserving outcome.
-
----
 
 ### Finding 6 - Processing Status and Candidate Status Are Different
 
@@ -2457,65 +2567,105 @@ and:
 candidate_status
 ```
 
-must remain conceptually separate.
+remain conceptually separate.
 
----
+### Finding 7 - CandidateDetectionResult Is a Processing Result
 
-## 68. Decision Candidates
-
-### Candidate Decision - Candidate Detection Is Explicit
+The consolidated Domain Model classifies:
 
 ```text
-Service Candidate Detection should remain a distinct Discovery stage between
-Observation creation and Entity Resolution.
-
-Not every valid Observation should automatically enter Entity Resolution.
+CandidateDetectionResult
 ```
 
----
-
-### Candidate Decision - Candidate Does Not Mean Resolved
+as:
 
 ```text
-The framework must distinguish between an Observation being relevant to
-Service Discovery and the framework being able to resolve that Observation
-to a canonical Service.
+Processing Result
 ```
 
+rather than a Core Domain Entity.
+
+It may be persisted for provenance or analysis without changing that conceptual classification.
+
 ---
 
-### Candidate Decision - Detection Strategy Follows Observation Semantics
+## 68. Architecture Alignment and Remaining Decision Candidates
+
+### Architecture Alignment - Candidate Detection Is Explicit
+
+Service Candidate Detection remains a distinct Discovery stage between Observation creation and Entity Resolution.
+
+Not every valid Observation automatically enters Entity Resolution.
+
+This is part of the consolidated Discovery pipeline.
+
+### Architecture Alignment - Candidate Does Not Mean Resolved
+
+The framework distinguishes between:
 
 ```text
-Candidate Detection strategies should primarily be selected according to
-Observation Type rather than provider identity.
+Observation relevant to Service Discovery
 ```
 
----
-
-### Candidate Decision - UNKNOWN Is Valid
+and:
 
 ```text
-Candidate Detection may return UNKNOWN when available authorized information
-is insufficient.
+Observation resolved to a canonical Service
+```
+
+This is represented architecturally through:
+
+```text
+CANDIDATE != RESOLVED
+```
+
+### Architecture Alignment - Detection Strategy Follows Observation Semantics
+
+Candidate Detection strategies should primarily be selected according to ObservationType rather than Provider identity.
+
+This aligns with:
+
+```text
+D-019 - Observation Types Are Provider-Neutral Where Possible
+```
+
+### Architecture Alignment - UNKNOWN Is Valid
+
+Candidate Detection may return `UNKNOWN` when available authorized information is insufficient.
 
 The detector must not fabricate relevance or escalate permissions silently.
-```
 
----
+This follows the existing Architecture principle that uncertainty is a valid Domain state.
 
-### Candidate Decision - No Numerical Candidate Confidence Yet
+### Architecture Alignment - No Numerical Candidate Confidence
+
+Candidate Detection uses:
 
 ```text
-Candidate Detection should initially use explicit states and reason codes
-rather than arbitrary numerical confidence values.
+CANDIDATE
+NOT_CANDIDATE
+UNKNOWN
 ```
+
+plus structured provenance rather than arbitrary numerical Confidence.
+
+This is now covered by:
+
+```text
+D-023 - No Numerical Confidence in Initial Discovery Model
+```
+
+### Remaining Decision Candidate - Identifier Extraction Boundary
+
+Simple identifier extraction remains part of Candidate Detection.
+
+This boundary should be revisited only if empirical implementation demonstrates that identifier extraction requires an independently reusable component.
 
 ---
 
 ## 69. Current Contract Baseline
 
-The initial Service Candidate Detector contract is:
+The aligned Service Candidate Detector contract is:
 
 ```text
 Observation
@@ -2542,60 +2692,100 @@ CandidateDetectionResult
 with the guarantees:
 
 ```text
-provider-neutral input
+Provider-neutral Observation input
+
 Observation traceability
+
+CandidateIdentifier / ServiceIdentifier distinction
+
 deterministic-first processing
+
 UNKNOWN support
+
 no canonical Service conclusion
+
 no Evidence conclusion
+
 no Relationship conclusion
+
 no silent permission escalation
-no arbitrary numerical confidence
-technical failure separated from domain outcome
+
+no numerical Confidence in the initial model
+
+technical failure separated from Domain outcome
+
+CandidateDetectionResult classified as Processing Result
 ```
 
 ---
 
-## 70. Next Interface Contract
+## 70. Downstream Contract
 
-With the following boundaries now defined:
-
-```text
-Connector
-    |
-    v
-Observation
-    |
-    v
-Service Candidate Detector
-```
-
-the next contract should define:
+The next contract in the Discovery dependency chain is:
 
 ```text
 EntityResolver
 ```
 
-The Entity Resolver must answer:
-
-> Given one or more candidate Service identifiers, which canonical Service, if any, do they represent?
-
-The contract will need to establish distinctions such as:
+and has now been defined in:
 
 ```text
-RESOLVED
-UNRESOLVED
-AMBIGUOUS
+docs/interfaces/04-entity-resolver-contract.md
 ```
 
-and determine how to preserve:
+The dependency is:
 
 ```text
-original identifier
-normalized identifier
-canonical Service
-resolution method
-resolution provenance
+Observation
+      |
+      v
+ServiceCandidateDetector
+      |
+      v
+CandidateIdentifier
+      |
+      v
+ServiceIdentifier
+      |
+      v
+EntityResolver
+      |
+  +---+----------------+
+  |         |          |
+  v         v          v
+RESOLVED  UNRESOLVED  AMBIGUOUS
 ```
 
-without introducing arbitrary Confidence scores or losing cross-source traceability.
+while Evidence Classification remains an independent semantic branch from the same Observation:
+
+```text
+                 Observation
+                 /         \
+                /           \
+               v             v
+Candidate Detection     Evidence Classification
+        |                       |
+        v                       v
+CandidateIdentifier          Evidence
+        |
+        v
+ServiceIdentifier
+        |
+        v
+EntityResolver
+```
+
+The Entity Resolver determines which canonical Service, if any, the candidate identifiers represent.
+
+The Service Candidate Detector Contract is now aligned with:
+
+- Architecture Draft v0.3;
+- Domain Model Draft v0.3;
+- Observation as a Core Domain Entity;
+- CandidateDetectionResult as a Processing Result;
+- ServiceIdentifier as a Domain Value Concept;
+- Provider-neutral Observation semantics;
+- the parallel Entity Resolution / Evidence Classification architecture;
+- D-023 exclusion of numerical Confidence from the initial Discovery model.
+
+No additional Candidate Detection abstraction is required before the Implementation Model phase.
