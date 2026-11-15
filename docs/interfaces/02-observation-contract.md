@@ -3,8 +3,8 @@
 **Status:** Draft v0.1  
 **Scope:** Identity and Service Discovery  
 **Last updated:** November 2026  
-**Related Architecture:** `docs/architecture/01-identity-and-service-discovery.md`  
-**Related Domain Model:** `docs/domain/01-discovery-domain-model.md`  
+**Related Architecture:** `docs/architecture/01-identity-and-service-discovery.md` - Draft v0.3  
+**Related Domain Model:** `docs/domain/01-discovery-domain-model.md` - Draft v0.3  
 **Related Interface:** `docs/interfaces/01-connector-contract.md`  
 **Validated Against:** `SCN-001 Gmail Service Discovery`, `SCN-002 Password Manager Service Discovery`
 
@@ -14,7 +14,7 @@
 
 This document defines the initial software contract for `Observation` within the Identity and Service Discovery capability of the Personal Data Governance Framework.
 
-An Observation is the primary information object produced by a Connector and consumed by the common Discovery Core.
+An Observation is the primary source-derived Domain object produced by a Connector and consumed by the common Discovery Core.
 
 Conceptually:
 
@@ -51,12 +51,14 @@ The contract must therefore satisfy two competing requirements:
 ```text
 Common enough
 for the Discovery Core
+
         +
+
 Flexible enough
 for different source types
 ```
 
-The proposed solution is:
+The architectural solution is:
 
 ```text
 COMMON OBSERVATION ENVELOPE
@@ -64,15 +66,17 @@ COMMON OBSERVATION ENVELOPE
 TYPED SOURCE-SPECIFIC PAYLOAD
 ```
 
+The consolidated Domain Model classifies `Observation` as a Core Domain Entity.
+
 ---
 
 ## 2. Role of Observation
 
-An Observation represents information obtained from a specific Connected Source before the framework assigns final semantic meaning to it.
+An Observation represents information obtained from exactly one ConnectedSource before the framework assigns final semantic meaning to it.
 
 It answers:
 
-> What information did the framework observe from this Connected Source?
+> What information did the framework observe from this ConnectedSource?
 
 It does not answer:
 
@@ -142,15 +146,23 @@ Identity Provider Record
 
 COMMON DISCOVERY WORLD
 
-Service Candidate Detection
-Identifier Extraction
+              Observation
+               /       \
+              /         \
+             v           v
+Service Candidate     Evidence
+Detection             Classification
+       |
+       v
+CandidateIdentifier
+       |
+       v
 Entity Resolution
-Evidence Classification
-Evidence Aggregation
-Relationship Assessment
 ```
 
-Provider-specific objects should not normally cross this boundary.
+Entity Resolution and Evidence Classification are independent downstream branches.
+
+Provider-specific objects should not normally cross the Observation boundary.
 
 ---
 
@@ -158,16 +170,16 @@ Provider-specific objects should not normally cross this boundary.
 
 The Observation Contract should provide:
 
-1. a stable common envelope;
-2. explicit ConnectedSource provenance;
-3. typed source-specific payloads;
-4. source-reference support;
-5. temporal semantics;
-6. schema versioning;
-7. data minimization;
-8. deterministic identity where practical;
-9. reprocessing support;
-10. extensibility for future source types.
+- a stable common envelope;
+- explicit ConnectedSource provenance;
+- typed source-specific payloads;
+- source-reference support;
+- temporal semantics;
+- schema versioning;
+- data minimization;
+- deterministic identity where practical;
+- reprocessing support;
+- extensibility for future source types.
 
 The Observation Contract should avoid:
 
@@ -258,7 +270,13 @@ Conceptually:
 
 The envelope remains common.
 
-The payload depends on `observation_type`.
+The payload depends on:
+
+```text
+observation_type
++
+schema_version
+```
 
 ---
 
@@ -291,6 +309,10 @@ It is not yet:
 - a JSON Schema;
 - a persistence format.
 
+The Domain Model owns the semantic definition of Observation.
+
+This contract defines how software components exchange, validate and process Observations.
+
 ---
 
 ## 7. `id`
@@ -304,7 +326,7 @@ id:
 observation_001
 ```
 
-The identifier distinguishes the framework Observation from the provider's source identifier.
+The identifier distinguishes the framework Observation from the Provider's source identifier.
 
 Therefore:
 
@@ -329,7 +351,7 @@ That decision should be made during implementation design.
 
 ## 8. `connected_source_id`
 
-Every Observation must reference the `ConnectedSource` from which it originated.
+Every Observation must reference exactly one ConnectedSource from which it originated.
 
 Example:
 
@@ -338,7 +360,7 @@ connected_source_id:
 source_001
 ```
 
-This is mandatory provenance.
+This is mandatory provenance and a Domain invariant.
 
 Conceptually:
 
@@ -371,6 +393,23 @@ Browser Profile
 
 Each Observation retains its own source provenance.
 
+Therefore:
+
+```text
+CONTENT EQUALITY
+      !=
+OBSERVATION IDENTITY
+```
+
+and:
+
+```text
+Observation
+      |
+      v
+exactly one ConnectedSource
+```
+
 ---
 
 ## 9. `observation_type`
@@ -401,13 +440,13 @@ For example:
 EMAIL_MESSAGE_METADATA
 ```
 
-is an Observation type.
+is an Observation Type.
 
 ```text
 ACCOUNT_VERIFICATION
 ```
 
-is an Evidence type.
+is an Evidence Type.
 
 Therefore:
 
@@ -419,7 +458,7 @@ OBSERVATION TYPE != EVIDENCE TYPE
 
 ## 10. Why Observation Type Is Required
 
-`SourceType` alone is insufficient.
+SourceType alone is insufficient.
 
 For example, one future email Connector may produce:
 
@@ -441,7 +480,7 @@ BOOKMARK
 SITE_PERMISSION
 ```
 
-Therefore the Observation should identify the structure it carries independently from the broader ConnectedSource type.
+Therefore the Observation should identify the structure it carries independently from the broader ConnectedSource SourceType.
 
 Conceptually:
 
@@ -514,7 +553,7 @@ rather than assuming that all Observations of a given type always have an identi
 
 ## 12. `source_reference`
 
-An Observation should preserve a stable provider-side or Connector-side reference where technically possible and safe.
+An Observation should preserve a stable Provider-side or Connector-side reference where technically possible and safe.
 
 Examples may include:
 
@@ -556,7 +595,7 @@ non-secret
 unique within the ConnectedSource
 ```
 
-when the provider permits this.
+when the Provider permits this.
 
 Uniqueness should not automatically be assumed globally.
 
@@ -708,6 +747,8 @@ UNKNOWN
 
 The final vocabulary remains undefined.
 
+The consolidated Domain Model also permits the future introduction of multiple typed `TemporalValue` values when one Observation exposes several independently meaningful timestamps.
+
 ---
 
 ## 18. `payload`
@@ -737,7 +778,7 @@ Observation
         EmailMessageMetadataV1
 ```
 
-The payload must not be interpreted as an arbitrary dump of the provider object.
+The payload must not be interpreted as an arbitrary dump of the Provider object.
 
 ---
 
@@ -772,6 +813,12 @@ payload
 
 The Connector must expose only information required by the corresponding framework capability where reasonably possible.
 
+This behavior is now formally aligned with Architecture Decision:
+
+```text
+D-018 - Connector Is a Data-Minimization Boundary
+```
+
 ---
 
 ## 20. Email Metadata Payload
@@ -789,7 +836,7 @@ EmailMessageMetadata
 - labels
 ```
 
-The exact fields depend on what is justified by the discovery capability and available through the provider.
+The exact fields depend on what is justified by the Discovery capability and available through the Provider.
 
 Provider-specific structures should be normalized where reasonable.
 
@@ -938,7 +985,7 @@ It does not imply that Browser Discovery is currently implemented.
 
 ## 25. Provider Independence
 
-Different providers of the same SourceType should produce the same framework Observation Type when their semantics are equivalent.
+Different Providers of the same SourceType should produce the same framework ObservationType when their semantics are equivalent.
 
 For example:
 
@@ -970,21 +1017,28 @@ EMAIL_MESSAGE_METADATA
 The downstream Evidence Classifier should therefore not need:
 
 ```text
-if provider == Gmail
-...
-elif provider == Outlook
-...
+if provider == Gmail:
+    ...
+
+elif provider == Outlook:
+    ...
 ```
 
 for normal email-semantic interpretation.
 
 Provider-specific differences should remain inside Connectors wherever possible.
 
+This principle is now formalized by:
+
+```text
+D-019 - Observation Types Are Provider-Neutral Where Possible
+```
+
 ---
 
 ## 26. Provider-Specific Information
 
-Some provider-specific information may still be necessary.
+Some Provider-specific information may still be necessary.
 
 If so, the contract should not force it into the common payload unless it has meaningful cross-provider semantics.
 
@@ -1002,7 +1056,7 @@ extensions:
 
 However, an `extensions` mechanism is not part of the required Draft v0.1 contract yet.
 
-It should be introduced only if concrete provider integrations demonstrate the need.
+It should be introduced only if concrete Provider integrations demonstrate the need.
 
 ---
 
@@ -1050,6 +1104,23 @@ normalization version
 ```
 
 These are not yet mandatory.
+
+The consolidated Domain Model requires every Observation to reference exactly one ConnectedSource.
+
+Therefore:
+
+```text
+Observation
+      |
+      v
+exactly one ConnectedSource
+```
+
+is a Domain invariant rather than an optional implementation detail.
+
+`ConnectedSource` is the authoritative source-instance boundary for Observation provenance.
+
+Provider, Connector and User Identity information must not replace this reference.
 
 ---
 
@@ -1103,19 +1174,20 @@ This may help represent:
 - partial collection;
 - retries;
 - synchronization history;
-- connector errors;
+- Connector errors;
 - measurement;
-- debugging.
+- debugging;
+- coverage.
 
-However:
+`CollectionRun` is not a Core Domain Entity.
+
+The consolidated Domain Model currently classifies it as:
 
 ```text
-CollectionRun
+Application-Level Candidate
 ```
 
-is not introduced as a core Domain Entity in this contract.
-
-The need should be evaluated during persistence and synchronization design.
+Its necessity should be evaluated during implementation of synchronization and coverage tracking.
 
 ---
 
@@ -1245,21 +1317,29 @@ Observation
             Evidence B
 ```
 
-The Observation must not need to be rewritten merely because the interpretation changes.
+The Observation must not need to be rewritten merely because its interpretation changes.
 
-Similarly:
+Evidence lifecycle is now represented separately through:
 
 ```text
-Observation
-    |
-    +--> EntityResolver v1
-    |
-    +--> EntityResolver v2
+EvidenceStatus
+
+ACTIVE
+SUPERSEDED
+REJECTED
 ```
 
-may produce different resolution results over time.
+Similarly, preserved identifiers derived from the Observation may be processed by later Entity Resolver versions.
 
-This is one of the fundamental reasons Observation and Evidence remain separate concepts.
+```text
+ServiceIdentifier
+      |
+      +--> EntityResolver v1
+      |
+      +--> EntityResolver v2
+```
+
+The Observation remains the preserved source-derived entity.
 
 ---
 
@@ -1319,6 +1399,8 @@ DISCOVERY OBSERVATION ATTRIBUTE
 unless a future capability explicitly requires such information and defines an appropriate isolated security boundary.
 
 Service Discovery does not currently justify such access.
+
+This principle is reinforced by Architecture Decision D-018.
 
 ---
 
@@ -1419,6 +1501,8 @@ OBSERVED IDENTITY REFERENCE
 VERIFIED IDENTITY SEED
 ```
 
+The consolidated Domain Model preserves Identity references in Evidence, Aggregates and Relationships without automatically creating Identity-Service Relationships.
+
 ---
 
 ## 39. Service Identifiers inside Observations
@@ -1451,27 +1535,34 @@ may yield:
 accounts.spotify.com
 ```
 
-However, the Connector should not necessarily resolve these directly to canonical Services.
-
-The preferred separation is:
+The consolidated processing path is:
 
 ```text
 Observation
      |
      v
-Identifier Extraction
+ServiceCandidateDetector
+     |
+     v
+CandidateIdentifier
      |
      v
 ServiceIdentifier
      |
      v
-Entity Resolution
+EntityResolver
      |
      v
 Service
 ```
 
-The Connector may perform source-format normalization where necessary, but canonical Service resolution belongs to the common Discovery pipeline.
+`CandidateIdentifier` is the processing representation.
+
+`ServiceIdentifier` is the Domain Value Concept used when identifier provenance or resolution history is retained.
+
+The Connector may perform source-format normalization where necessary, but canonical Service Resolution belongs downstream.
+
+No separate `ServiceIdentifierExtractor` is required by the current architecture.
 
 ---
 
@@ -1549,9 +1640,9 @@ Repeatedly collecting the same source record should not automatically create mul
 However, duplicate semantics become more complex when:
 
 - source references change;
-- providers duplicate data;
+- Providers duplicate data;
 - imports create copies;
-- provider-side records change;
+- Provider-side records change;
 - the source exposes snapshots rather than stable records.
 
 The exact deduplication algorithm remains outside Draft v0.1.
@@ -1586,7 +1677,7 @@ CONTENT EQUALITY
 OBSERVATION IDENTITY
 ```
 
-Provenance participates in Observation identity.
+ConnectedSource provenance participates in Observation identity.
 
 ---
 
@@ -1596,9 +1687,13 @@ The contract must distinguish, where necessary, between:
 
 ```text
 field unavailable
+
 field unsupported
+
 field not collected because of permission
+
 field absent in source
+
 field intentionally omitted for minimization
 ```
 
@@ -1634,23 +1729,9 @@ UNKNOWN IS VALID
 
 A Connector should not fabricate missing information merely to satisfy an Observation schema.
 
-For example:
+For example, if a subject is unavailable, the implementation should represent that absence appropriately rather than generate a guessed subject.
 
-```text
-subject:
-UNKNOWN
-```
-
-is preferable to generating a guessed subject.
-
-Similarly:
-
-```text
-observed_at:
-UNKNOWN
-```
-
-may be necessary if the source provides no meaningful temporal information.
+Similarly, `observed_at` may be unavailable if the source provides no meaningful temporal information.
 
 The schema should therefore avoid making semantically unavailable fields artificially mandatory.
 
@@ -1679,7 +1760,7 @@ Observation
          EmailMessageMetadataV1
 ```
 
-Invalid provider data must not silently become valid framework Observations.
+Invalid Provider data must not silently become valid framework Observations.
 
 Possible outcomes may include:
 
@@ -1728,7 +1809,7 @@ The implementation mechanism is not yet defined.
 
 ## 47. Extensibility
 
-A new Connector should be able to introduce support for new source structures without modifying the semantics of existing Observation types.
+A new Connector should be able to introduce support for new source structures without modifying the semantics of existing Observation Types.
 
 For example:
 
@@ -1779,7 +1860,7 @@ runtime adaptation into a canonical view
 
 The implementation strategy remains undefined.
 
-The contract requirement is simply:
+The contract requirement is:
 
 > Historical Observation semantics must not change silently when a schema evolves.
 
@@ -1815,7 +1896,7 @@ EMAIL_MESSAGE_METADATA v1
 
 if the common Observation semantics remain unchanged.
 
-This demonstrates why provider API version and Observation schema version are separate concerns.
+This demonstrates why Provider API version and Observation schema version are separate concerns.
 
 ---
 
@@ -1830,8 +1911,7 @@ For example:
 ```text
 Observation:
 {
-  "type": "GMAIL_ERROR",
-  ...
+  "type": "GMAIL_ERROR"
 }
 ```
 
@@ -1849,7 +1929,7 @@ Connector
           +-- errors
 ```
 
-keeps integration errors outside the Observation domain.
+keeps integration errors outside the Observation Domain.
 
 Therefore:
 
@@ -1861,7 +1941,7 @@ CONNECTOR ERROR != OBSERVATION
 
 ## 51. Partial Source Objects
 
-A provider may return incomplete but still usable source information.
+A Provider may return incomplete but still usable source information.
 
 A Connector may produce an Observation if the payload contract can still be satisfied without fabrication.
 
@@ -1884,7 +1964,7 @@ required fields
 optional fields
 ```
 
-according to semantic necessity rather than provider convenience.
+according to semantic necessity rather than Provider convenience.
 
 ---
 
@@ -1896,7 +1976,6 @@ For example:
 
 ```text
 User:
-
 "I had a Spotify account in 2018."
 ```
 
@@ -1907,18 +1986,13 @@ observation_type:
 MANUAL_RELATIONSHIP_DECLARATION
 ```
 
-with provenance showing:
-
-```text
-source:
-USER
-```
-
-rather than an external provider.
+with provenance showing that the source was the User rather than an external Provider.
 
 Manual Observations must remain distinguishable from automatically collected source data.
 
 This preserves explainability.
+
+The exact representation of manual input as a ConnectedSource remains open in the Domain Model.
 
 ---
 
@@ -1955,12 +2029,12 @@ However, Draft v0.1 does not introduce a final sensitivity taxonomy.
 
 Sensitivity may belong partly to:
 
-- Observation Type;
+- ObservationType;
 - payload field;
-- capability;
+- Capability;
 - policy.
 
-This requires further security architecture work.
+This requires further Privacy and Security Architecture work.
 
 ---
 
@@ -1992,6 +2066,8 @@ Reprocessing
 
 The final persistence strategy remains deliberately undefined.
 
+Observation being a Core Domain Entity does not imply that every Observation must be stored permanently.
+
 ---
 
 ## 55. Retention
@@ -2000,7 +2076,7 @@ Observation retention cannot be decided independently from:
 
 - source sensitivity;
 - reprocessing requirements;
-- user expectations;
+- User expectations;
 - deletion semantics;
 - storage architecture;
 - legal or policy constraints.
@@ -2015,8 +2091,8 @@ Deleting an Observation may affect:
 
 ```text
 Evidence
-Entity Resolution
-Relationship Assessment
+EvidenceAggregate
+Relationship
 Service Graph
 ```
 
@@ -2028,16 +2104,21 @@ Conceptually:
 Delete Observation
         |
         v
-Identify Derived State
+Identify Dependent Evidence
         |
         v
-Remove / Recalculate Evidence
+Delete or Reject Evidence
         |
         v
-Reassess Relationships
+Rebuild EvidenceAggregate
+        |
+        v
+Reassess Relationship
 ```
 
-The exact mechanism remains outside this contract.
+If dependent Evidence is retained for provenance rather than deleted, its `EvidenceStatus` must prevent invalid Evidence from participating in current assessment.
+
+The exact lifecycle mechanism remains outside this contract.
 
 ---
 
@@ -2062,14 +2143,26 @@ Observation
 with the following properties:
 
 ```text
+Core Domain Entity
+
+exactly one ConnectedSource
+
 source traceable
+
 typed
+
 versioned
+
 minimized
+
 non-secret by default
-source-independent envelope
-source-specific payload
+
+Provider-independent envelope
+
+source-semantic typed payload
+
 reprocessable
+
 not semantically interpreted yet
 ```
 
@@ -2081,6 +2174,7 @@ The contract may be represented conceptually as:
 
 ```text
 Observation {
+
     ObservationId id
 
     ConnectedSourceId connectedSourceId
@@ -2159,119 +2253,85 @@ A consumer must not interpret a payload independently of its declared type and v
 
 Every Observation must reference exactly one ConnectedSource.
 
----
-
 ### OBS-INV-002
 
-An Observation must not contain provider credentials required only for source access.
-
----
+An Observation must not contain Provider credentials required only for source access.
 
 ### OBS-INV-003
 
 Authentication secrets unnecessary for Discovery must not become normal Observation attributes.
 
----
-
 ### OBS-INV-004
 
-Observation Type must be distinct from Evidence Type.
-
----
+ObservationType must be distinct from EvidenceType.
 
 ### OBS-INV-005
 
-The payload must conform to its declared Observation Type and Schema Version.
-
----
+The payload must conform to its declared ObservationType and SchemaVersion.
 
 ### OBS-INV-006
 
 Provider-specific raw objects must not be exposed directly as common Observation payloads.
 
----
-
 ### OBS-INV-007
 
 The original source reference should be preserved where technically possible and safe.
-
----
 
 ### OBS-INV-008
 
 `collected_at` and `observed_at` must not be treated as equivalent.
 
----
-
 ### OBS-INV-009
 
 Temporal semantics must not be inferred beyond what the source supports.
-
----
 
 ### OBS-INV-010
 
 An Observation must not contain a canonical Relationship conclusion.
 
----
-
 ### OBS-INV-011
 
 An Observation must not require a canonical Service conclusion.
-
----
 
 ### OBS-INV-012
 
 Unknown or unavailable information must not be fabricated to satisfy the payload schema.
 
----
-
 ### OBS-INV-013
 
 Collection failure must not be represented as an Observation.
-
----
 
 ### OBS-INV-014
 
 Collection completeness must not be inferred from the existence or absence of individual Observations.
 
----
-
 ### OBS-INV-015
 
 Content equality must not automatically imply Observation identity.
-
----
 
 ### OBS-INV-016
 
 Observations from different Connected Sources must remain distinguishable even when their payloads are identical.
 
----
-
 ### OBS-INV-017
 
 Reclassification must not require destructive modification of the source Observation.
-
----
 
 ### OBS-INV-018
 
 Entity re-resolution must not require destructive modification of the source Observation.
 
----
-
 ### OBS-INV-019
 
 The Observation envelope must remain independent of a specific SourceType or Provider.
 
----
-
 ### OBS-INV-020
 
-New Observation Types must be introducible without changing the semantics of existing Observation Types.
+New ObservationTypes must be introducible without changing the semantics of existing ObservationTypes.
+
+### OBS-INV-021
+
+An Observation belongs to exactly one ConnectedSource even when its payload references multiple identities, Services or source-level objects.
 
 ---
 
@@ -2343,14 +2403,14 @@ subject
 Same Discovery Core
 ```
 
-If Gmail and Outlook observations have equivalent framework semantics, they should use the same Observation Type rather than provider-specific types such as:
+If Gmail and Outlook Observations have equivalent framework semantics, they should use the same ObservationType rather than Provider-specific types such as:
 
 ```text
 GMAIL_MESSAGE
 OUTLOOK_MESSAGE
 ```
 
-unless concrete differences prove that separate types are necessary.
+unless concrete differences demonstrate that separate types are necessary.
 
 ---
 
@@ -2378,15 +2438,15 @@ ICLOUD_MESSAGE
 PROTON_MESSAGE
 ```
 
-followed by provider-specific branching throughout the core.
+followed by Provider-specific branching throughout the core.
 
-This is what makes the Discovery Domain provider-independent.
+This is formalized by Architecture Decision D-019.
 
 ---
 
 ## 64. Cross-Source Example
 
-Different source types produce different Observation Types but enter the same domain.
+Different SourceTypes produce different ObservationTypes but enter the same Domain.
 
 ```text
 Gmail
@@ -2408,7 +2468,7 @@ PASSWORD_MANAGER_ENTRY_METADATA
 Password Manager
 ```
 
-Downstream components may then extract different identifiers and Evidence from the different Observation types.
+Downstream components may extract different identifiers and Evidence from the different ObservationTypes.
 
 ---
 
@@ -2417,41 +2477,41 @@ Downstream components may then extract different identifiers and Evidence from t
 ### Observation Envelope
 
 - Is the proposed minimum envelope sufficient?
-- Should `provenance` be an explicit structured field?
+- Should provenance be an explicit structured field?
 - Should producer Connector ID and version be mandatory?
 - Should a `collection_run_id` be included?
 - Should Observation sensitivity be part of the envelope?
 
 ### Observation Type
 
-- Who owns the Observation Type registry?
-- Should Observation Types be centrally defined?
+- Who owns the ObservationType registry?
+- Should ObservationTypes be centrally defined?
 - Can Connectors introduce extension types?
 - How are naming collisions prevented?
-- Which Observation Types should exist initially?
+- Which ObservationTypes should exist initially?
 
 ### Schema Version
 
 - Integer version?
 - Semantic version?
-- Per-Observation-Type version?
+- Per-ObservationType version?
 - Global framework version?
 - How are incompatible schema changes handled?
 
 ### Payload
 
-- How should Typed Payloads be implemented?
+- How should TypedPayloads be implemented?
 - Tagged unions?
 - Interface inheritance?
 - JSON Schema?
-- Data classes?
+- Dataclasses?
 - Another mechanism?
 - How are optional fields represented without losing missing-value semantics?
 
 ### Source Reference
 
 - Must every Observation have one?
-- What happens when the provider exposes no stable source ID?
+- What happens when the Provider exposes no stable source ID?
 - Should source references be hashed?
 - Should they be persisted in plaintext?
 - How are source-reference changes handled?
@@ -2460,8 +2520,8 @@ Downstream components may then extract different identifiers and Evidence from t
 
 - Is one `observed_at` sufficient?
 - Can a source record expose multiple meaningful timestamps?
-- Should timestamps be represented as repeated typed temporal values instead?
-- How should provider timezone ambiguity be handled?
+- Should timestamps be represented as repeated typed TemporalValues instead?
+- How should Provider timezone ambiguity be handled?
 
 ### Identity Association
 
@@ -2472,45 +2532,45 @@ Downstream components may then extract different identifiers and Evidence from t
 ### Service Identifier Extraction
 
 - Should Connectors produce normalized identifiers?
-- Should identifier extraction be a dedicated downstream contract?
+- Should identifier extraction remain inside ServiceCandidateDetector?
 - Where exactly is the boundary between representation normalization and semantic identifier extraction?
+- At what complexity threshold would a dedicated extractor become justified?
 
 ### Deduplication
 
 - Which component owns deduplication?
 - Connector?
-- Observation Store?
+- Observation Repository?
 - Collection Layer?
 - How are modified source records distinguished from true duplicates?
 
 ### Persistence
 
-- Which Observation Types should be persisted?
-- Can highly sensitive Observation types be ephemeral?
+- Which ObservationTypes should be persisted?
+- Can highly sensitive ObservationTypes be ephemeral?
 - Is reprocessing worth the privacy cost of persistence?
 - Can minimized representations provide both?
 
 ### Deletion
 
 - How is derived Evidence invalidated when an Observation is deleted?
+- Should dependent Evidence be deleted or marked `REJECTED`?
 - How are affected Relationships identified?
 - Should deletion create an auditable tombstone?
 - How does deletion interact with re-synchronization?
 
 ### Provider Extensions
 
-- Do we need a controlled provider-extension mechanism?
-- If yes, how do we prevent downstream logic from becoming provider-dependent again?
+- Do we need a controlled Provider-extension mechanism?
+- If yes, how do we prevent downstream logic from becoming Provider-dependent again?
 
 ---
 
 ## 66. Findings from Contract Design
 
-The Observation Contract produces several design findings.
-
 ### Finding 1 - Observation Requires a Stable Common Envelope
 
-The common Discovery pipeline needs a small set of fields that exist independently of provider-specific payload structure.
+The common Discovery pipeline needs a small set of fields that exist independently of Provider-specific payload structure.
 
 The current proposed envelope is:
 
@@ -2526,8 +2586,6 @@ temporal_semantics
 payload
 ```
 
----
-
 ### Finding 2 - Payload Must Be Typed
 
 A generic unstructured dictionary would provide flexibility but insufficient contract guarantees.
@@ -2542,8 +2600,6 @@ SchemaVersion
 
 The implementation mechanism remains open.
 
----
-
 ### Finding 3 - Provider and Observation Type Must Be Separate
 
 Gmail and Outlook can potentially produce:
@@ -2552,11 +2608,11 @@ Gmail and Outlook can potentially produce:
 EMAIL_MESSAGE_METADATA
 ```
 
-rather than forcing provider-specific Observation Types.
+rather than forcing Provider-specific ObservationTypes.
 
-This keeps provider details behind Connectors.
+This keeps Provider details behind Connectors.
 
----
+This principle is now consolidated through Architecture Decision D-019.
 
 ### Finding 4 - Temporal Semantics Are First-Class
 
@@ -2564,9 +2620,7 @@ A timestamp alone is insufficient.
 
 The framework must know what source event the timestamp represents.
 
-This finding was particularly reinforced by Password Manager Service Discovery.
-
----
+This finding was particularly reinforced by Password Manager Service Discovery and is now represented in the Domain Model through TemporalSemantics and TemporalValue concepts.
 
 ### Finding 5 - Observation and Collection State Are Separate
 
@@ -2574,74 +2628,79 @@ Completeness, pagination failures and partial scans describe collection operatio
 
 Therefore collection state must not be embedded into each Observation.
 
----
-
 ### Finding 6 - Observation Is a Privacy Boundary
 
-An Observation should not be a serialized copy of provider data.
+An Observation should not be a serialized copy of Provider data.
 
 The Connector must minimize the source representation before information enters the common Discovery Core.
 
----
+This principle is now consolidated through Architecture Decision D-018.
 
 ### Finding 7 - Observation Should Support Reprocessing
 
-If minimized Observations are persisted, Evidence Classification and Entity Resolution should be able to evolve without requiring source retrieval for every change.
+If minimized Observations are persisted, Evidence Classification and identifier processing should be able to evolve without requiring source retrieval for every change.
 
 This must be balanced against data-minimization requirements.
 
----
+### Finding 8 - Observation Is a Core Domain Entity
 
-## 67. Decision Candidates
+The consolidated Domain Model classifies `Observation` as a Core Domain Entity.
 
-The following decisions are candidates for incorporation into the broader architecture after review.
+Its common envelope represents a stable boundary between Provider-specific collection and the common Discovery Domain.
 
-### Candidate Decision - Common Envelope, Typed Payload
+Every Observation belongs to exactly one ConnectedSource.
 
-```text
-Observations should consist of a stable common envelope and a typed,
-versioned payload appropriate to the Observation Type.
-
-Provider-specific raw source objects should not cross the Connector boundary.
-```
+Concrete typed payload schemas remain implementation-specific.
 
 ---
 
-### Candidate Decision - Provider-Neutral Observation Types
+## 67. Architecture Alignment and Remaining Decision Candidates
+
+### Architecture Alignment - Common Envelope, Typed Payload
+
+Observations consist of a stable common envelope and a typed, versioned payload appropriate to the ObservationType.
+
+Provider-specific raw source objects must not cross the Connector boundary as default Observation payloads.
+
+This is part of the consolidated Domain Model and implementation baseline.
+
+### Architecture Alignment - Provider-Neutral Observation Types
+
+ObservationTypes represent source semantics rather than Provider identity wherever the semantics are compatible.
+
+Equivalent Observations from different Providers should use the same ObservationType where practical.
+
+This principle is formalized by:
 
 ```text
-Observation Types should represent source semantics rather than provider identity.
-
-Equivalent observations from different providers should use the same
-Observation Type where their framework semantics are compatible.
+D-019 - Observation Types Are Provider-Neutral Where Possible
 ```
 
----
+### Architecture Alignment - Explicit Temporal Semantics
 
-### Candidate Decision - Explicit Temporal Semantics
+Temporal values derived from external sources must preserve their source semantics and must not automatically be interpreted as Service activity.
+
+This is now represented explicitly in Architecture v0.3 and Domain Model v0.3.
+
+### Decision Candidate - Collection State Outside Observation
+
+Collection completeness, pagination and synchronization state belong to collection context rather than individual Observations.
+
+This remains consistent with the current architecture.
+
+The exact future `CollectionRun` / synchronization model remains open.
+
+### Architecture Alignment - Secrets Excluded by Default
+
+Authentication secrets unnecessary for the requested capability must not become normal Observation attributes.
+
+This is supported by:
 
 ```text
-Temporal values derived from external sources must preserve their source
-semantics and must not automatically be interpreted as Service activity.
+D-018 - Connector Is a Data-Minimization Boundary
 ```
 
----
-
-### Candidate Decision - Collection State Outside Observation
-
-```text
-Collection completeness, pagination and synchronization state belong to
-collection context rather than individual Observations.
-```
-
----
-
-### Candidate Decision - Secrets Excluded by Default
-
-```text
-Authentication secrets unnecessary for the requested capability must not
-become normal Observation attributes.
-```
+and by the consolidated Privacy and Security invariants.
 
 ---
 
@@ -2674,69 +2733,82 @@ Observation
 with the following guarantees:
 
 ```text
+Observation is a Core Domain Entity
+
+exactly one ConnectedSource per Observation
+
 ConnectedSource provenance
+
 Provider-independent envelope
-Typed source semantics
-Versioned payload
-Explicit time semantics
-No forced semantic interpretation
-No canonical Service requirement
-No Relationship conclusion
-No provider credential exposure
-No unnecessary authentication secrets
-Reprocessing-compatible design
+
+typed source semantics
+
+versioned payload
+
+explicit time semantics
+
+no forced semantic interpretation
+
+no canonical Service requirement
+
+no Relationship conclusion
+
+no Provider credential exposure
+
+no unnecessary authentication secrets
+
+reprocessing-compatible design
 ```
 
 ---
 
-## 69. Next Interface Contract
+## 69. Downstream Contract
 
-With the Connector and Observation boundaries defined, the next contract should describe:
+The next contract in the Discovery dependency chain is:
 
 ```text
 ServiceCandidateDetector
 ```
 
-Its responsibility is:
-
-> Given an Observation, determine whether that Observation should participate in Service Discovery.
-
-The next contract should explicitly distinguish:
+and has now been defined in:
 
 ```text
-NOT A SERVICE CANDIDATE
+docs/interfaces/03-service-candidate-detector-contract.md
 ```
 
-from:
+Its responsibility is to determine whether a valid Observation should participate in Service Discovery.
+
+The dependency remains:
 
 ```text
-SERVICE CANDIDATE BUT UNRESOLVED
+Connector
+    |
+    v
+Observation
+    |
+    v
+ServiceCandidateDetector
 ```
 
-For example:
+while Evidence Classification operates as an independent semantic branch from the same Observation:
 
 ```text
-email from a personal contact
+             Observation
+             /         \
+            v           v
+Candidate Detection   Evidence Classification
 ```
 
-may be:
+The two paths later converge through Entity Resolution, Evidence Aggregation and Relationship Assessment.
 
-```text
-NOT A SERVICE CANDIDATE
-```
+The Observation Contract is now aligned with:
 
-while:
+- Architecture Draft v0.3;
+- Domain Model Draft v0.3;
+- ConnectedSource as a Core Domain Entity;
+- Observation as a Core Domain Entity;
+- Connector minimization boundary D-018;
+- Provider-neutral Observation semantics D-019;
+- the parallel Entity Resolution / Evidence Classification model.
 
-```text
-password-manager record for an unknown website
-```
-
-may be:
-
-```text
-SERVICE CANDIDATE
-+
-UNRESOLVED SERVICE
-```
-
-This distinction should be established before the Entity Resolver Contract is defined.
+No additional Observation-domain abstraction is required before the Implementation Model phase.
