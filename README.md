@@ -1159,9 +1159,9 @@ docs/interfaces/07-relationship-assessor-contract.md
 
 ---
 
-## Documentation Structure
+### Documentation Structure
 
-The current documentation set is organized conceptually as:
+The current documentation set is organized as:
 
 ```text
 docs/
@@ -1170,6 +1170,9 @@ docs/
 │
 ├── domain/
 │   └── 01-discovery-domain-model.md
+│
+├── implementation/
+│   └── 01-discovery-implementation-model.md
 │
 ├── scenarios/
 │   ├── 001-gmail-service-discovery.md
@@ -1185,9 +1188,37 @@ docs/
     └── 07-relationship-assessor-contract.md
 ```
 
-The exact repository paths should remain aligned with the real directory structure.
+The documentation has four different normative roles:
 
----
+```text
+Architecture
+    |
+    v
+defines system responsibilities and boundaries
+
+Domain Model
+    |
+    v
+defines Domain semantics and classifications
+
+Software Contracts
+    |
+    v
+define behavioral processing boundaries
+
+Implementation Model
+    |
+    v
+defines the initial executable software representation
+```
+
+The scenarios remain historical validation artifacts showing how the architecture evolved through empirical design questions.
+
+Current normative implementation guidance is defined by:
+
+```text
+docs/implementation/01-discovery-implementation-model.md
+```
 
 ## Key Architecture Decisions
 
@@ -1315,9 +1346,9 @@ This distinction is preserved throughout the Discovery pipeline.
 
 ---
 
-## Current Project Status
+### Current Project Status
 
-The project has completed its first architecture and Domain consolidation cycle.
+The project has completed its first Discovery architecture, Domain and implementation-design consolidation cycle.
 
 Current status:
 
@@ -1339,92 +1370,182 @@ Current status:
    06 EvidenceAggregator
    07 RelationshipAssessor
 
-4. README Alignment
+4. README and Repository Consistency
    COMPLETE
 
-5. Implementation Model
+5. Implementation Model v0.1
+   COMPLETE
+
+6. Python Project Skeleton
    NEXT
 
-6. Gmail Vertical MVP
+7. Gmail Vertical MVP
    PLANNED
 ```
 
-The project is therefore transitioning from:
+The project has therefore completed the transition from:
 
 ```text
 conceptual architecture
 ```
 
-to:
+through:
 
 ```text
 implementation-oriented design
 ```
 
-No production implementation is currently claimed.
+and is now ready to begin:
 
-The architecture, Domain Model and contracts should still be considered experimental and subject to refinement through implementation evidence.
+```text
+executable implementation
+```
 
----
+No production-ready Discovery engine is currently claimed.
 
-## Next Step: Implementation Model
+The Architecture, Domain Model, contracts and Implementation Model remain experimental and may evolve when executable code and real Gmail-derived data expose validated requirements or inconsistencies.
 
-The next design phase will translate the consolidated architecture into concrete software structures.
+At this stage, new abstractions should primarily be introduced in response to:
 
-The Implementation Model is expected to define:
+```text
+implementation evidence
 
-- package structure;
-- dependency direction;
-- Python Domain classes;
-- dataclasses or equivalent value objects;
-- Enums;
-- Protocols or abstract interfaces;
-- typed Observation payloads;
-- Processing Result objects;
-- repository interfaces;
-- ServiceRegistry boundary;
-- Evidence lifecycle handling;
-- assessment-policy boundaries;
-- application orchestration;
-- persistence boundaries;
-- configuration and rule loading;
-- testing boundaries.
+test results
 
-A possible package direction to evaluate is:
+empirical Gmail behavior
+
+privacy constraints
+
+or new validated cross-source requirements
+```
+
+rather than speculative design.
+
+### Next Step: Python Project Skeleton
+
+The Discovery Implementation Model is now defined.
+
+The next repository phase is executable implementation.
+
+The first step is to create the Python project skeleton described by:
+
+```text
+docs/implementation/01-discovery-implementation-model.md
+```
+
+The initial structure should follow the implementation-model boundaries:
 
 ```text
 src/
-├── domain/
-│   ├── entities/
-│   ├── values/
-│   ├── enums/
-│   └── policies/
-│
-├── application/
-│   ├── services/
-│   ├── orchestration/
-│   └── ports/
-│
-├── discovery/
-│   ├── candidate_detection/
-│   ├── entity_resolution/
-│   ├── evidence_classification/
-│   ├── evidence_aggregation/
-│   └── relationship_assessment/
-│
-├── connectors/
-│   └── gmail/
-│
-├── repositories/
-│
-└── infrastructure/
+└── personal_data_governance/
+    │
+    ├── domain/
+    │   ├── entities/
+    │   ├── values/
+    │   ├── enums/
+    │   └── views/
+    │
+    ├── application/
+    │   ├── ports/
+    │   ├── values/
+    │   ├── results/
+    │   └── services/
+    │
+    ├── discovery/
+    │   ├── candidate_detection/
+    │   ├── entity_resolution/
+    │   ├── evidence_classification/
+    │   ├── evidence_aggregation/
+    │   └── relationship_assessment/
+    │
+    ├── connectors/
+    │   └── gmail/
+    │
+    ├── infrastructure/
+    │   ├── persistence/
+    │   ├── credentials/
+    │   ├── service_registry/
+    │   └── google/
+    │
+    └── config/
+        ├── rules/
+        ├── taxonomy/
+        └── policies/
 ```
 
-This structure is not yet a final decision.
+The implementation begins with:
 
-The Implementation Model must determine the actual boundaries while preserving the dependency direction established by the architecture and contracts.
+```text
+Domain IDs and Enums
+        |
+        v
+Domain Value Objects
+        |
+        v
+Core Domain Entities
+        |
+        v
+Processing Results
+        |
+        v
+Ports / Protocols
+        |
+        v
+In-Memory Repositories
+        |
+        v
+ServiceRegistry
+        |
+        v
+Deterministic Discovery Components
+        |
+        v
+Application Orchestration
+        |
+        v
+GmailConnector
+        |
+        v
+Gmail Vertical MVP
+```
 
----
+The initial executable architecture is intentionally:
+
+```text
+Python
++
+modular monolith
++
+ports and adapters
++
+typed Domain model
++
+in-memory infrastructure first
++
+deterministic-first Discovery
+```
+
+The initial implementation does not require:
+
+```text
+microservices
+
+graph database
+
+remote persistence
+
+remote AI
+
+production synchronization
+
+Account Entity
+
+Organization Entity
+
+numerical Confidence
+```
+
+The purpose of the Python skeleton is to make the established boundaries executable before introducing Gmail-specific integration complexity.
 
 ## First Vertical Implementation: Gmail Discovery MVP
 
@@ -1598,23 +1719,61 @@ Contributors and users should review the final licence before using the project 
 
 ---
 
-## Repository Maturity
+### Repository Maturity
 
-**Status: Experimental / Pre-Implementation**
+**Status: Experimental / Implementation-Ready**
 
 The repository currently contains:
 
 - consolidated Architecture v0.3;
 - consolidated Domain Model v0.3;
-- two validation scenarios;
+- two historical validation scenarios;
 - seven aligned software contracts;
-- implementation-oriented requirements.
+- Discovery Implementation Model v0.1;
+- explicit Python package and dependency boundaries;
+- initial Domain-type representations;
+- Processing Result boundaries;
+- repository and ServiceRegistry ports;
+- Evidence lifecycle implementation semantics;
+- resolved, unresolved and ambiguous aggregation semantics;
+- initial deterministic Gmail Vertical MVP strategy.
 
-It does not yet contain a production-ready Discovery engine.
+The repository does not yet contain a production-ready Discovery engine.
 
-Interfaces, Domain concepts, policies and implementation choices may change as the Implementation Model and Gmail Vertical MVP expose real constraints.
+The next maturity transition is:
 
----
+```text
+Implementation-Ready
+        |
+        v
+Executable Vertical Slice
+```
+
+through the Gmail Vertical MVP.
+
+The first implementation is intended to validate whether:
+
+```text
+Architecture v0.3
+
++
+
+Domain Model v0.3
+
++
+
+Discovery Contracts v0.1
+
++
+
+Implementation Model v0.1
+```
+
+survive contact with executable code and real source-derived behavior.
+
+Interfaces, policies and implementation choices may still change when implementation evidence demonstrates a concrete need.
+
+Architectural changes should not be introduced solely for hypothetical future requirements.
 
 ## Guiding Principle
 
