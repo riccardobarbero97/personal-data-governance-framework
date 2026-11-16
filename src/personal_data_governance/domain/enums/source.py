@@ -1,0 +1,30 @@
+from enum import StrEnum
+
+
+class SourceType(StrEnum):
+    EMAIL = "EMAIL"
+    PASSWORD_MANAGER = "PASSWORD_MANAGER"
+    BROWSER = "BROWSER"
+    IDENTITY_PROVIDER = "IDENTITY_PROVIDER"
+    MANUAL = "MANUAL"
+
+
+class ConnectionState(StrEnum):
+    PENDING = "PENDING"
+    CONNECTED = "CONNECTED"
+    DISCONNECTED = "DISCONNECTED"
+    ERROR = "ERROR"
+
+
+class AuthorizationState(StrEnum):
+    NOT_AUTHORIZED = "NOT_AUTHORIZED"
+    AUTHORIZED = "AUTHORIZED"
+    EXPIRED = "EXPIRED"
+    INSUFFICIENT = "INSUFFICIENT"
+    REVOKED = "REVOKED"
+    ERROR = "ERROR"
+
+
+class VerificationStatus(StrEnum):
+    UNVERIFIED = "UNVERIFIED"
+    VERIFIED = "VERIFIED"
