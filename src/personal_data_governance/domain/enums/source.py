@@ -28,3 +28,11 @@ class AuthorizationState(StrEnum):
 class VerificationStatus(StrEnum):
     UNVERIFIED = "UNVERIFIED"
     VERIFIED = "VERIFIED"
+
+class IdentitySeedType(StrEnum):
+    EMAIL = "EMAIL"
+    PHONE = "PHONE"
+    USERNAME = "USERNAME"
+    GOOGLE_ACCOUNT = "GOOGLE_ACCOUNT"
+    MICROSOFT_ACCOUNT = "MICROSOFT_ACCOUNT"
+    APPLE_ACCOUNT = "APPLE_ACCOUNT"
