@@ -59,3 +59,30 @@ class RelationshipAssessmentResult:
                     "Successful assessment requires "
                     "AssessmentMethod."
                 )
+
+        if (
+            self.processing_status != ProcessingStatus.SUCCESS
+            and self.relationship_status is not None
+        ):
+            raise ValueError(
+                "A failed or unsupported assessment "
+                "must not contain RelationshipStatus."
+            )
+
+        if (
+            self.processing_status != ProcessingStatus.SUCCESS
+            and self.temporal_status is not None
+        ):
+            raise ValueError(
+                "A failed or unsupported assessment "
+                "must not contain TemporalStatus."
+            )
+
+        if (
+            self.processing_status != ProcessingStatus.SUCCESS
+            and self.method is not None
+        ):
+            raise ValueError(
+                "A failed or unsupported assessment "
+                "must not contain AssessmentMethod."
+            )
