@@ -155,3 +155,46 @@ def test_empty_registry_identifier_cannot_be_registered() -> None:
             identifier_type=ServiceIdentifierType.EMAIL_DOMAIN,
             identifier_value="   ",
         )
+
+
+def test_multiple_identifiers_can_resolve_to_same_service() -> None:
+    registry = InMemoryServiceRegistry()
+
+    spotify = build_spotify_service()
+
+    registry.register_service(spotify)
+
+    registry.register_identifier(
+        service_id=spotify.id,
+        identifier_type=ServiceIdentifierType.EMAIL_DOMAIN,
+        identifier_value="spotify.com",
+    )
+
+    registry.register_identifier(
+        service_id=spotify.id,
+        identifier_type=ServiceIdentifierType.HOSTNAME,
+        identifier_value="accounts.spotify.com",
+    )
+
+    email_domain_identifier = ServiceIdentifier(
+        type=ServiceIdentifierType.EMAIL_DOMAIN,
+        original_value="spotify.com",
+        observation_id=ObservationId("observation_001"),
+    )
+
+    hostname_identifier = ServiceIdentifier(
+        type=ServiceIdentifierType.HOSTNAME,
+        original_value="accounts.spotify.com",
+        observation_id=ObservationId("observation_002"),
+    )
+
+    email_domain_matches = registry.resolve(
+        email_domain_identifier
+    )
+
+    hostname_matches = registry.resolve(
+        hostname_identifier
+    )
+
+    assert email_domain_matches == (spotify,)
+    assert hostname_matches == (spotify,)
