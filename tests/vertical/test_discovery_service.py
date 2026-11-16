@@ -214,6 +214,7 @@ def build_discovery_service(
         entity_resolver=entity_resolver,
         evidence_classifier=evidence_classifier,
         evidence_materializer=evidence_materializer,
+        evidence_repository=evidence_repository,
         evidence_contribution_builder=(
             contribution_builder
         ),
