@@ -43,6 +43,15 @@ class ResolutionResult:
             )
 
         if (
+            self.processing_status != ProcessingStatus.SUCCESS
+            and self.resolution_status is not None
+        ):
+            raise ValueError(
+                "A failed or unsupported resolution must not "
+                "contain a semantic ResolutionStatus."
+            )
+
+        if (
             self.resolution_status == ResolutionStatus.RESOLVED
             and self.resolved_service_id is None
         ):
