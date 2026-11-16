@@ -29,6 +29,12 @@ class EvidenceCandidate:
                 "Classifier version must not be empty."
             )
 
+        if not self.reason_codes:
+            raise ValueError(
+                "EvidenceCandidate requires at least "
+                "one reason code."
+            )
+
 
 @dataclass(frozen=True, slots=True)
 class ClassificationResult:
@@ -56,6 +62,24 @@ class ClassificationResult:
             )
 
         if (
+            self.processing_status != ProcessingStatus.SUCCESS
+            and self.classification_status is not None
+        ):
+            raise ValueError(
+                "A failed or unsupported classification "
+                "must not contain ClassificationStatus."
+            )
+
+        if (
+            self.processing_status == ProcessingStatus.SUCCESS
+            and self.method is None
+        ):
+            raise ValueError(
+                "Successful classification requires "
+                "ClassificationMethod."
+            )
+
+        if (
             self.classification_status
             == ClassificationStatus.CLASSIFIED
             and not self.evidence_candidates
@@ -73,4 +97,13 @@ class ClassificationResult:
             raise ValueError(
                 "UNKNOWN must not contain "
                 "EvidenceCandidates."
+            )
+
+        if (
+            self.processing_status != ProcessingStatus.SUCCESS
+            and self.evidence_candidates
+        ):
+            raise ValueError(
+                "A failed or unsupported classification "
+                "must not contain EvidenceCandidates."
             )
