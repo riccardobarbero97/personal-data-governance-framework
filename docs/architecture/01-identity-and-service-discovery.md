@@ -3357,35 +3357,3 @@ explainability
 ```
 
 Architecture changes after this point should primarily be driven by implementation evidence, empirical validation or genuinely new cross-source requirements.
-
-New abstractions should not be introduced in advance merely because they appear potentially useful.Draft v0.3.
-
-In particular, Domain Model v0.3 should incorporate:
-
-```text
-Relationship
-    |
-    +-- User reference
-    +-- Service reference
-    +-- RelationshipStatus
-    +-- TemporalStatus
-    +-- Identity references
-    +-- Evidence basis
-    +-- Assessment provenance
-```
-
-and:
-
-```text
-Evidence
-    |
-    +-- EvidenceStatus
-         |
-         +-- ACTIVE
-         +-- SUPERSEDED
-         +-- REJECTED
-```
-
-Once these concepts are reflected consistently in the Domain Model, the seven existing software contracts should receive only the terminology and dependency alignment necessary to match the consolidated architecture.
-
-No new processing component should be introduced unless implementation design or new empirical scenarios demonstrate that it is required.
