@@ -22,3 +22,15 @@ class ResolutionStatus(StrEnum):
 class ClassificationStatus(StrEnum):
     CLASSIFIED = "CLASSIFIED"
     UNKNOWN = "UNKNOWN"
+
+
+class CandidateIdentifierType(StrEnum):
+    EMAIL_DOMAIN = "EMAIL_DOMAIN"
+    DOMAIN = "DOMAIN"
+    HOSTNAME = "HOSTNAME"
+
+
+class ServiceIdentifierType(StrEnum):
+    EMAIL_DOMAIN = "EMAIL_DOMAIN"
+    DOMAIN = "DOMAIN"
+    HOSTNAME = "HOSTNAME"
