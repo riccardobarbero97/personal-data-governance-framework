@@ -34,3 +34,27 @@ class ServiceIdentifierType(StrEnum):
     EMAIL_DOMAIN = "EMAIL_DOMAIN"
     DOMAIN = "DOMAIN"
     HOSTNAME = "HOSTNAME"
+
+class DetectionMethod(StrEnum):
+    RULE = "RULE"
+
+
+class ResolutionMethod(StrEnum):
+    EXACT_IDENTIFIER_MATCH = "EXACT_IDENTIFIER_MATCH"
+    DOMAIN_NORMALIZATION = "DOMAIN_NORMALIZATION"
+    KNOWN_ALIAS = "KNOWN_ALIAS"
+    USER_CORRECTION = "USER_CORRECTION"
+
+
+class ClassificationMethod(StrEnum):
+    RULE = "RULE"
+    AI = "AI"
+    MANUAL = "MANUAL"
+    COMPOSITE = "COMPOSITE"
+
+
+class AssessmentMethod(StrEnum):
+    RULE = "RULE"
+    MANUAL = "MANUAL"
+    COMPOSITE = "COMPOSITE"
+    AI = "AI"
