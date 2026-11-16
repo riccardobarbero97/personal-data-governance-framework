@@ -198,3 +198,116 @@ def test_multiple_identifiers_can_resolve_to_same_service() -> None:
 
     assert email_domain_matches == (spotify,)
     assert hostname_matches == (spotify,)
+
+
+def test_identifiers_from_different_observations_can_converge() -> None:
+    registry = InMemoryServiceRegistry()
+
+    spotify = build_spotify_service()
+
+    registry.register_service(spotify)
+
+    registry.register_identifier(
+        service_id=spotify.id,
+        identifier_type=ServiceIdentifierType.EMAIL_DOMAIN,
+        identifier_value="spotify.com",
+    )
+
+    registry.register_identifier(
+        service_id=spotify.id,
+        identifier_type=ServiceIdentifierType.HOSTNAME,
+        identifier_value="accounts.spotify.com",
+    )
+
+    gmail_identifier = ServiceIdentifier(
+        type=ServiceIdentifierType.EMAIL_DOMAIN,
+        original_value="spotify.com",
+        observation_id=ObservationId(
+            "observation_from_gmail"
+        ),
+    )
+
+    password_manager_identifier = ServiceIdentifier(
+        type=ServiceIdentifierType.HOSTNAME,
+        original_value="accounts.spotify.com",
+        observation_id=ObservationId(
+            "observation_from_password_manager"
+        ),
+    )
+
+    gmail_matches = registry.resolve(
+        gmail_identifier
+    )
+
+    password_manager_matches = registry.resolve(
+        password_manager_identifier
+    )
+
+    assert gmail_matches == (spotify,)
+    assert password_manager_matches == (spotify,)
+
+
+def test_one_identifier_can_return_multiple_services() -> None:
+    registry = InMemoryServiceRegistry()
+
+    service_a = Service(
+        id=ServiceId("service_a"),
+        canonical_name="Service A",
+    )
+
+    service_b = Service(
+        id=ServiceId("service_b"),
+        canonical_name="Service B",
+    )
+
+    registry.register_service(service_a)
+    registry.register_service(service_b)
+
+    registry.register_identifier(
+        service_id=service_a.id,
+        identifier_type=ServiceIdentifierType.DOMAIN,
+        identifier_value="shared.example",
+    )
+
+    registry.register_identifier(
+        service_id=service_b.id,
+        identifier_type=ServiceIdentifierType.DOMAIN,
+        identifier_value="shared.example",
+    )
+
+    identifier = ServiceIdentifier(
+        type=ServiceIdentifierType.DOMAIN,
+        original_value="shared.example",
+        observation_id=ObservationId("observation_001"),
+    )
+
+    matches = registry.resolve(identifier)
+
+    assert len(matches) == 2
+    assert service_a in matches
+    assert service_b in matches
+
+
+def test_normalized_identifier_value_is_used_for_lookup() -> None:
+    registry = InMemoryServiceRegistry()
+
+    spotify = build_spotify_service()
+
+    registry.register_service(spotify)
+
+    registry.register_identifier(
+        service_id=spotify.id,
+        identifier_type=ServiceIdentifierType.DOMAIN,
+        identifier_value="spotify.com",
+    )
+
+    identifier = ServiceIdentifier(
+        type=ServiceIdentifierType.DOMAIN,
+        original_value="accounts.spotify.com",
+        normalized_value="spotify.com",
+        observation_id=ObservationId("observation_001"),
+    )
+
+    matches = registry.resolve(identifier)
+
+    assert matches == (spotify,)
