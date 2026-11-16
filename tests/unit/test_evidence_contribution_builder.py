@@ -171,3 +171,41 @@ def test_builder_resolves_source_and_temporal_provenance() -> None:
     assert contribution.temporal_values == (
         observed_at,
     )
+
+def test_missing_observation_raises_error() -> None:
+    observation_repository = InMemoryObservationRepository()
+    source_repository = InMemoryConnectedSourceRepository()
+
+    evidence = Evidence(
+        id=EvidenceId("evidence_001"),
+        evidence_type=EvidenceType.PAYMENT,
+        evidence_status=EvidenceStatus.ACTIVE,
+        observation_ids=(
+            ObservationId("missing_observation"),
+        ),
+        service_id=None,
+        identity_seed_ids=(),
+        classification_method=ClassificationMethod.RULE,
+        classifier_version="1",
+        reason_codes=(
+            "PAYMENT_SUBJECT",
+        ),
+    )
+
+    builder = EvidenceContributionBuilder(
+        observation_repository=(
+            observation_repository
+        ),
+        connected_source_repository=(
+            source_repository
+        ),
+    )
+
+    try:
+        builder.build(evidence)
+    except KeyError as error:
+        assert "Observation not found" in str(error)
+    else:
+        raise AssertionError(
+            "Expected KeyError was not raised."
+        )
