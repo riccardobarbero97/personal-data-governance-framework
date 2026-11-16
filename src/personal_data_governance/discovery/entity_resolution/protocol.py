@@ -40,6 +40,15 @@ class ResolutionRequest:
                 "one ServiceIdentifier."
             )
 
+        if any(
+            identifier.observation_id != self.observation_id
+            for identifier in self.service_identifiers
+        ):
+            raise ValueError(
+                "Every ServiceIdentifier must reference "
+                "the ResolutionRequest Observation."
+            )
+
 
 class EntityResolver(Protocol):
 
