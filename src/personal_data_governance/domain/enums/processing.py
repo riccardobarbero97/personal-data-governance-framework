@@ -35,6 +35,7 @@ class ServiceIdentifierType(StrEnum):
     DOMAIN = "DOMAIN"
     HOSTNAME = "HOSTNAME"
 
+
 class DetectionMethod(StrEnum):
     RULE = "RULE"
 
@@ -58,3 +59,15 @@ class AssessmentMethod(StrEnum):
     MANUAL = "MANUAL"
     COMPOSITE = "COMPOSITE"
     AI = "AI"
+
+
+class AggregationScope(StrEnum):
+    SERVICE = "SERVICE"
+    UNRESOLVED_SERVICE_CANDIDATE = "UNRESOLVED_SERVICE_CANDIDATE"
+    AMBIGUOUS_SERVICE_CANDIDATE = "AMBIGUOUS_SERVICE_CANDIDATE"
+
+
+class AggregationStatus(StrEnum):
+    AGGREGATED = "AGGREGATED"
+    EMPTY = "EMPTY"
+    PARTIAL = "PARTIAL"
