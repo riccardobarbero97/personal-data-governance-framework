@@ -1,5 +1,8 @@
 from dataclasses import dataclass
 
+from personal_data_governance.application.ports.repositories import (
+    EvidenceRepository,
+)
 from personal_data_governance.application.results.discovery import (
     DiscoveryOutcome,
 )
@@ -37,6 +40,7 @@ from personal_data_governance.discovery.relationship_assessment.protocol import 
     RelationshipAssessmentContext,
     RelationshipAssessor,
 )
+from personal_data_governance.domain.entities.evidence import Evidence
 from personal_data_governance.domain.entities.observation import Observation
 from personal_data_governance.domain.enums.processing import (
     AggregationScope,
@@ -69,6 +73,7 @@ class DiscoveryService:
         entity_resolver: EntityResolver,
         evidence_classifier: EvidenceClassifier,
         evidence_materializer: EvidenceMaterializer,
+        evidence_repository: EvidenceRepository,
         evidence_contribution_builder: EvidenceContributionBuilder,
         evidence_aggregator: EvidenceAggregator,
         relationship_assessor: RelationshipAssessor,
@@ -78,6 +83,7 @@ class DiscoveryService:
         self._entity_resolver = entity_resolver
         self._evidence_classifier = evidence_classifier
         self._evidence_materializer = evidence_materializer
+        self._evidence_repository = evidence_repository
         self._evidence_contribution_builder = (
             evidence_contribution_builder
         )
@@ -148,7 +154,7 @@ class DiscoveryService:
                         resolution_result.resolved_service_id
                     )
 
-        materialized_evidence = ()
+        materialized_evidence: tuple[Evidence, ...] = ()
 
         if (
             classification_result.processing_status
@@ -210,11 +216,19 @@ class DiscoveryService:
                 relationship_id=None,
             )
 
+        evidence_for_aggregation = (
+            self._select_evidence_for_aggregation(
+                aggregation_scope=aggregation_scope,
+                resolved_service_id=resolved_service_id,
+                materialized_evidence=materialized_evidence,
+            )
+        )
+
         contributions = tuple(
             self._evidence_contribution_builder.build(
                 evidence
             )
-            for evidence in materialized_evidence
+            for evidence in evidence_for_aggregation
         )
 
         unresolved_identifiers = ()
@@ -315,6 +329,24 @@ class DiscoveryService:
             evidence_ids=evidence_ids,
             relationship_id=relationship_id,
         )
+
+    def _select_evidence_for_aggregation(
+        self,
+        aggregation_scope: AggregationScope,
+        resolved_service_id: ServiceId | None,
+        materialized_evidence: tuple[Evidence, ...],
+    ) -> tuple[Evidence, ...]:
+        if (
+            aggregation_scope == AggregationScope.SERVICE
+            and resolved_service_id is not None
+        ):
+            return (
+                self._evidence_repository.find_active_by_service(
+                    resolved_service_id
+                )
+            )
+
+        return materialized_evidence
 
     @staticmethod
     def _determine_aggregation_scope(
