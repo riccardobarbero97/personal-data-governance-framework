@@ -38,6 +38,83 @@ class AggregationRequest:
     contributions: tuple[EvidenceContribution, ...]
     context: AggregationContext
 
+    def __post_init__(self) -> None:
+        if (
+            self.scope == AggregationScope.SERVICE
+            and self.service_id is None
+        ):
+            raise ValueError(
+                "SERVICE aggregation requires a Service."
+            )
+
+        if (
+            self.scope == AggregationScope.SERVICE
+            and self.unresolved_identifiers
+        ):
+            raise ValueError(
+                "SERVICE aggregation must not contain "
+                "unresolved identifiers."
+            )
+
+        if (
+            self.scope == AggregationScope.SERVICE
+            and self.alternative_service_ids
+        ):
+            raise ValueError(
+                "SERVICE aggregation must not contain "
+                "alternative Services."
+            )
+
+        if (
+            self.scope
+            == AggregationScope.UNRESOLVED_SERVICE_CANDIDATE
+            and not self.unresolved_identifiers
+        ):
+            raise ValueError(
+                "UNRESOLVED_SERVICE_CANDIDATE "
+                "requires identifiers."
+            )
+
+        if (
+            self.scope
+            == AggregationScope.UNRESOLVED_SERVICE_CANDIDATE
+            and self.service_id is not None
+        ):
+            raise ValueError(
+                "UNRESOLVED_SERVICE_CANDIDATE "
+                "must not contain a Service."
+            )
+
+        if (
+            self.scope
+            == AggregationScope.AMBIGUOUS_SERVICE_CANDIDATE
+            and not self.unresolved_identifiers
+        ):
+            raise ValueError(
+                "AMBIGUOUS_SERVICE_CANDIDATE "
+                "requires identifiers."
+            )
+
+        if (
+            self.scope
+            == AggregationScope.AMBIGUOUS_SERVICE_CANDIDATE
+            and not self.alternative_service_ids
+        ):
+            raise ValueError(
+                "AMBIGUOUS_SERVICE_CANDIDATE "
+                "requires alternative Services."
+            )
+
+        if (
+            self.scope
+            == AggregationScope.AMBIGUOUS_SERVICE_CANDIDATE
+            and self.service_id is not None
+        ):
+            raise ValueError(
+                "AMBIGUOUS_SERVICE_CANDIDATE "
+                "must not contain a resolved Service."
+            )
+
 
 class EvidenceAggregator(Protocol):
 
