@@ -1,9 +1,15 @@
 import argparse
 from pathlib import Path
 
+from personal_data_governance.application.services.discovery_report_builder import (
+    DiscoveryReportBuilder,
+)
 from personal_data_governance.application.services.offline_vertical_runner import (
     OfflineVerticalConfiguration,
     OfflineVerticalRunner,
+)
+from personal_data_governance.infrastructure.persistence.json_report_writer import (
+    JsonDiscoveryReportWriter,
 )
 
 
@@ -32,6 +38,17 @@ def build_parser() -> argparse.ArgumentParser:
         help=(
             "Maximum number of synthetic "
             "messages to process."
+        ),
+    )
+
+    parser.add_argument(
+        "--output",
+        type=Path,
+        default=Path(
+            "discovery-report.json"
+        ),
+        help=(
+            "Path of the JSON discovery report."
         ),
     )
 
@@ -71,6 +88,17 @@ def main() -> int:
     )
 
     result = runner.run()
+
+    report = DiscoveryReportBuilder().build(
+        outcomes=result.outcomes,
+        source_mode="OFFLINE_GMAIL_FIXTURE",
+        synthetic_data=True,
+    )
+
+    JsonDiscoveryReportWriter().write(
+        report=report,
+        output_file=arguments.output,
+    )
 
     print()
     print(
@@ -117,6 +145,14 @@ def main() -> int:
     print_counts(
         "Evidence types",
         result.summary.evidence_type_counts,
+    )
+
+    print()
+    print(
+        "Discovery report:"
+    )
+    print(
+        f"  {arguments.output.resolve()}"
     )
 
     print()
