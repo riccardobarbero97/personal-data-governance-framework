@@ -311,3 +311,80 @@ def test_normalized_identifier_value_is_used_for_lookup() -> None:
     matches = registry.resolve(identifier)
 
     assert matches == (spotify,)
+
+def test_all_services_returns_registered_services() -> None:
+    registry = InMemoryServiceRegistry()
+
+    first_service = Service(
+        id=ServiceId(
+            "service_b"
+        ),
+        canonical_name="B",
+    )
+
+    second_service = Service(
+        id=ServiceId(
+            "service_a"
+        ),
+        canonical_name="A",
+    )
+
+    registry.register_service(
+        first_service
+    )
+
+    registry.register_service(
+        second_service
+    )
+
+    assert registry.all_services() == (
+        second_service,
+        first_service,
+    )
+
+
+def test_identifiers_for_service_returns_registered_identifiers() -> None:
+    registry = InMemoryServiceRegistry()
+
+    service = Service(
+        id=ServiceId(
+            "service_example"
+        ),
+        canonical_name="Example",
+    )
+
+    registry.register_service(
+        service
+    )
+
+    registry.register_identifier(
+        service_id=service.id,
+        identifier_type=(
+            ServiceIdentifierType.DOMAIN
+        ),
+        identifier_value="example.com",
+    )
+
+    registry.register_identifier(
+        service_id=service.id,
+        identifier_type=(
+            ServiceIdentifierType.EMAIL_DOMAIN
+        ),
+        identifier_value="mail.example.com",
+    )
+
+    assert (
+        registry.identifiers_for_service(
+            service.id
+        )
+        == (
+            (
+                ServiceIdentifierType.DOMAIN,
+                "example.com",
+            ),
+            (
+                ServiceIdentifierType.EMAIL_DOMAIN,
+                "mail.example.com",
+            ),
+        )
+    )
