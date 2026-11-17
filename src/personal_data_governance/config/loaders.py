@@ -424,6 +424,12 @@ def load_classification_rules(
                 "only non-empty strings."
             )
 
+        if not patterns:
+            raise ValueError(
+                f"{context}.patterns "
+                "must not be empty."
+            )
+
         rules.append(
             SubjectClassificationRule(
                 rule_id=rule_id,
@@ -538,6 +544,12 @@ def _load_evidence_type_set(
         field_name=field_name,
         context="relationship_policy",
     )
+
+    if not raw_values:
+        raise ValueError(
+            "relationship_policy."
+            f"{field_name} must not be empty."
+        )
 
     evidence_types: set[
         EvidenceType
