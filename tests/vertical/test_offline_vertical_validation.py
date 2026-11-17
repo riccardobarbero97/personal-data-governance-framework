@@ -191,3 +191,27 @@ def test_spotify_is_reassessed_cumulatively() -> None:
         ]
         == 1
     )
+    
+def test_offline_fixture_has_no_future_temporal_warnings() -> None:
+    runner = OfflineVerticalRunner(
+        OfflineVerticalConfiguration(
+            fixture_file=FIXTURE_FILE,
+            message_limit=100,
+        )
+    )
+
+    result = runner.run()
+
+    for outcome in result.outcomes:
+        if outcome.assessment_result is None:
+            continue
+
+        assert (
+            "FUTURE_TEMPORAL_EVIDENCE"
+            not in outcome.assessment_result.warnings
+        )
+
+        assert (
+            "TEMPORAL_EVIDENCE_IN_FUTURE"
+            not in outcome.assessment_result.reason_codes
+        )
