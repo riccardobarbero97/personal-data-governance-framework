@@ -217,7 +217,7 @@ class InMemoryRelationshipRepository(
             relationship.user_id,
             relationship.service_id,
         )
-     if (
+        if (
             existing is not None
             and existing.id != relationship.id
         ):
