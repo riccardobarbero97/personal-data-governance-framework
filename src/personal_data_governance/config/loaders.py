@@ -539,7 +539,7 @@ def _load_evidence_type_set(
     payload: dict[str, Any],
     field_name: str,
 ) -> frozenset[EvidenceType]:
-    value = require_list(
+    raw_values = require_list(
         payload=payload,
         field_name=field_name,
         context="relationship_policy",
@@ -547,7 +547,7 @@ def _load_evidence_type_set(
 
     if not raw_values:
         raise ValueError(
-            "relationship_policy."
+            ."
             f"{field_name} must not be empty."
         )
 
