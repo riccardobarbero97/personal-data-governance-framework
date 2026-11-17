@@ -53,6 +53,7 @@ personal_data_governance = [
     "config/services/*.json",
     "config/rules/*.json",
     "config/policies/*.json",
+    "infrastructure/persistence/sqlite/*.sql",
 ]
 
 
