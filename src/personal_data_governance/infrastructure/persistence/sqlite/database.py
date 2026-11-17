@@ -125,30 +125,45 @@ class SQLiteDatabase:
             sqlite3.Row
         )
 
-        connection.execute(
-            "PRAGMA foreign_keys = ON"
-        )
-
-        connection.execute(
-            "PRAGMA busy_timeout = ?",
-            (
-                self._busy_timeout_milliseconds,
-            ),
-        )
-
-        foreign_keys = connection.execute(
-            "PRAGMA foreign_keys"
-        ).fetchone()
-
-        if (
-            foreign_keys is None
-            or foreign_keys[0] != 1
-        ):
-            connection.close()
-
-            raise RuntimeError(
-                "SQLite foreign keys "
-                "could not be enabled."
+        try:
+            connection.execute(
+                "PRAGMA foreign_keys = ON"
             )
 
-        return connection
+            connection.execute(
+                "PRAGMA busy_timeout = "
+                f"{self._busy_timeout_milliseconds}"
+            )
+
+            foreign_keys = connection.execute(
+                "PRAGMA foreign_keys"
+            ).fetchone()
+
+            if (
+                foreign_keys is None
+                or foreign_keys[0] != 1
+            ):
+                raise RuntimeError(
+                    "SQLite foreign keys "
+                    "could not be enabled."
+                )
+
+            busy_timeout = connection.execute(
+                "PRAGMA busy_timeout"
+            ).fetchone()
+
+            if (
+                busy_timeout is None
+                or busy_timeout[0]
+                != self._busy_timeout_milliseconds
+            ):
+                raise RuntimeError(
+                    "SQLite busy timeout "
+                    "could not be configured."
+                )
+
+            return connection
+
+        except Exception:
+            connection.close()
+            raise
