@@ -130,15 +130,19 @@ DEFAULT_SUBJECT_RULES: tuple[SubjectClassificationRule, ...] = (
         ),
         priority=60,
     ),
-    SubjectClassificationRule(
+        SubjectClassificationRule(
         rule_id="PAYMENT_SUBJECT",
         evidence_type=EvidenceType.PAYMENT,
         patterns=(
             r"\bpayment successful\b",
+            r"\bpayment was successful\b",
+            r"\byour payment was successful\b",
             r"\bpayment received\b",
+            r"\bpayment was received\b",
             r"\bpayment confirmed\b",
             r"\bpayment confirmation\b",
             r"\bpayment completed\b",
+            r"\bpayment was completed\b",
             r"\bpayment failed\b",
             r"\bpayment declined\b",
         ),
