@@ -191,7 +191,7 @@ class InMemoryEvidenceRepository(
     def get_lifecycle_history(
         self,
         evidence_id: EvidenceId,
-    ) -> tuple[EvidenceLifecycleProvenance, ...\]:
+    ) -> tuple[EvidenceLifecycleProvenance, ...]:
         return tuple(
             self._lifecycle_history.get(
                 evidence_id,
