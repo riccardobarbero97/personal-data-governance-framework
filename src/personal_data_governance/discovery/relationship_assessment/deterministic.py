@@ -3,6 +3,9 @@ from datetime import timedelta
 from personal_data_governance.application.results.assessment import (
     RelationshipAssessmentResult,
 )
+from personal_data_governance.config.loaders import (
+    RelationshipPolicyConfiguration,
+)
 from personal_data_governance.discovery.relationship_assessment.protocol import (
     RelationshipAssessmentContext,
     RelationshipAssessor,
@@ -21,47 +24,15 @@ from personal_data_governance.domain.views.evidence_aggregate import (
 )
 
 
-ESTABLISHMENT_EVIDENCE_TYPES = frozenset(
-    {
-        EvidenceType.ACCOUNT_CREATION,
-        EvidenceType.ACCOUNT_VERIFICATION,
-        EvidenceType.AUTHENTICATION,
-        EvidenceType.PASSWORD_RESET,
-        EvidenceType.SECURITY_NOTIFICATION,
-        EvidenceType.PURCHASE,
-        EvidenceType.INVOICE,
-        EvidenceType.SUBSCRIPTION,
-        EvidenceType.PAYMENT,
-        EvidenceType.ACCOUNT_UPDATE,
-        EvidenceType.ACCOUNT_DELETION,
-    }
-)
-
-
-OBSERVED_COMMUNICATION_EVIDENCE_TYPES = frozenset(
-    {
-        EvidenceType.MARKETING,
-        EvidenceType.NEWSLETTER,
-        EvidenceType.PRIVACY_NOTICE,
-    }
-)
-
-
-ONGOING_ACTIVITY_EVIDENCE_TYPES = frozenset(
-    {
-        EvidenceType.AUTHENTICATION,
-        EvidenceType.PASSWORD_RESET,
-        EvidenceType.SECURITY_NOTIFICATION,
-        EvidenceType.PAYMENT,
-        EvidenceType.SUBSCRIPTION,
-        EvidenceType.ACCOUNT_UPDATE,
-    }
-)
-
-
 class DeterministicRelationshipAssessor(
     RelationshipAssessor,
 ):
+    def __init__(
+        self,
+        policy: RelationshipPolicyConfiguration,
+    ) -> None:
+        self._policy = policy
+
     def assess(
         self,
         aggregate: EvidenceAggregate,
@@ -75,24 +46,31 @@ class DeterministicRelationshipAssessor(
             self._assess_relationship_status(
                 evidence_types=evidence_types,
                 total_evidence_count=(
-                    aggregate.evidence_summary.total_evidence_count
+                    aggregate.evidence_summary
+                    .total_evidence_count
                 ),
-                user_rejected=context.user_rejected,
+                user_rejected=(
+                    context.user_rejected
+                ),
             )
         )
 
-        temporal_status, temporal_reasons, temporal_warnings = (
-            self._assess_temporal_status(
-                aggregate=aggregate,
-                evidence_types=evidence_types,
-                context=context,
-                relationship_status=relationship_status,
-            )
+        (
+            temporal_status,
+            temporal_reasons,
+            temporal_warnings,
+        ) = self._assess_temporal_status(
+            aggregate=aggregate,
+            evidence_types=evidence_types,
+            context=context,
+            relationship_status=relationship_status,
         )
 
         warnings = self._collect_warnings(
             aggregate=aggregate,
-            additional_warnings=temporal_warnings,
+            additional_warnings=(
+                temporal_warnings
+            ),
         )
 
         reason_codes = self._deduplicate_strings(
@@ -105,19 +83,23 @@ class DeterministicRelationshipAssessor(
             service_id=aggregate.service_id,
             relationship_status=relationship_status,
             temporal_status=temporal_status,
-            identity_seed_ids=aggregate.identity_seed_ids,
+            identity_seed_ids=(
+                aggregate.identity_seed_ids
+            ),
             evidence_ids=aggregate.evidence_ids,
             reason_codes=reason_codes,
             warnings=warnings,
             method=AssessmentMethod.RULE,
-            assessor_version=context.assessor_version,
+            assessor_version=(
+                context.assessor_version
+            ),
             assessment_policy_version=(
-                context.assessment_policy_version
+                self._policy.policy_version
             ),
         )
 
-    @staticmethod
     def _assess_relationship_status(
+        self,
         evidence_types: frozenset[EvidenceType],
         total_evidence_count: int,
         user_rejected: bool,
@@ -143,7 +125,8 @@ class DeterministicRelationshipAssessor(
 
         establishment_types = (
             evidence_types
-            & ESTABLISHMENT_EVIDENCE_TYPES
+            & self._policy
+            .establishment_evidence_types
         )
 
         if establishment_types:
@@ -154,12 +137,13 @@ class DeterministicRelationshipAssessor(
                 ),
             )
 
-        observed_communication_types = (
+        observed_types = (
             evidence_types
-            & OBSERVED_COMMUNICATION_EVIDENCE_TYPES
+            & self._policy
+            .observed_communication_evidence_types
         )
 
-        if observed_communication_types:
+        if observed_types:
             return (
                 RelationshipStatus.OBSERVED,
                 (
@@ -174,8 +158,8 @@ class DeterministicRelationshipAssessor(
             ),
         )
 
-    @staticmethod
     def _assess_temporal_status(
+        self,
         aggregate: EvidenceAggregate,
         evidence_types: frozenset[EvidenceType],
         context: RelationshipAssessmentContext,
@@ -194,9 +178,10 @@ class DeterministicRelationshipAssessor(
                 (),
             )
 
-        temporal_summary = aggregate.temporal_summary
-
-        last_observed = temporal_summary.last_observed
+        last_observed = (
+            aggregate.temporal_summary
+            .last_observed
+        )
 
         if last_observed is None:
             return (
@@ -207,7 +192,7 @@ class DeterministicRelationshipAssessor(
                 (),
             )
 
-        if not DeterministicRelationshipAssessor._is_timezone_aware(
+        if not self._is_timezone_aware(
             last_observed.timestamp
         ):
             return (
@@ -220,7 +205,10 @@ class DeterministicRelationshipAssessor(
                 ),
             )
 
-        if last_observed.timestamp > context.assessed_at:
+        if (
+            last_observed.timestamp
+            > context.assessed_at
+        ):
             return (
                 TemporalStatus.UNKNOWN,
                 (
@@ -232,18 +220,19 @@ class DeterministicRelationshipAssessor(
             )
 
         has_deletion_evidence = (
-            EvidenceType.ACCOUNT_DELETION
+            self._policy.deletion_evidence_type
             in evidence_types
         )
 
-        has_ongoing_activity_evidence = bool(
+        has_ongoing_activity = bool(
             evidence_types
-            & ONGOING_ACTIVITY_EVIDENCE_TYPES
+            & self._policy
+            .ongoing_activity_evidence_types
         )
 
         if (
             has_deletion_evidence
-            and not has_ongoing_activity_evidence
+            and not has_ongoing_activity
         ):
             return (
                 TemporalStatus.HISTORICAL,
@@ -256,7 +245,10 @@ class DeterministicRelationshipAssessor(
         currently_observed_cutoff = (
             context.assessed_at
             - timedelta(
-                days=context.currently_observed_window_days
+                days=(
+                    self._policy
+                    .currently_observed_window_days
+                )
             )
         )
 
@@ -285,18 +277,21 @@ class DeterministicRelationshipAssessor(
         aggregate: EvidenceAggregate,
         additional_warnings: tuple[str, ...],
     ) -> tuple[str, ...]:
-        warnings: list[str] = list(
+        warnings = list(
             additional_warnings
         )
 
         if (
-            aggregate.conflict_summary.has_potential_conflicts
+            aggregate.conflict_summary
+            .has_potential_conflicts
         ):
             warnings.append(
                 "CONFLICTING_EVIDENCE"
             )
 
-        coverage_summary = aggregate.coverage_summary
+        coverage_summary = (
+            aggregate.coverage_summary
+        )
 
         if coverage_summary is not None:
             if (
@@ -313,8 +308,13 @@ class DeterministicRelationshipAssessor(
                 "CANONICAL_SERVICE_UNAVAILABLE"
             )
 
-        return DeterministicRelationshipAssessor._deduplicate_strings(
-            tuple(warnings)
+        return (
+            DeterministicRelationshipAssessor
+            ._deduplicate_strings(
+                tuple(
+                    warnings
+                )
+            )
         )
 
     @staticmethod
@@ -322,7 +322,9 @@ class DeterministicRelationshipAssessor(
         values: tuple[str, ...],
     ) -> tuple[str, ...]:
         return tuple(
-            dict.fromkeys(values)
+            dict.fromkeys(
+                values
+            )
         )
 
     @staticmethod
