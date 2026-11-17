@@ -21,7 +21,7 @@ build/
 dist/
 *.egg-info/
 
-# Type checking / linting caches
+# Type checking and linting caches
 .mypy_cache/
 .ruff_cache/
 
@@ -34,12 +34,16 @@ dist/
 .env.*
 !.env.example
 
-# Credentials and tokens
+# Google OAuth client credentials
 credentials.json
+client_secret*.json
+oauth_client*.json
+
+# Google OAuth tokens
 token.json
 tokens.json
-client_secret*.json
-oauth*.json
+.oauth_tokens/
+oauth_tokens/
 
 # Operating system files
 .DS_Store
