@@ -85,7 +85,7 @@ class InMemoryObservationRepository(
     ) -> Observation | None:
         for observation in self._observations.values():
             if (
-                 observation.connected_source_id
+                observation.connected_source_id
                 == connected_source_id
                 and observation.source_reference
                 == source_reference
@@ -124,7 +124,7 @@ class InMemoryEvidenceRepository(
     def find_by_observation(
         self,
         observation_id: ObservationId,
-    ) -> tuple[Evidence, ...\]:
+    ) -> tuple[Evidence, ...]:
         return tuple(
             evidence
             for evidence in self._evidence.values()
@@ -134,7 +134,7 @@ class InMemoryEvidenceRepository(
     def find_active_by_service(
         self,
         service_id: ServiceId,
-    ) -> tuple[Evidence, ...\]:
+    ) -> tuple[Evidence, ...]:
         return tuple(
             evidence
             for evidence in self._evidence.values()
@@ -177,7 +177,7 @@ class InMemoryEvidenceRepository(
             )
 
         updated_evidence = replace(
-            evidence,
+               evidence,
             evidence_status=new_status,
         )
 
@@ -217,8 +217,7 @@ class InMemoryRelationshipRepository(
             relationship.user_id,
             relationship.service_id,
         )
-
-        if (
+     if (
             existing is not None
             and existing.id != relationship.id
         ):
