@@ -1,6 +1,5 @@
 from collections import Counter
 from dataclasses import dataclass
-from datetime import datetime, timezone
 from pathlib import Path
 
 from personal_data_governance.application.ports.connector import (
@@ -38,6 +37,9 @@ from personal_data_governance.connectors.gmail.connector import (
 )
 from personal_data_governance.connectors.gmail.offline_api_client import (
     OfflineGmailApiClient,
+)
+from personal_data_governance.connectors.gmail.offline_fixture import (
+    load_offline_fixture_metadata,
 )
 from personal_data_governance.discovery.candidate_detection.deterministic import (
     DeterministicEmailCandidateDetector,
@@ -150,6 +152,12 @@ class OfflineVerticalRunner:
     ) -> OfflineVerticalRunResult:
         self._validate_configuration()
 
+        fixture_metadata = (
+            load_offline_fixture_metadata(
+                self._configuration.fixture_file
+            )
+        )
+
         user_id = UserId(
             "user_offline"
         )
@@ -158,8 +166,10 @@ class OfflineVerticalRunner:
             "identity_offline_email"
         )
 
-        connected_source_id = ConnectedSourceId(
-            "source_offline_gmail"
+        connected_source_id = (
+            ConnectedSourceId(
+                "source_offline_gmail"
+            )
         )
 
         api_client = OfflineGmailApiClient(
@@ -278,18 +288,21 @@ class OfflineVerticalRunner:
             ),
         )
 
-        collection_result = gmail_connector.collect(
-            CollectionRequest(
-                connected_source_id=(
-                    connected_source_id
-                ),
-                capability=(
-                    SERVICE_DISCOVERY_METADATA
-                ),
-                continuation=None,
-                limit=(
-                    self._configuration.message_limit
-                ),
+        collection_result = (
+            gmail_connector.collect(
+                CollectionRequest(
+                    connected_source_id=(
+                        connected_source_id
+                    ),
+                    capability=(
+                        SERVICE_DISCOVERY_METADATA
+                    ),
+                    continuation=None,
+                    limit=(
+                        self._configuration
+                        .message_limit
+                    ),
+                )
             )
         )
 
@@ -303,10 +316,6 @@ class OfflineVerticalRunner:
                 f"{error_summary}"
             )
 
-        assessed_at = datetime.now(
-            timezone.utc
-        )
-
         processing_context = (
             DiscoveryProcessingContext(
                 candidate_detection=(
@@ -314,12 +323,14 @@ class OfflineVerticalRunner:
                         detector_version="1",
                     )
                 ),
-                resolution=ResolutionContext(
-                    resolver_version="1",
-                    registry_version=(
-                        loaded_registry
-                        .registry_version
-                    ),
+                resolution=(
+                    ResolutionContext(
+                        resolver_version="1",
+                        registry_version=(
+                            loaded_registry
+                            .registry_version
+                        ),
+                    )
                 ),
                 classification=(
                     ClassificationContext(
@@ -341,7 +352,10 @@ class OfflineVerticalRunner:
                             relationship_policy
                             .policy_version
                         ),
-                        assessed_at=assessed_at,
+                        assessed_at=(
+                            fixture_metadata
+                            .assessment_time
+                        ),
                         currently_observed_window_days=(
                             relationship_policy
                             .currently_observed_window_days
@@ -358,40 +372,15 @@ class OfflineVerticalRunner:
         for observation in (
             collection_result.observations
         ):
-            existing_observation = (
-                observation_repository
-                .find_by_source_reference(
-                    connected_source_id=(
-                        observation
-                        .connected_source_id
-                    ),
-                    source_reference=(
-                        observation
-                        .source_reference
-                    ),
-                )
+            observation_repository.save(
+                observation
             )
-
-            if existing_observation is not None:
-                effective_observation = (
-                    existing_observation
-                )
-            else:
-                observation_repository.save(
-                    observation
-                )
-
-                effective_observation = (
-                    observation
-                )
 
             outcome = (
                 discovery_service
                 .process_observation(
                     user_id=user_id,
-                    observation=(
-                        effective_observation
-                    ),
+                    observation=observation,
                     identity_seed_ids=(
                         identity_seed_id,
                     ),
@@ -421,48 +410,34 @@ class OfflineVerticalRunner:
 
     @staticmethod
     def _validate_configuration() -> None:
-        validation_result = (
+        result = (
             ConfigurationValidator()
             .validate()
         )
 
-        if validation_result.valid:
+        if result.valid:
             return
 
-        error_summary = "; ".join(
-            validation_result.errors
+        errors = "; ".join(
+            result.errors
         )
 
-        if not error_summary:
-            error_summary = (
-                "Unknown configuration error."
-            )
-
         raise ValueError(
-            "Discovery configuration "
-            "is invalid: "
-            f"{error_summary}"
+            "Discovery configuration is invalid: "
+            f"{errors}"
         )
 
     @staticmethod
     def _build_summary(
-        outcomes: tuple[DiscoveryOutcome, ...],
+        outcomes: tuple[
+            DiscoveryOutcome,
+            ...,
+        ],
     ) -> OfflineValidationSummary:
-        candidate_status_counts: Counter[
-            str
-        ] = Counter()
-
-        resolution_status_counts: Counter[
-            str
-        ] = Counter()
-
-        classification_status_counts: Counter[
-            str
-        ] = Counter()
-
-        evidence_type_counts: Counter[
-            str
-        ] = Counter()
+        candidate_counts: Counter[str] = Counter()
+        resolution_counts: Counter[str] = Counter()
+        classification_counts: Counter[str] = Counter()
+        evidence_counts: Counter[str] = Counter()
 
         evidence_ids: set[str] = set()
         relationship_ids: set[str] = set()
@@ -474,7 +449,7 @@ class OfflineVerticalRunner:
             )
 
             if candidate_status is not None:
-                candidate_status_counts[
+                candidate_counts[
                     candidate_status.value
                 ] += 1
 
@@ -485,7 +460,7 @@ class OfflineVerticalRunner:
                 )
 
                 if resolution_status is not None:
-                    resolution_status_counts[
+                    resolution_counts[
                         resolution_status.value
                     ] += 1
 
@@ -495,7 +470,7 @@ class OfflineVerticalRunner:
             )
 
             if classification_status is not None:
-                classification_status_counts[
+                classification_counts[
                     classification_status.value
                 ] += 1
 
@@ -503,7 +478,7 @@ class OfflineVerticalRunner:
                 outcome.classification_result
                 .evidence_candidates
             ):
-                evidence_type_counts[
+                evidence_counts[
                     candidate.evidence_type.value
                 ] += 1
 
@@ -532,25 +507,25 @@ class OfflineVerticalRunner:
             candidate_status_counts=(
                 OfflineVerticalRunner
                 ._ordered_counts(
-                    candidate_status_counts
+                    candidate_counts
                 )
             ),
             resolution_status_counts=(
                 OfflineVerticalRunner
                 ._ordered_counts(
-                    resolution_status_counts
+                    resolution_counts
                 )
             ),
             classification_status_counts=(
                 OfflineVerticalRunner
                 ._ordered_counts(
-                    classification_status_counts
+                    classification_counts
                 )
             ),
             evidence_type_counts=(
                 OfflineVerticalRunner
                 ._ordered_counts(
-                    evidence_type_counts
+                    evidence_counts
                 )
             ),
         )
