@@ -1,0 +1,84 @@
+{
+  "schema_version": 1,
+  "registry_version": "initial-1",
+  "services": [
+    {
+      "service_id": "service_spotify",
+      "canonical_name": "Spotify",
+      "identifiers": [
+        {
+          "type": "EMAIL_DOMAIN",
+          "value": "spotify.com"
+        },
+        {
+          "type": "DOMAIN",
+          "value": "spotify.com"
+        },
+        {
+          "type": "HOSTNAME",
+          "value": "accounts.spotify.com"
+        }
+      ]
+    },
+    {
+      "service_id": "service_netflix",
+      "canonical_name": "Netflix",
+      "identifiers": [
+        {
+          "type": "EMAIL_DOMAIN",
+          "value": "netflix.com"
+        },
+        {
+          "type": "DOMAIN",
+          "value": "netflix.com"
+        }
+      ]
+    },
+    {
+      "service_id": "service_github",
+      "canonical_name": "GitHub",
+      "identifiers": [
+        {
+          "type": "EMAIL_DOMAIN",
+          "value": "github.com"
+        },
+        {
+          "type": "DOMAIN",
+          "value": "github.com"
+        },
+        {
+          "type": "HOSTNAME",
+          "value": "github.com"
+        }
+      ]
+    },
+    {
+      "service_id": "service_linkedin",
+      "canonical_name": "LinkedIn",
+      "identifiers": [
+        {
+          "type": "EMAIL_DOMAIN",
+          "value": "linkedin.com"
+        },
+        {
+          "type": "DOMAIN",
+          "value": "linkedin.com"
+        }
+      ]
+    },
+    {
+      "service_id": "service_dropbox",
+      "canonical_name": "Dropbox",
+      "identifiers": [
+        {
+          "type": "EMAIL_DOMAIN",
+          "value": "dropbox.com"
+        },
+        {
+          "type": "DOMAIN",
+          "value": "dropbox.com"
+        }
+      ]
+    }
+  ]
+}
