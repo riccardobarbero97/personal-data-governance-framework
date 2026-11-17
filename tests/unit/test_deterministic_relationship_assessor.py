@@ -1,5 +1,8 @@
 from datetime import datetime, timedelta, timezone
 
+from personal_data_governance.config.loaders import (
+    load_relationship_policy,
+)
 from personal_data_governance.discovery.relationship_assessment.deterministic import (
     DeterministicRelationshipAssessor,
 )
@@ -54,10 +57,18 @@ def build_context(
 ) -> RelationshipAssessmentContext:
     return RelationshipAssessmentContext(
         assessor_version="1",
-        assessment_policy_version="1",
+        assessment_policy_version=(
+            "relationship-policy-1"
+        ),
         assessed_at=ASSESSED_AT,
         currently_observed_window_days=window_days,
         user_rejected=user_rejected,
+    )
+
+
+def build_assessor() -> DeterministicRelationshipAssessor:
+    return DeterministicRelationshipAssessor(
+        policy=load_relationship_policy()
     )
 
 
@@ -167,17 +178,25 @@ def build_aggregate(
 
 def recent_temporal_value() -> TemporalValue:
     return TemporalValue(
-        timestamp=ASSESSED_AT
-        - timedelta(days=10),
-        semantics=TemporalSemantics.MESSAGE_TIME,
+        timestamp=(
+            ASSESSED_AT
+            - timedelta(days=10)
+        ),
+        semantics=(
+            TemporalSemantics.MESSAGE_TIME
+        ),
     )
 
 
 def old_temporal_value() -> TemporalValue:
     return TemporalValue(
-        timestamp=ASSESSED_AT
-        - timedelta(days=800),
-        semantics=TemporalSemantics.MESSAGE_TIME,
+        timestamp=(
+            ASSESSED_AT
+            - timedelta(days=800)
+        ),
+        semantics=(
+            TemporalSemantics.MESSAGE_TIME
+        ),
     )
 
 
@@ -189,12 +208,15 @@ def test_account_verification_establishes_relationship() -> None:
         last_observed=recent_temporal_value(),
     )
 
-    result = DeterministicRelationshipAssessor().assess(
+    result = build_assessor().assess(
         aggregate=aggregate,
         context=build_context(),
     )
 
-    assert result.processing_status == ProcessingStatus.SUCCESS
+    assert (
+        result.processing_status
+        == ProcessingStatus.SUCCESS
+    )
 
     assert (
         result.relationship_status
@@ -206,7 +228,10 @@ def test_account_verification_establishes_relationship() -> None:
         == TemporalStatus.CURRENTLY_OBSERVED
     )
 
-    assert result.method == AssessmentMethod.RULE
+    assert (
+        result.method
+        == AssessmentMethod.RULE
+    )
 
     assert result.reason_codes == (
         "ESTABLISHMENT_EVIDENCE_PRESENT",
@@ -222,7 +247,7 @@ def test_marketing_only_is_observed() -> None:
         last_observed=recent_temporal_value(),
     )
 
-    result = DeterministicRelationshipAssessor().assess(
+    result = build_assessor().assess(
         aggregate=aggregate,
         context=build_context(),
     )
@@ -237,7 +262,10 @@ def test_marketing_only_is_observed() -> None:
         == TemporalStatus.CURRENTLY_OBSERVED
     )
 
-    assert "COMMUNICATION_ONLY" in result.reason_codes
+    assert (
+        "COMMUNICATION_ONLY"
+        in result.reason_codes
+    )
 
 
 def test_newsletter_and_privacy_notice_remain_observed() -> None:
@@ -249,7 +277,7 @@ def test_newsletter_and_privacy_notice_remain_observed() -> None:
         last_observed=recent_temporal_value(),
     )
 
-    result = DeterministicRelationshipAssessor().assess(
+    result = build_assessor().assess(
         aggregate=aggregate,
         context=build_context(),
     )
@@ -269,7 +297,7 @@ def test_account_deletion_without_ongoing_activity_is_historical() -> None:
         last_observed=recent_temporal_value(),
     )
 
-    result = DeterministicRelationshipAssessor().assess(
+    result = build_assessor().assess(
         aggregate=aggregate,
         context=build_context(),
     )
@@ -299,7 +327,7 @@ def test_deletion_with_authentication_is_not_forced_historical() -> None:
         last_observed=recent_temporal_value(),
     )
 
-    result = DeterministicRelationshipAssessor().assess(
+    result = build_assessor().assess(
         aggregate=aggregate,
         context=build_context(),
     )
@@ -323,7 +351,7 @@ def test_old_evidence_is_not_automatically_historical() -> None:
         last_observed=old_temporal_value(),
     )
 
-    result = DeterministicRelationshipAssessor().assess(
+    result = build_assessor().assess(
         aggregate=aggregate,
         context=build_context(),
     )
@@ -352,7 +380,7 @@ def test_missing_temporal_information_returns_unknown() -> None:
         last_observed=None,
     )
 
-    result = DeterministicRelationshipAssessor().assess(
+    result = build_assessor().assess(
         aggregate=aggregate,
         context=build_context(),
     )
@@ -382,7 +410,7 @@ def test_user_rejection_overrides_automated_relationship_status() -> None:
         last_observed=recent_temporal_value(),
     )
 
-    result = DeterministicRelationshipAssessor().assess(
+    result = build_assessor().assess(
         aggregate=aggregate,
         context=build_context(
             user_rejected=True
@@ -426,26 +454,37 @@ def test_conflict_summary_produces_warning() -> None:
         conflict_summary=conflict_summary,
     )
 
-    result = DeterministicRelationshipAssessor().assess(
+    result = build_assessor().assess(
         aggregate=aggregate,
         context=build_context(),
     )
 
-    assert "CONFLICTING_EVIDENCE" in result.warnings
+    assert (
+        "CONFLICTING_EVIDENCE"
+        in result.warnings
+    )
 
 
 def test_incomplete_coverage_produces_warning() -> None:
     coverage_summary = CoverageSummary(
         configured_source_ids=(
-            ConnectedSourceId("source_gmail"),
-            ConnectedSourceId("source_outlook"),
+            ConnectedSourceId(
+                "source_gmail"
+            ),
+            ConnectedSourceId(
+                "source_outlook"
+            ),
         ),
         completed_source_ids=(
-            ConnectedSourceId("source_gmail"),
+            ConnectedSourceId(
+                "source_gmail"
+            ),
         ),
         partial_source_ids=(),
         failed_source_ids=(
-            ConnectedSourceId("source_outlook"),
+            ConnectedSourceId(
+                "source_outlook"
+            ),
         ),
         unavailable_source_ids=(),
     )
@@ -458,7 +497,7 @@ def test_incomplete_coverage_produces_warning() -> None:
         coverage_summary=coverage_summary,
     )
 
-    result = DeterministicRelationshipAssessor().assess(
+    result = build_assessor().assess(
         aggregate=aggregate,
         context=build_context(),
     )
@@ -471,9 +510,13 @@ def test_incomplete_coverage_produces_warning() -> None:
 
 def test_future_temporal_evidence_returns_unknown_with_warning() -> None:
     future_value = TemporalValue(
-        timestamp=ASSESSED_AT
-        + timedelta(days=1),
-        semantics=TemporalSemantics.MESSAGE_TIME,
+        timestamp=(
+            ASSESSED_AT
+            + timedelta(days=1)
+        ),
+        semantics=(
+            TemporalSemantics.MESSAGE_TIME
+        ),
     )
 
     aggregate = build_aggregate(
@@ -483,7 +526,7 @@ def test_future_temporal_evidence_returns_unknown_with_warning() -> None:
         last_observed=future_value,
     )
 
-    result = DeterministicRelationshipAssessor().assess(
+    result = build_assessor().assess(
         aggregate=aggregate,
         context=build_context(),
     )
@@ -505,7 +548,9 @@ def test_future_temporal_evidence_returns_unknown_with_warning() -> None:
 
 
 def test_assessment_preserves_service_and_evidence_basis() -> None:
-    service_id = ServiceId("service_spotify")
+    service_id = ServiceId(
+        "service_spotify"
+    )
 
     aggregate = build_aggregate(
         evidence_types=(
@@ -516,7 +561,7 @@ def test_assessment_preserves_service_and_evidence_basis() -> None:
         service_id=service_id,
     )
 
-    result = DeterministicRelationshipAssessor().assess(
+    result = build_assessor().assess(
         aggregate=aggregate,
         context=build_context(),
     )
@@ -533,7 +578,7 @@ def test_assessment_preserves_service_and_evidence_basis() -> None:
     )
 
 
-def test_assessor_versions_are_preserved() -> None:
+def test_policy_version_is_loaded_from_configuration() -> None:
     aggregate = build_aggregate(
         evidence_types=(
             EvidenceType.ACCOUNT_VERIFICATION,
@@ -543,18 +588,23 @@ def test_assessor_versions_are_preserved() -> None:
 
     context = RelationshipAssessmentContext(
         assessor_version="assessor_1.0",
-        assessment_policy_version="policy_1.0",
+        assessment_policy_version=(
+            "context-policy-value"
+        ),
         assessed_at=ASSESSED_AT,
     )
 
-    result = DeterministicRelationshipAssessor().assess(
+    result = build_assessor().assess(
         aggregate=aggregate,
         context=context,
     )
 
-    assert result.assessor_version == "assessor_1.0"
+    assert (
+        result.assessor_version
+        == "assessor_1.0"
+    )
 
     assert (
         result.assessment_policy_version
-        == "policy_1.0"
+        == "relationship-policy-1"
     )
