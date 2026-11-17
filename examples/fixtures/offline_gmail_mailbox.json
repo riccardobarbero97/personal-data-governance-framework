@@ -1,7 +1,8 @@
 {
   "fixture_name": "offline-gmail-discovery-validation",
   "synthetic_data": true,
-  "description": "Synthetic Gmail metadata used for offline validation of the Personal Data Governance Discovery Engine.",
+  "description": "Synthetic Gmail metadata used for deterministic offline validation of the Personal Data Governance Discovery Engine.",
+  "assessment_time": "2026-12-01T12:00:00+00:00",
   "messages": [
     {
       "message_id": "fixture_spotify_verification",
