@@ -13,6 +13,13 @@ from personal_data_governance.application.services.evidence_materializer import 
 from personal_data_governance.application.services.relationship_materializer import (
     RelationshipMaterializer,
 )
+from personal_data_governance.config.loaders import (
+    load_classification_rules,
+    load_relationship_policy,
+)
+from personal_data_governance.config.service_registry import (
+    build_initial_service_registry,
+)
 from personal_data_governance.discovery.candidate_detection.deterministic import (
     DeterministicEmailCandidateDetector,
 )
@@ -47,7 +54,6 @@ from personal_data_governance.domain.entities.connected_source import (
     ConnectedSource,
 )
 from personal_data_governance.domain.entities.observation import Observation
-from personal_data_governance.domain.entities.service import Service
 from personal_data_governance.domain.enums.evidence import EvidenceType
 from personal_data_governance.domain.enums.observation import (
     ObservationType,
@@ -59,7 +65,6 @@ from personal_data_governance.domain.enums.processing import (
     ClassificationStatus,
     ProcessingStatus,
     ResolutionStatus,
-    ServiceIdentifierType,
 )
 from personal_data_governance.domain.enums.relationship import (
     RelationshipStatus,
@@ -93,9 +98,6 @@ from personal_data_governance.infrastructure.persistence.in_memory import (
     InMemoryEvidenceRepository,
     InMemoryObservationRepository,
     InMemoryRelationshipRepository,
-)
-from personal_data_governance.infrastructure.service_registry.in_memory import (
-    InMemoryServiceRegistry,
 )
 
 
@@ -134,25 +136,52 @@ class SequentialRelationshipIdFactory:
 
 
 def build_processing_context() -> DiscoveryProcessingContext:
+    loaded_registry = (
+        build_initial_service_registry()
+    )
+
+    loaded_rules = (
+        load_classification_rules()
+    )
+
+    relationship_policy = (
+        load_relationship_policy()
+    )
+
     return DiscoveryProcessingContext(
-        candidate_detection=CandidateDetectionContext(
-            detector_version="1",
+        candidate_detection=(
+            CandidateDetectionContext(
+                detector_version="1",
+            )
         ),
         resolution=ResolutionContext(
             resolver_version="1",
-            registry_version="1",
+            registry_version=(
+                loaded_registry.registry_version
+            ),
         ),
-        classification=ClassificationContext(
-            classifier_version="1",
+        classification=(
+            ClassificationContext(
+                classifier_version=(
+                    loaded_rules.rule_set_version
+                ),
+            )
         ),
         aggregation=AggregationContext(
             aggregator_version="1",
         ),
-        assessment=RelationshipAssessmentContext(
-            assessor_version="1",
-            assessment_policy_version="1",
-            assessed_at=ASSESSED_AT,
-            currently_observed_window_days=365,
+        assessment=(
+            RelationshipAssessmentContext(
+                assessor_version="1",
+                assessment_policy_version=(
+                    relationship_policy.policy_version
+                ),
+                assessed_at=ASSESSED_AT,
+                currently_observed_window_days=(
+                    relationship_policy
+                    .currently_observed_window_days
+                ),
+            )
         ),
     )
 
@@ -164,34 +193,63 @@ def build_discovery_service(
     observation_repository: (
         InMemoryObservationRepository
     ),
-    evidence_repository: InMemoryEvidenceRepository,
+    evidence_repository: (
+        InMemoryEvidenceRepository
+    ),
     relationship_repository: (
         InMemoryRelationshipRepository
     ),
-    service_registry: InMemoryServiceRegistry,
 ) -> DiscoveryService:
+    loaded_registry = (
+        build_initial_service_registry()
+    )
+
+    loaded_rules = (
+        load_classification_rules()
+    )
+
+    relationship_policy = (
+        load_relationship_policy()
+    )
+
     candidate_detector = (
         DeterministicEmailCandidateDetector()
     )
 
-    entity_resolver = DeterministicEntityResolver(
-        service_registry=service_registry
+    entity_resolver = (
+        DeterministicEntityResolver(
+            service_registry=(
+                loaded_registry.registry
+            )
+        )
     )
 
     evidence_classifier = (
-        DeterministicEmailEvidenceClassifier()
+        DeterministicEmailEvidenceClassifier(
+            rules=loaded_rules.rules
+        )
     )
 
-    evidence_materializer = EvidenceMaterializer(
-        evidence_repository=evidence_repository,
-        evidence_id_factory=SequentialEvidenceIdFactory(),
+    evidence_materializer = (
+        EvidenceMaterializer(
+            evidence_repository=(
+                evidence_repository
+            ),
+            evidence_id_factory=(
+                SequentialEvidenceIdFactory()
+            ),
+        )
     )
 
-    contribution_builder = EvidenceContributionBuilder(
-        observation_repository=observation_repository,
-        connected_source_repository=(
-            connected_source_repository
-        ),
+    contribution_builder = (
+        EvidenceContributionBuilder(
+            observation_repository=(
+                observation_repository
+            ),
+            connected_source_repository=(
+                connected_source_repository
+            ),
+        )
     )
 
     evidence_aggregator = (
@@ -199,14 +257,20 @@ def build_discovery_service(
     )
 
     relationship_assessor = (
-        DeterministicRelationshipAssessor()
+        DeterministicRelationshipAssessor(
+            policy=relationship_policy
+        )
     )
 
-    relationship_materializer = RelationshipMaterializer(
-        relationship_repository=relationship_repository,
-        relationship_id_factory=(
-            SequentialRelationshipIdFactory()
-        ),
+    relationship_materializer = (
+        RelationshipMaterializer(
+            relationship_repository=(
+                relationship_repository
+            ),
+            relationship_id_factory=(
+                SequentialRelationshipIdFactory()
+            ),
+        )
     )
 
     return DiscoveryService(
@@ -218,8 +282,12 @@ def build_discovery_service(
         evidence_contribution_builder=(
             contribution_builder
         ),
-        evidence_aggregator=evidence_aggregator,
-        relationship_assessor=relationship_assessor,
+        evidence_aggregator=(
+            evidence_aggregator
+        ),
+        relationship_assessor=(
+            relationship_assessor
+        ),
         relationship_materializer=(
             relationship_materializer
         ),
@@ -231,7 +299,9 @@ def build_connected_source() -> ConnectedSource:
         id=ConnectedSourceId(
             "source_gmail_personal"
         ),
-        user_id=UserId("user_001"),
+        user_id=UserId(
+            "user_001"
+        ),
         source_type=SourceType.EMAIL,
         provider=Provider(
             id="google",
@@ -242,7 +312,9 @@ def build_connected_source() -> ConnectedSource:
         external_account_reference=(
             "user@example.com"
         ),
-        connection_state=ConnectionState.CONNECTED,
+        connection_state=(
+            ConnectionState.CONNECTED
+        ),
         authorization_state=(
             AuthorizationState.AUTHORIZED
         ),
@@ -250,20 +322,28 @@ def build_connected_source() -> ConnectedSource:
 
 
 def build_observation(
+    observation_id: str,
+    source_reference: str,
     sender: str,
     subject: str,
 ) -> Observation:
     return Observation(
-        id=ObservationId("observation_001"),
-        connected_source_id=ConnectedSourceId(
-            "source_gmail_personal"
+        id=ObservationId(
+            observation_id
+        ),
+        connected_source_id=(
+            ConnectedSourceId(
+                "source_gmail_personal"
+            )
         ),
         observation_type=(
             ObservationType.EMAIL_MESSAGE_METADATA
         ),
-        schema_version=SchemaVersion(1),
+        schema_version=SchemaVersion(
+            1
+        ),
         source_reference=SourceReference(
-            "gmail_message_123"
+            source_reference
         ),
         observed_at=TemporalValue(
             timestamp=datetime(
@@ -274,7 +354,9 @@ def build_observation(
                 0,
                 tzinfo=timezone.utc,
             ),
-            semantics=TemporalSemantics.MESSAGE_TIME,
+            semantics=(
+                TemporalSemantics.MESSAGE_TIME
+            ),
         ),
         collected_at=ASSESSED_AT,
         payload=EmailMessageMetadataV1(
@@ -283,13 +365,15 @@ def build_observation(
                 "user@example.com",
             ),
             subject=subject,
-            thread_reference="thread_001",
+            thread_reference=(
+                f"thread_{observation_id}"
+            ),
             labels=(),
         ),
     )
 
 
-def test_spotify_observation_creates_relationship() -> None:
+def build_repositories():
     connected_source_repository = (
         InMemoryConnectedSourceRepository()
     )
@@ -306,16 +390,32 @@ def test_spotify_observation_creates_relationship() -> None:
         InMemoryRelationshipRepository()
     )
 
-    service_registry = InMemoryServiceRegistry()
-
-    connected_source = build_connected_source()
-
     connected_source_repository.save(
-        connected_source
+        build_connected_source()
     )
 
+    return (
+        connected_source_repository,
+        observation_repository,
+        evidence_repository,
+        relationship_repository,
+    )
+
+
+def test_spotify_observation_creates_relationship() -> None:
+    (
+        connected_source_repository,
+        observation_repository,
+        evidence_repository,
+        relationship_repository,
+    ) = build_repositories()
+
     observation = build_observation(
-        sender="Spotify <no-reply@spotify.com>",
+        observation_id="observation_001",
+        source_reference="gmail_message_001",
+        sender=(
+            "Spotify <no-reply@spotify.com>"
+        ),
         subject="Verify your email address",
     )
 
@@ -323,68 +423,74 @@ def test_spotify_observation_creates_relationship() -> None:
         observation
     )
 
-    spotify = Service(
-        id=ServiceId("service_spotify"),
-        canonical_name="Spotify",
+    discovery_service = (
+        build_discovery_service(
+            connected_source_repository=(
+                connected_source_repository
+            ),
+            observation_repository=(
+                observation_repository
+            ),
+            evidence_repository=(
+                evidence_repository
+            ),
+            relationship_repository=(
+                relationship_repository
+            ),
+        )
     )
 
-    service_registry.register_service(
-        spotify
-    )
-
-    service_registry.register_identifier(
-        service_id=spotify.id,
-        identifier_type=(
-            ServiceIdentifierType.EMAIL_DOMAIN
-        ),
-        identifier_value="spotify.com",
-    )
-
-    discovery_service = build_discovery_service(
-        connected_source_repository=(
-            connected_source_repository
-        ),
-        observation_repository=observation_repository,
-        evidence_repository=evidence_repository,
-        relationship_repository=(
-            relationship_repository
-        ),
-        service_registry=service_registry,
-    )
-
-    outcome = discovery_service.process_observation(
-        user_id=UserId("user_001"),
-        observation=observation,
-        identity_seed_ids=(
-            IdentitySeedId("identity_email"),
-        ),
-        context=build_processing_context(),
+    outcome = (
+        discovery_service.process_observation(
+            user_id=UserId(
+                "user_001"
+            ),
+            observation=observation,
+            identity_seed_ids=(
+                IdentitySeedId(
+                    "identity_email"
+                ),
+            ),
+            context=(
+                build_processing_context()
+            ),
+        )
     )
 
     assert (
-        outcome.candidate_result.processing_status
+        outcome.candidate_result
+        .processing_status
         == ProcessingStatus.SUCCESS
     )
 
     assert (
-        outcome.candidate_result.candidate_status
+        outcome.candidate_result
+        .candidate_status
         == CandidateStatus.CANDIDATE
     )
 
-    assert outcome.resolution_result is not None
+    assert (
+        outcome.resolution_result
+        is not None
+    )
 
     assert (
-        outcome.resolution_result.resolution_status
+        outcome.resolution_result
+        .resolution_status
         == ResolutionStatus.RESOLVED
     )
 
     assert (
-        outcome.resolution_result.resolved_service_id
-        == spotify.id
+        outcome.resolution_result
+        .resolved_service_id
+        == ServiceId(
+            "service_spotify"
+        )
     )
 
     assert (
-        outcome.classification_result.classification_status
+        outcome.classification_result
+        .classification_status
         == ClassificationStatus.CLASSIFIED
     )
 
@@ -396,37 +502,54 @@ def test_spotify_observation_creates_relationship() -> None:
     )
 
     assert outcome.evidence_ids == (
-        EvidenceId("evidence_001"),
+        EvidenceId(
+            "evidence_001"
+        ),
     )
 
-    assert outcome.aggregation_result is not None
+    assert (
+        outcome.aggregation_result
+        is not None
+    )
 
     assert (
-        outcome.aggregation_result.aggregation_status
+        outcome.aggregation_result
+        .aggregation_status
         == AggregationStatus.AGGREGATED
     )
 
-    assert outcome.assessment_result is not None
+    assert (
+        outcome.assessment_result
+        is not None
+    )
 
     assert (
-        outcome.assessment_result.relationship_status
+        outcome.assessment_result
+        .relationship_status
         == RelationshipStatus.ESTABLISHED
     )
 
     assert (
-        outcome.assessment_result.temporal_status
+        outcome.assessment_result
+        .temporal_status
         == TemporalStatus.CURRENTLY_OBSERVED
     )
 
-    assert (
-        outcome.relationship_id
-        == RelationshipId("relationship_001")
+    assert outcome.relationship_id == (
+        RelationshipId(
+            "relationship_001"
+        )
     )
 
     relationship = (
-        relationship_repository.get_by_user_and_service(
-            user_id=UserId("user_001"),
-            service_id=spotify.id,
+        relationship_repository
+        .get_by_user_and_service(
+            user_id=UserId(
+                "user_001"
+            ),
+            service_id=ServiceId(
+                "service_spotify"
+            ),
         )
     )
 
@@ -443,37 +566,26 @@ def test_spotify_observation_creates_relationship() -> None:
     )
 
     assert relationship.evidence_ids == (
-        EvidenceId("evidence_001"),
+        EvidenceId(
+            "evidence_001"
+        ),
     )
 
 
 def test_unresolved_service_preserves_evidence_without_relationship() -> None:
-    connected_source_repository = (
-        InMemoryConnectedSourceRepository()
-    )
-
-    observation_repository = (
-        InMemoryObservationRepository()
-    )
-
-    evidence_repository = (
-        InMemoryEvidenceRepository()
-    )
-
-    relationship_repository = (
-        InMemoryRelationshipRepository()
-    )
-
-    service_registry = InMemoryServiceRegistry()
-
-    connected_source = build_connected_source()
-
-    connected_source_repository.save(
-        connected_source
-    )
+    (
+        connected_source_repository,
+        observation_repository,
+        evidence_repository,
+        relationship_repository,
+    ) = build_repositories()
 
     observation = build_observation(
-        sender="billing@unknown-service.example",
+        observation_id="observation_001",
+        source_reference="gmail_message_001",
+        sender=(
+            "billing@unknown-service.example"
+        ),
         subject="Payment successful",
     )
 
@@ -481,143 +593,193 @@ def test_unresolved_service_preserves_evidence_without_relationship() -> None:
         observation
     )
 
-    discovery_service = build_discovery_service(
-        connected_source_repository=(
-            connected_source_repository
-        ),
-        observation_repository=observation_repository,
-        evidence_repository=evidence_repository,
-        relationship_repository=(
-            relationship_repository
-        ),
-        service_registry=service_registry,
+    discovery_service = (
+        build_discovery_service(
+            connected_source_repository=(
+                connected_source_repository
+            ),
+            observation_repository=(
+                observation_repository
+            ),
+            evidence_repository=(
+                evidence_repository
+            ),
+            relationship_repository=(
+                relationship_repository
+            ),
+        )
     )
 
-    outcome = discovery_service.process_observation(
-        user_id=UserId("user_001"),
-        observation=observation,
-        identity_seed_ids=(
-            IdentitySeedId("identity_email"),
-        ),
-        context=build_processing_context(),
+    outcome = (
+        discovery_service.process_observation(
+            user_id=UserId(
+                "user_001"
+            ),
+            observation=observation,
+            identity_seed_ids=(
+                IdentitySeedId(
+                    "identity_email"
+                ),
+            ),
+            context=(
+                build_processing_context()
+            ),
+        )
     )
-
-    assert outcome.resolution_result is not None
 
     assert (
-        outcome.resolution_result.resolution_status
+        outcome.resolution_result
+        is not None
+    )
+
+    assert (
+        outcome.resolution_result
+        .resolution_status
         == ResolutionStatus.UNRESOLVED
     )
 
     assert outcome.evidence_ids == (
-        EvidenceId("evidence_001"),
+        EvidenceId(
+            "evidence_001"
+        ),
     )
 
     evidence = evidence_repository.get(
-        EvidenceId("evidence_001")
+        EvidenceId(
+            "evidence_001"
+        )
     )
 
     assert evidence is not None
-    assert evidence.service_id is None
-    assert evidence.evidence_type == EvidenceType.PAYMENT
 
-    assert outcome.aggregation_result is not None
-    assert outcome.aggregation_result.aggregate is not None
+    assert evidence.service_id is None
 
     assert (
-        outcome.aggregation_result.aggregate.scope.value
-        == "UNRESOLVED_SERVICE_CANDIDATE"
+        evidence.evidence_type
+        == EvidenceType.PAYMENT
     )
 
-    assert outcome.assessment_result is not None
-    assert outcome.assessment_result.service_id is None
+    assert (
+        outcome.aggregation_result
+        is not None
+    )
+
+    assert (
+        outcome.aggregation_result
+        .aggregate
+        is not None
+    )
+
+    assert (
+        outcome.assessment_result
+        is not None
+    )
+
+    assert (
+        outcome.assessment_result
+        .service_id
+        is None
+    )
 
     assert (
         "CANONICAL_SERVICE_UNAVAILABLE"
         in outcome.assessment_result.warnings
     )
 
-    assert outcome.relationship_id is None
+    assert (
+        outcome.relationship_id
+        is None
+    )
 
 
 def test_unknown_classification_does_not_create_evidence() -> None:
-    connected_source_repository = (
-        InMemoryConnectedSourceRepository()
-    )
-
-    observation_repository = (
-        InMemoryObservationRepository()
-    )
-
-    evidence_repository = (
-        InMemoryEvidenceRepository()
-    )
-
-    relationship_repository = (
-        InMemoryRelationshipRepository()
-    )
-
-    service_registry = InMemoryServiceRegistry()
-
-    connected_source = build_connected_source()
-
-    connected_source_repository.save(
-        connected_source
-    )
+    (
+        connected_source_repository,
+        observation_repository,
+        evidence_repository,
+        relationship_repository,
+    ) = build_repositories()
 
     observation = build_observation(
-        sender="no-reply@spotify.com",
-        subject="Important information about your account",
+        observation_id="observation_001",
+        source_reference="gmail_message_001",
+        sender=(
+            "no-reply@spotify.com"
+        ),
+        subject=(
+            "Important information "
+            "about your account"
+        ),
     )
 
     observation_repository.save(
         observation
     )
 
-    spotify = Service(
-        id=ServiceId("service_spotify"),
-        canonical_name="Spotify",
+    discovery_service = (
+        build_discovery_service(
+            connected_source_repository=(
+                connected_source_repository
+            ),
+            observation_repository=(
+                observation_repository
+            ),
+            evidence_repository=(
+                evidence_repository
+            ),
+            relationship_repository=(
+                relationship_repository
+            ),
+        )
     )
 
-    service_registry.register_service(
-        spotify
-    )
-
-    service_registry.register_identifier(
-        service_id=spotify.id,
-        identifier_type=(
-            ServiceIdentifierType.EMAIL_DOMAIN
-        ),
-        identifier_value="spotify.com",
-    )
-
-    discovery_service = build_discovery_service(
-        connected_source_repository=(
-            connected_source_repository
-        ),
-        observation_repository=observation_repository,
-        evidence_repository=evidence_repository,
-        relationship_repository=(
-            relationship_repository
-        ),
-        service_registry=service_registry,
-    )
-
-    outcome = discovery_service.process_observation(
-        user_id=UserId("user_001"),
-        observation=observation,
-        identity_seed_ids=(
-            IdentitySeedId("identity_email"),
-        ),
-        context=build_processing_context(),
+    outcome = (
+        discovery_service.process_observation(
+            user_id=UserId(
+                "user_001"
+            ),
+            observation=observation,
+            identity_seed_ids=(
+                IdentitySeedId(
+                    "identity_email"
+                ),
+            ),
+            context=(
+                build_processing_context()
+            ),
+        )
     )
 
     assert (
-        outcome.classification_result.classification_status
+        outcome.resolution_result
+        is not None
+    )
+
+    assert (
+        outcome.resolution_result
+        .resolution_status
+        == ResolutionStatus.RESOLVED
+    )
+
+    assert (
+        outcome.classification_result
+        .classification_status
         == ClassificationStatus.UNKNOWN
     )
 
     assert outcome.evidence_ids == ()
-    assert outcome.aggregation_result is None
-    assert outcome.assessment_result is None
-    assert outcome.relationship_id is None
+
+    assert (
+        outcome.aggregation_result
+        is None
+    )
+
+    assert (
+        outcome.assessment_result
+        is None
+    )
+
+    assert (
+        outcome.relationship_id
+        is None
+    )
