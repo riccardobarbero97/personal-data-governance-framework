@@ -547,13 +547,11 @@ def _load_evidence_type_set(
 
     if not raw_values:
         raise ValueError(
-            ."
+            "relationship_policy."
             f"{field_name} must not be empty."
         )
 
-    evidence_types: set[
-        EvidenceType
-    ] = set()
+    evidence_types: set[EvidenceType] = set()
 
     for raw_value in raw_values:
         if (
