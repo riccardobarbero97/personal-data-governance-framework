@@ -24,6 +24,8 @@ classifiers = [
     "Programming Language :: Python :: 3.13",
 ]
 
+[project.scripts]
+pdgf = "personal_data_governance.cli:main"
 
 [project.optional-dependencies]
 dev = [
