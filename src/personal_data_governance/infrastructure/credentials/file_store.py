@@ -54,6 +54,10 @@ class FileCredentialStore(CredentialStore):
             exist_ok=True,
         )
 
+        safe_identifier = self._safe_file_name(
+            connected_source_id.value
+        )
+
         token_path = self._token_path(
             connected_source_id
         )
@@ -62,7 +66,7 @@ class FileCredentialStore(CredentialStore):
             mode="w",
             encoding="utf-8",
             dir=self._root_directory,
-            prefix=f"{connected_source_id.value}_",
+            prefix=f"{safe_identifier}_",
             suffix=".tmp",
             delete=False,
         ) as temporary_file:
