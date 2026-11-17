@@ -28,6 +28,7 @@ classifiers = [
 [project.scripts]
 pdgf = "personal_data_governance.cli:main"
 pdgf-offline = "personal_data_governance.offline_cli:main"
+pdgf-config = "personal_data_governance.config_cli:main"
 
 
 [project.optional-dependencies]
