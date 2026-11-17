@@ -8,6 +8,9 @@ from personal_data_governance.application.ports.connector import (
 from personal_data_governance.application.results.discovery import (
     DiscoveryOutcome,
 )
+from personal_data_governance.application.services.configuration_validator import (
+    ConfigurationValidator,
+)
 from personal_data_governance.application.services.discovery_service import (
     DiscoveryProcessingContext,
     DiscoveryService,
@@ -100,7 +103,8 @@ class GmailVerticalRunnerConfiguration:
     def __post_init__(self) -> None:
         if not self.account_reference.strip():
             raise ValueError(
-                "Gmail account reference must not be empty."
+                "Gmail account reference "
+                "must not be empty."
             )
 
         if self.message_limit < 1:
@@ -118,7 +122,10 @@ class GmailVerticalRunnerConfiguration:
 class GmailVerticalRunResult:
     collection_status: str
     collected_observation_count: int
-    outcomes: tuple[DiscoveryOutcome, ...]
+    outcomes: tuple[
+        DiscoveryOutcome,
+        ...,
+    ]
 
 
 class GmailVerticalRunner:
@@ -131,6 +138,8 @@ class GmailVerticalRunner:
     def run(
         self,
     ) -> GmailVerticalRunResult:
+        self._validate_configuration()
+
         user_id = UserId(
             "user_local"
         )
@@ -139,21 +148,31 @@ class GmailVerticalRunner:
             "identity_primary_email"
         )
 
-        connected_source_id = ConnectedSourceId(
-            "source_gmail_personal"
+        connected_source_id = (
+            ConnectedSourceId(
+                "source_gmail_personal"
+            )
         )
 
-        credential_store = FileCredentialStore(
-            root_directory=(
-                self._configuration.token_directory
+        credential_store = (
+            FileCredentialStore(
+                root_directory=(
+                    self._configuration
+                    .token_directory
+                )
             )
         )
 
         api_client = GoogleGmailApiClient(
-            connected_source_id=connected_source_id,
-            credential_store=credential_store,
+            connected_source_id=(
+                connected_source_id
+            ),
+            credential_store=(
+                credential_store
+            ),
             client_secrets_file=(
-                self._configuration.client_secrets_file
+                self._configuration
+                .client_secrets_file
             ),
         )
 
@@ -171,9 +190,12 @@ class GmailVerticalRunner:
             connector_id="gmail",
             display_name="Personal Gmail",
             external_account_reference=(
-                self._configuration.account_reference
+                self._configuration
+                .account_reference
             ),
-            connection_state=ConnectionState.CONNECTED,
+            connection_state=(
+                ConnectionState.CONNECTED
+            ),
             authorization_state=(
                 AuthorizationState.AUTHORIZED
             ),
@@ -203,10 +225,6 @@ class GmailVerticalRunner:
             build_initial_service_registry()
         )
 
-        service_registry = (
-            loaded_registry.registry
-        )
-
         loaded_rules = (
             load_classification_rules()
         )
@@ -216,7 +234,7 @@ class GmailVerticalRunner:
         )
 
         gmail_connector = GmailConnector(
-            api_client=api_client,
+            api_client=api_client
         )
 
         discovery_service = DiscoveryService(
@@ -225,7 +243,9 @@ class GmailVerticalRunner:
             ),
             entity_resolver=(
                 DeterministicEntityResolver(
-                    service_registry=service_registry
+                    service_registry=(
+                        loaded_registry.registry
+                    )
                 )
             ),
             evidence_classifier=(
@@ -233,12 +253,16 @@ class GmailVerticalRunner:
                     rules=loaded_rules.rules
                 )
             ),
-            evidence_materializer=EvidenceMaterializer(
-                evidence_repository=(
-                    evidence_repository
+            evidence_materializer=(
+                EvidenceMaterializer(
+                    evidence_repository=(
+                        evidence_repository
+                    )
                 )
             ),
-            evidence_repository=evidence_repository,
+            evidence_repository=(
+                evidence_repository
+            ),
             evidence_contribution_builder=(
                 EvidenceContributionBuilder(
                     observation_repository=(
@@ -268,13 +292,47 @@ class GmailVerticalRunner:
 
         collection_result = gmail_connector.collect(
             CollectionRequest(
-                connected_source_id=connected_source_id,
+                connected_source_id=(
+                    connected_source_id
+                ),
                 capability=(
                     SERVICE_DISCOVERY_METADATA
                 ),
                 continuation=None,
                 limit=(
-                    self._configuration.message_limit
+                    self._configuration
+                    .message_limit
+                ),
+            )
+        )
+
+        if collection_result.status == "FAILED":
+            error_summary = "; ".join(
+                collection_result.errors
+            )
+
+            raise RuntimeError(
+                "Gmail collection failed: "
+                f"{error_summary}"
+            )
+
+        processing_context = (
+            self._build_processing_context(
+                registry_version=(
+                    loaded_registry
+                    .registry_version
+                ),
+                rule_set_version=(
+                    loaded_rules
+                    .rule_set_version
+                ),
+                policy_version=(
+                    relationship_policy
+                    .policy_version
+                ),
+                currently_observed_window_days=(
+                    relationship_policy
+                    .currently_observed_window_days
                 ),
             )
         )
@@ -313,58 +371,19 @@ class GmailVerticalRunner:
                     observation
                 )
 
-            assessed_at = datetime.now(
-                timezone.utc
-            )
-
-            context = DiscoveryProcessingContext(
-                candidate_detection=(
-                    CandidateDetectionContext(
-                        detector_version="1",
-                    )
-                ),
-                resolution=ResolutionContext(
-                    resolver_version="1",
-                    registry_version=(
-                        loaded_registry
-                        .registry_version
-                    ),
-                ),
-                classification=(
-                    ClassificationContext(
-                        classifier_version=(
-                            loaded_rules
-                            .rule_set_version
-                        ),
-                    )
-                ),
-                aggregation=AggregationContext(
-                    aggregator_version="1",
-                ),
-                assessment=(
-                    RelationshipAssessmentContext(
-                        assessor_version="1",
-                        assessment_policy_version=(
-                            relationship_policy
-                            .policy_version
-                        ),
-                        assessed_at=assessed_at,
-                        currently_observed_window_days=(
-                            relationship_policy
-                            .currently_observed_window_days
-                        ),
-                    )
-                ),
-            )
-
             outcome = (
-                discovery_service.process_observation(
+                discovery_service
+                .process_observation(
                     user_id=user_id,
-                    observation=effective_observation,
+                    observation=(
+                        effective_observation
+                    ),
                     identity_seed_ids=(
                         identity_seed_id,
                     ),
-                    context=context,
+                    context=(
+                        processing_context
+                    ),
                 )
             )
 
@@ -377,9 +396,86 @@ class GmailVerticalRunner:
                 collection_result.status
             ),
             collected_observation_count=len(
-                collection_result.observations
+                collection_result
+                .observations
             ),
             outcomes=tuple(
                 outcomes
+            ),
+        )
+
+    @staticmethod
+    def _validate_configuration() -> None:
+        validation_result = (
+            ConfigurationValidator()
+            .validate()
+        )
+
+        if validation_result.valid:
+            return
+
+        error_summary = "; ".join(
+            validation_result.errors
+        )
+
+        if not error_summary:
+            error_summary = (
+                "Unknown configuration error."
+            )
+
+        raise ValueError(
+            "Discovery configuration "
+            "is invalid: "
+            f"{error_summary}"
+        )
+
+    @staticmethod
+    def _build_processing_context(
+        registry_version: str,
+        rule_set_version: str,
+        policy_version: str,
+        currently_observed_window_days: int,
+    ) -> DiscoveryProcessingContext:
+        assessed_at = datetime.now(
+            timezone.utc
+        )
+
+        return DiscoveryProcessingContext(
+            candidate_detection=(
+                CandidateDetectionContext(
+                    detector_version="1",
+                )
+            ),
+            resolution=(
+                ResolutionContext(
+                    resolver_version="1",
+                    registry_version=(
+                        registry_version
+                    ),
+                )
+            ),
+            classification=(
+                ClassificationContext(
+                    classifier_version=(
+                        rule_set_version
+                    ),
+                )
+            ),
+            aggregation=(
+                AggregationContext(
+                    aggregator_version="1",
+                )
+            ),
+            assessment=(
+                RelationshipAssessmentContext(
+                    assessor_version="1",
+                    assessment_policy_version=(
+                        policy_version
+                    ),
+                    assessed_at=assessed_at,
+                    currently_observed_window_days=(
+                        currently_observed_window_days
+                    ),
+                )
             ),
         )
