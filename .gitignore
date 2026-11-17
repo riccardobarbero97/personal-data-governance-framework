@@ -52,3 +52,11 @@ Thumbs.db
 # Generated Discovery reports
 discovery-report.json
 discovery-report-*.json
+
+# Local PDGF state
+.pdgf/
+*.db
+*.db-shm
+*.db-wal
+*.sqlite
+*.sqlite3
