@@ -151,10 +151,17 @@ class DeterministicEntityResolver(EntityResolver):
         normalized_identifiers: tuple[ServiceIdentifier, ...],
     ) -> ResolutionMethod:
         normalization_changed_value = any(
-            DeterministicEntityResolver._effective_input_value(
-                input_identifier
+            (
+                input_identifier.normalized_value is not None
+                and (
+                    input_identifier.normalized_value
+                    != input_identifier.original_value
+                )
             )
-            != normalized_identifier.normalized_value
+            or (
+                normalized_identifier.normalized_value
+                != input_identifier.original_value
+            )
             for (
                 input_identifier,
                 normalized_identifier,
