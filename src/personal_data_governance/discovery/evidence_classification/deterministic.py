@@ -172,17 +172,22 @@ DEFAULT_SUBJECT_RULES: tuple[SubjectClassificationRule, ...] = (
         ),
         priority=90,
     ),
-    SubjectClassificationRule(
+        SubjectClassificationRule(
         rule_id="SUBSCRIPTION_SUBJECT",
         evidence_type=EvidenceType.SUBSCRIPTION,
         patterns=(
             r"\bsubscription confirmed\b",
             r"\bsubscription confirmation\b",
             r"\bsubscription renewed\b",
+            r"\bsubscription has been renewed\b",
+            r"\byour subscription has been renewed\b",
             r"\bsubscription renewal\b",
             r"\bsubscription cancelled\b",
             r"\bsubscription canceled\b",
+            r"\bsubscription has been cancelled\b",
+            r"\bsubscription has been canceled\b",
             r"\bmembership renewed\b",
+            r"\bmembership has been renewed\b",
             r"\bmembership activated\b",
         ),
         priority=100,
