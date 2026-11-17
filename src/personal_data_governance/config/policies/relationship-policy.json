@@ -1,0 +1,32 @@
+{
+  "schema_version": 1,
+  "policy_version": "relationship-policy-1",
+  "currently_observed_window_days": 365,
+  "establishment_evidence_types": [
+    "ACCOUNT_CREATION",
+    "ACCOUNT_VERIFICATION",
+    "AUTHENTICATION",
+    "PASSWORD_RESET",
+    "SECURITY_NOTIFICATION",
+    "PURCHASE",
+    "INVOICE",
+    "SUBSCRIPTION",
+    "PAYMENT",
+    "ACCOUNT_UPDATE",
+    "ACCOUNT_DELETION"
+  ],
+  "observed_communication_evidence_types": [
+    "MARKETING",
+    "NEWSLETTER",
+    "PRIVACY_NOTICE"
+  ],
+  "ongoing_activity_evidence_types": [
+    "AUTHENTICATION",
+    "PASSWORD_RESET",
+    "SECURITY_NOTIFICATION",
+    "PAYMENT",
+    "SUBSCRIPTION",
+    "ACCOUNT_UPDATE"
+  ],
+  "deletion_evidence_type": "ACCOUNT_DELETION"
+}
