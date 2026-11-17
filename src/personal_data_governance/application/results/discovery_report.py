@@ -25,6 +25,38 @@ class DiscoveryReportEntry:
 
 
 @dataclass(frozen=True, slots=True)
+class DiscoveryRelationshipEvidence:
+    evidence_type: str
+    evidence_count: int
+
+
+@dataclass(frozen=True, slots=True)
+class DiscoveryRelationship:
+    service_id: str
+    service_name: str
+    relationship_id: str
+    relationship_status: str
+    temporal_status: str
+    evidence_count: int
+    evidence: tuple[
+        DiscoveryRelationshipEvidence,
+        ...,
+    ]
+    observation_ids: tuple[str, ...]
+    reason_codes: tuple[str, ...]
+    warnings: tuple[str, ...]
+
+
+@dataclass(frozen=True, slots=True)
+class UnresolvedDiscovery:
+    identifiers: tuple[str, ...]
+    evidence_types: tuple[str, ...]
+    observation_ids: tuple[str, ...]
+    reason_codes: tuple[str, ...]
+    warnings: tuple[str, ...]
+
+
+@dataclass(frozen=True, slots=True)
 class DiscoveryReportSummary:
     observation_count: int
     candidate_count: int
@@ -43,7 +75,18 @@ class DiscoveryReport:
     source_mode: str
     synthetic_data: bool
     summary: DiscoveryReportSummary
-    entries: tuple[DiscoveryReportEntry, ...]
+    relationships: tuple[
+        DiscoveryRelationship,
+        ...,
+    ]
+    unresolved_discoveries: tuple[
+        UnresolvedDiscovery,
+        ...,
+    ]
+    entries: tuple[
+        DiscoveryReportEntry,
+        ...,
+    ]
 
     def __post_init__(self) -> None:
         if self.schema_version < 1:
