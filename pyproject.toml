@@ -9,7 +9,7 @@ version = "0.1.0"
 description = "Privacy-first framework for discovering and governing an individual's observed digital footprint."
 readme = "README.md"
 requires-python = ">=3.11"
-license = { text = "License terms to be finalized before public release." }
+license = { text = "Apache-2.0" }
 
 authors = [
     { name = "Riccardo Barbero" }
@@ -17,6 +17,7 @@ authors = [
 
 classifiers = [
     "Development Status :: 2 - Pre-Alpha",
+    "License :: OSI Approved :: Apache Software License",
     "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
@@ -27,6 +28,13 @@ classifiers = [
 [project.optional-dependencies]
 dev = [
     "pytest>=8,<10",
+]
+
+gmail = [
+    "google-api-python-client>=2,<3",
+    "google-auth>=2,<3",
+    "google-auth-httplib2>=0.2,<1",
+    "google-auth-oauthlib>=1.2,<2",
 ]
 
 
