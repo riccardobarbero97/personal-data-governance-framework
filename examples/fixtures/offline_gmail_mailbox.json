@@ -1,0 +1,218 @@
+{
+  "fixture_name": "offline-gmail-discovery-validation",
+  "synthetic_data": true,
+  "description": "Synthetic Gmail metadata used for offline validation of the Personal Data Governance Discovery Engine.",
+  "messages": [
+    {
+      "message_id": "fixture_spotify_verification",
+      "thread_id": "thread_spotify_account",
+      "internal_date_milliseconds": 1794700800000,
+      "label_ids": [
+        "INBOX",
+        "CATEGORY_UPDATES"
+      ],
+      "headers": [
+        {
+          "name": "From",
+          "value": "Spotify <no-reply@spotify.com>"
+        },
+        {
+          "name": "To",
+          "value": "User <user@example.com>"
+        },
+        {
+          "name": "Subject",
+          "value": "Verify your email address"
+        }
+      ]
+    },
+    {
+      "message_id": "fixture_netflix_password_reset",
+      "thread_id": "thread_netflix_security",
+      "internal_date_milliseconds": 1794787200000,
+      "label_ids": [
+        "INBOX",
+        "CATEGORY_UPDATES"
+      ],
+      "headers": [
+        {
+          "name": "From",
+          "value": "Netflix <info@netflix.com>"
+        },
+        {
+          "name": "To",
+          "value": "user@example.com"
+        },
+        {
+          "name": "Subject",
+          "value": "Reset your password"
+        }
+      ]
+    },
+    {
+      "message_id": "fixture_github_security_alert",
+      "thread_id": "thread_github_security",
+      "internal_date_milliseconds": 1794873600000,
+      "label_ids": [
+        "INBOX",
+        "IMPORTANT"
+      ],
+      "headers": [
+        {
+          "name": "From",
+          "value": "GitHub <noreply@github.com>"
+        },
+        {
+          "name": "To",
+          "value": "user@example.com"
+        },
+        {
+          "name": "Subject",
+          "value": "Security alert: new sign-in detected"
+        }
+      ]
+    },
+    {
+      "message_id": "fixture_linkedin_marketing",
+      "thread_id": "thread_linkedin_marketing",
+      "internal_date_milliseconds": 1794960000000,
+      "label_ids": [
+        "INBOX",
+        "CATEGORY_PROMOTIONS"
+      ],
+      "headers": [
+        {
+          "name": "From",
+          "value": "LinkedIn <messages@linkedin.com>"
+        },
+        {
+          "name": "To",
+          "value": "user@example.com"
+        },
+        {
+          "name": "Subject",
+          "value": "Exclusive offer: save 20%"
+        }
+      ]
+    },
+    {
+      "message_id": "fixture_dropbox_newsletter",
+      "thread_id": "thread_dropbox_newsletter",
+      "internal_date_milliseconds": 1795046400000,
+      "label_ids": [
+        "INBOX",
+        "CATEGORY_PROMOTIONS"
+      ],
+      "headers": [
+        {
+          "name": "From",
+          "value": "Dropbox <no-reply@dropbox.com>"
+        },
+        {
+          "name": "To",
+          "value": "user@example.com"
+        },
+        {
+          "name": "Subject",
+          "value": "Your weekly newsletter"
+        }
+      ]
+    },
+    {
+      "message_id": "fixture_unknown_payment",
+      "thread_id": "thread_unknown_payment",
+      "internal_date_milliseconds": 1795132800000,
+      "label_ids": [
+        "INBOX",
+        "CATEGORY_UPDATES"
+      ],
+      "headers": [
+        {
+          "name": "From",
+          "value": "Unknown Billing <billing@unknown-service.example>"
+        },
+        {
+          "name": "To",
+          "value": "user@example.com"
+        },
+        {
+          "name": "Subject",
+          "value": "Payment successful"
+        }
+      ]
+    },
+    {
+      "message_id": "fixture_personal_gmail_sender",
+      "thread_id": "thread_personal_message",
+      "internal_date_milliseconds": 1795219200000,
+      "label_ids": [
+        "INBOX",
+        "CATEGORY_PERSONAL"
+      ],
+      "headers": [
+        {
+          "name": "From",
+          "value": "Example Person <example.person@gmail.com>"
+        },
+        {
+          "name": "To",
+          "value": "user@example.com"
+        },
+        {
+          "name": "Subject",
+          "value": "Hello from a friend"
+        }
+      ]
+    },
+    {
+      "message_id": "fixture_spotify_unknown_subject",
+      "thread_id": "thread_spotify_information",
+      "internal_date_milliseconds": 1795305600000,
+      "label_ids": [
+        "INBOX",
+        "CATEGORY_UPDATES"
+      ],
+      "headers": [
+        {
+          "name": "From",
+          "value": "Spotify <no-reply@spotify.com>"
+        },
+        {
+          "name": "To",
+          "value": "user@example.com"
+        },
+        {
+          "name": "Subject",
+          "value": "Important information about your account"
+        }
+      ]
+    },
+    {
+      "message_id": "fixture_spotify_payment",
+      "thread_id": "thread_spotify_payment",
+      "internal_date_milliseconds": 1795392000000,
+      "label_ids": [
+        "INBOX",
+        "CATEGORY_UPDATES"
+      ],
+      "headers": [
+        {
+          "name": "From",
+          "value": "Spotify <no-reply@spotify.com>"
+        },
+        {
+          "name": "To",
+          "value": "user@example.com"
+        },
+        {
+          "name": "Cc",
+          "value": "Secondary User <secondary@example.com>"
+        },
+        {
+          "name": "Subject",
+          "value": "Your payment was successful"
+        }
+      ]
+    }
+  ]
+}
