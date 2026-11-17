@@ -24,9 +24,11 @@ classifiers = [
     "Programming Language :: Python :: 3.13",
 ]
 
+
 [project.scripts]
 pdgf = "personal_data_governance.cli:main"
 pdgf-offline = "personal_data_governance.offline_cli:main"
+
 
 [project.optional-dependencies]
 dev = [
@@ -43,6 +45,14 @@ gmail = [
 
 [tool.setuptools.packages.find]
 where = ["src"]
+
+
+[tool.setuptools.package-data]
+personal_data_governance = [
+    "config/services/*.json",
+    "config/rules/*.json",
+    "config/policies/*.json",
+]
 
 
 [tool.pytest.ini_options]
