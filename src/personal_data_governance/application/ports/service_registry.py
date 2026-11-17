@@ -12,7 +12,7 @@ class ServiceRegistry(Protocol):
     def resolve(
         self,
         identifier: ServiceIdentifier,
-    ) -> tuple[Service, ...\]:
+    ) -> tuple[Service, ...]:
         ...
 
     def get(
