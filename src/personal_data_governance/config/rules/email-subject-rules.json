@@ -1,0 +1,201 @@
+{
+  "schema_version": 1,
+  "rule_set_version": "email-subject-rules-1",
+  "rules": [
+    {
+      "rule_id": "ACCOUNT_DELETION_SUBJECT",
+      "evidence_type": "ACCOUNT_DELETION",
+      "priority": 10,
+      "patterns": [
+        "\\baccount deletion\\b",
+        "\\bdelete your account\\b",
+        "\\baccount has been deleted\\b",
+        "\\baccount was deleted\\b",
+        "\\baccount closure\\b",
+        "\\baccount has been closed\\b"
+      ]
+    },
+    {
+      "rule_id": "PASSWORD_RESET_SUBJECT",
+      "evidence_type": "PASSWORD_RESET",
+      "priority": 20,
+      "patterns": [
+        "\\breset your password\\b",
+        "\\bpassword reset\\b",
+        "\\bforgot your password\\b",
+        "\\bchange your password\\b",
+        "\\bpassword recovery\\b"
+      ]
+    },
+    {
+      "rule_id": "ACCOUNT_VERIFICATION_SUBJECT",
+      "evidence_type": "ACCOUNT_VERIFICATION",
+      "priority": 30,
+      "patterns": [
+        "\\bverify your email\\b",
+        "\\bverify your email address\\b",
+        "\\bconfirm your email\\b",
+        "\\bconfirm your email address\\b",
+        "\\bemail verification\\b",
+        "\\bverification email\\b",
+        "\\bactivate your account\\b"
+      ]
+    },
+    {
+      "rule_id": "SECURITY_NOTIFICATION_SUBJECT",
+      "evidence_type": "SECURITY_NOTIFICATION",
+      "priority": 40,
+      "patterns": [
+        "\\bsecurity alert\\b",
+        "\\bsecurity notification\\b",
+        "\\bsuspicious activity\\b",
+        "\\bunusual activity\\b",
+        "\\bnew login detected\\b",
+        "\\bnew sign-in\\b",
+        "\\bnew sign in\\b",
+        "\\bsecurity warning\\b"
+      ]
+    },
+    {
+      "rule_id": "AUTHENTICATION_SUBJECT",
+      "evidence_type": "AUTHENTICATION",
+      "priority": 50,
+      "patterns": [
+        "\\bsign-in code\\b",
+        "\\bsign in code\\b",
+        "\\blogin code\\b",
+        "\\bone-time code\\b",
+        "\\bone time code\\b",
+        "\\bverification code\\b",
+        "\\bauthentication code\\b"
+      ]
+    },
+    {
+      "rule_id": "ACCOUNT_CREATION_SUBJECT",
+      "evidence_type": "ACCOUNT_CREATION",
+      "priority": 60,
+      "patterns": [
+        "\\bwelcome to\\b",
+        "\\byour account has been created\\b",
+        "\\baccount created\\b",
+        "\\bregistration complete\\b",
+        "\\bthanks for signing up\\b",
+        "\\bthank you for signing up\\b"
+      ]
+    },
+    {
+      "rule_id": "PAYMENT_SUBJECT",
+      "evidence_type": "PAYMENT",
+      "priority": 70,
+      "patterns": [
+        "\\bpayment successful\\b",
+        "\\bpayment was successful\\b",
+        "\\byour payment was successful\\b",
+        "\\bpayment received\\b",
+        "\\bpayment was received\\b",
+        "\\bpayment confirmed\\b",
+        "\\bpayment confirmation\\b",
+        "\\bpayment completed\\b",
+        "\\bpayment was completed\\b",
+        "\\bpayment failed\\b",
+        "\\bpayment declined\\b"
+      ]
+    },
+    {
+      "rule_id": "INVOICE_SUBJECT",
+      "evidence_type": "INVOICE",
+      "priority": 80,
+      "patterns": [
+        "\\byour invoice\\b",
+        "\\binvoice available\\b",
+        "\\bnew invoice\\b",
+        "\\binvoice number\\b",
+        "\\bmonthly invoice\\b"
+      ]
+    },
+    {
+      "rule_id": "PURCHASE_SUBJECT",
+      "evidence_type": "PURCHASE",
+      "priority": 90,
+      "patterns": [
+        "\\border confirmation\\b",
+        "\\border confirmed\\b",
+        "\\bpurchase confirmation\\b",
+        "\\bthank you for your purchase\\b",
+        "\\byour order\\b"
+      ]
+    },
+    {
+      "rule_id": "SUBSCRIPTION_SUBJECT",
+      "evidence_type": "SUBSCRIPTION",
+      "priority": 100,
+      "patterns": [
+        "\\bsubscription confirmed\\b",
+        "\\bsubscription confirmation\\b",
+        "\\bsubscription renewed\\b",
+        "\\bsubscription has been renewed\\b",
+        "\\byour subscription has been renewed\\b",
+        "\\bsubscription renewal\\b",
+        "\\bsubscription cancelled\\b",
+        "\\bsubscription canceled\\b",
+        "\\bsubscription has been cancelled\\b",
+        "\\bsubscription has been canceled\\b",
+        "\\bmembership renewed\\b",
+        "\\bmembership has been renewed\\b",
+        "\\bmembership activated\\b"
+      ]
+    },
+    {
+      "rule_id": "ACCOUNT_UPDATE_SUBJECT",
+      "evidence_type": "ACCOUNT_UPDATE",
+      "priority": 110,
+      "patterns": [
+        "\\baccount updated\\b",
+        "\\bprofile updated\\b",
+        "\\bemail address changed\\b",
+        "\\baccount information changed\\b",
+        "\\bpersonal information updated\\b"
+      ]
+    },
+    {
+      "rule_id": "PRIVACY_NOTICE_SUBJECT",
+      "evidence_type": "PRIVACY_NOTICE",
+      "priority": 120,
+      "patterns": [
+        "\\bprivacy notice\\b",
+        "\\bprivacy policy\\b",
+        "\\bprivacy update\\b",
+        "\\bupdated privacy policy\\b",
+        "\\bchanges to our privacy policy\\b",
+        "\\bdata protection notice\\b"
+      ]
+    },
+    {
+      "rule_id": "NEWSLETTER_SUBJECT",
+      "evidence_type": "NEWSLETTER",
+      "priority": 130,
+      "patterns": [
+        "\\bnewsletter\\b",
+        "\\bweekly digest\\b",
+        "\\bmonthly digest\\b",
+        "\\bdaily digest\\b",
+        "\\bweekly update\\b"
+      ]
+    },
+    {
+      "rule_id": "MARKETING_SUBJECT",
+      "evidence_type": "MARKETING",
+      "priority": 140,
+      "patterns": [
+        "\\bspecial offer\\b",
+        "\\blimited time offer\\b",
+        "\\bexclusive offer\\b",
+        "\\bdiscount\\b",
+        "\\bsale\\b",
+        "\\bpromo code\\b",
+        "\\bsave \\d+%\\b",
+        "\\b\\d+% off\\b"
+      ]
+    }
+  ]
+}
