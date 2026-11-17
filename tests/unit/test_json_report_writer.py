@@ -26,27 +26,38 @@ FIXTURE_FILE = (
 )
 
 
-def test_report_is_written_as_json(
+def test_report_is_written_as_relationship_centric_json(
     tmp_path: Path,
 ) -> None:
-    outcomes = OfflineVerticalRunner(
-        OfflineVerticalConfiguration(
-            fixture_file=FIXTURE_FILE,
+    outcomes = (
+        OfflineVerticalRunner(
+            OfflineVerticalConfiguration(
+                fixture_file=(
+                    FIXTURE_FILE
+                ),
+            )
         )
-    ).run().outcomes
+        .run()
+        .outcomes
+    )
 
-    report = DiscoveryReportBuilder().build(
-        outcomes=outcomes,
-        source_mode="OFFLINE_GMAIL_FIXTURE",
-        synthetic_data=True,
-        generated_at=datetime(
-            2026,
-            11,
-            17,
-            18,
-            0,
-            tzinfo=timezone.utc,
-        ),
+    report = (
+        DiscoveryReportBuilder()
+        .build(
+            outcomes=outcomes,
+            source_mode=(
+                "OFFLINE_GMAIL_FIXTURE"
+            ),
+            synthetic_data=True,
+            generated_at=datetime(
+                2026,
+                12,
+                1,
+                12,
+                0,
+                tzinfo=timezone.utc,
+            ),
+        )
     )
 
     output_file = (
@@ -67,20 +78,79 @@ def test_report_is_written_as_json(
         )
     )
 
-    assert payload[
-        "schema_version"
-    ] == 1
+    assert (
+        payload[
+            "schema_version"
+        ]
+        == 2
+    )
 
-    assert payload[
-        "synthetic_data"
-    ] is True
+    assert (
+        payload[
+            "synthetic_data"
+        ]
+        is True
+    )
 
-    assert payload[
-        "summary"
-    ][
-        "observation_count"
-    ] == 9
+    assert (
+        payload[
+            "summary"
+        ][
+            "observation_count"
+        ]
+        == 9
+    )
 
     assert len(
-        payload["entries"]
+        payload[
+            "relationships"
+        ]
+    ) == 5
+
+    assert len(
+        payload[
+            "unresolved_discoveries"
+        ]
+    ) == 1
+
+    assert len(
+        payload[
+            "entries"
+        ]
     ) == 9
+
+    spotify = next(
+        relationship
+        for relationship in (
+            payload[
+                "relationships"
+            ]
+        )
+        if (
+            relationship[
+                "service_id"
+            ]
+            == "service_spotify"
+        )
+    )
+
+    assert (
+        spotify[
+            "service_name"
+        ]
+        == "Spotify"
+    )
+
+    assert (
+        spotify[
+            "relationship_status"
+        ]
+        == "ESTABLISHED"
+    )
+
+    assert (
+        spotify[
+            "evidence_count"
+        ]
+        == 2
+    )
