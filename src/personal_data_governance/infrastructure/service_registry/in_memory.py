@@ -5,13 +5,17 @@ from personal_data_governance.domain.entities.service import Service
 from personal_data_governance.domain.enums.processing import (
     ServiceIdentifierType,
 )
-from personal_data_governance.domain.values.identifiers import ServiceId
+from personal_data_governance.domain.values.identifiers import (
+    ServiceId,
+)
 from personal_data_governance.domain.values.service_identifier import (
     ServiceIdentifier,
 )
 
 
-class InMemoryServiceRegistry(ServiceRegistry):
+class InMemoryServiceRegistry(
+    ServiceRegistry,
+):
     def __init__(self) -> None:
         self._services: dict[
             ServiceId,
@@ -19,7 +23,10 @@ class InMemoryServiceRegistry(ServiceRegistry):
         ] = {}
 
         self._identifier_index: dict[
-            tuple[ServiceIdentifierType, str],
+            tuple[
+                ServiceIdentifierType,
+                str,
+            ],
             set[ServiceId],
         ] = {}
 
@@ -27,7 +34,9 @@ class InMemoryServiceRegistry(ServiceRegistry):
         self,
         service: Service,
     ) -> None:
-        self._services[service.id] = service
+        self._services[
+            service.id
+        ] = service
 
     def register_identifier(
         self,
@@ -37,12 +46,22 @@ class InMemoryServiceRegistry(ServiceRegistry):
     ) -> None:
         if service_id not in self._services:
             raise KeyError(
-                f"Service not found: {service_id.value}"
+                "Cannot register identifier "
+                "for an unknown Service: "
+                f"{service_id.value}"
             )
 
-        normalized_value = self._normalize_registry_value(
+        normalized_value = (
             identifier_value
+            .strip()
+            .lower()
         )
+
+        if not normalized_value:
+            raise ValueError(
+                "Service identifier "
+                "must not be empty."
+            )
 
         key = (
             identifier_type,
@@ -52,59 +71,107 @@ class InMemoryServiceRegistry(ServiceRegistry):
         self._identifier_index.setdefault(
             key,
             set(),
-        ).add(service_id)
+        ).add(
+            service_id
+        )
 
     def resolve(
         self,
         identifier: ServiceIdentifier,
     ) -> tuple[Service, ...]:
-        lookup_value = (
+        effective_value = (
             identifier.normalized_value
-            if identifier.normalized_value is not None
+            if identifier.normalized_value
+            is not None
             else identifier.original_value
         )
 
-        normalized_lookup_value = (
-            self._normalize_registry_value(
-                lookup_value
-            )
+        normalized_value = (
+            effective_value
+            .strip()
+            .lower()
         )
 
         key = (
             identifier.type,
-            normalized_lookup_value,
+            normalized_value,
         )
 
-        service_ids = self._identifier_index.get(
-            key,
-            set(),
+        service_ids = (
+            self._identifier_index.get(
+                key,
+                set(),
+            )
         )
 
-        services = tuple(
-            self._services[service_id]
+        return tuple(
+            self._services[
+                service_id
+            ]
             for service_id in sorted(
                 service_ids,
                 key=lambda item: item.value,
             )
         )
 
-        return services
-
     def get(
         self,
         service_id: ServiceId,
     ) -> Service | None:
-        return self._services.get(service_id)
+        return self._services.get(
+            service_id
+        )
 
-    @staticmethod
-    def _normalize_registry_value(
-        value: str,
-    ) -> str:
-        normalized = value.strip().lower()
-
-        if not normalized:
-            raise ValueError(
-                "Service identifier value must not be empty."
+    def all_services(
+        self,
+    ) -> tuple[Service, ...]:
+        return tuple(
+            self._services[
+                service_id
+            ]
+            for service_id in sorted(
+                self._services,
+                key=lambda item: item.value,
             )
+        )
 
-        return normalized
+    def identifiers_for_service(
+        self,
+        service_id: ServiceId,
+    ) -> tuple[
+        tuple[
+            ServiceIdentifierType,
+            str,
+        ],
+        ...,
+    ]:
+        identifiers: list[
+            tuple[
+                ServiceIdentifierType,
+                str,
+            ]
+        ] = []
+
+        for (
+            identifier_type,
+            identifier_value,
+        ), service_ids in (
+            self._identifier_index.items()
+        ):
+            if service_id in service_ids:
+                identifiers.append(
+                    (
+                        identifier_type,
+                        identifier_value,
+                    )
+                )
+
+        return tuple(
+            sorted(
+                identifiers,
+                key=lambda item: (
+                    item[0].value,
+                    item[1],
+                ),
+            )
+        )
