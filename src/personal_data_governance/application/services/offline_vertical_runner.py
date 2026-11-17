@@ -9,6 +9,9 @@ from personal_data_governance.application.ports.connector import (
 from personal_data_governance.application.results.discovery import (
     DiscoveryOutcome,
 )
+from personal_data_governance.application.services.configuration_validator import (
+    ConfigurationValidator,
+)
 from personal_data_governance.application.services.discovery_service import (
     DiscoveryProcessingContext,
     DiscoveryService,
@@ -145,6 +148,8 @@ class OfflineVerticalRunner:
     def run(
         self,
     ) -> OfflineVerticalRunResult:
+        self._validate_configuration()
+
         user_id = UserId(
             "user_offline"
         )
@@ -180,7 +185,9 @@ class OfflineVerticalRunner:
             external_account_reference=(
                 "synthetic-user@example.com"
             ),
-            connection_state=ConnectionState.CONNECTED,
+            connection_state=(
+                ConnectionState.CONNECTED
+            ),
             authorization_state=(
                 AuthorizationState.AUTHORIZED
             ),
@@ -210,10 +217,6 @@ class OfflineVerticalRunner:
             build_initial_service_registry()
         )
 
-        service_registry = (
-            loaded_registry.registry
-        )
-
         loaded_rules = (
             load_classification_rules()
         )
@@ -228,7 +231,9 @@ class OfflineVerticalRunner:
             ),
             entity_resolver=(
                 DeterministicEntityResolver(
-                    service_registry=service_registry
+                    service_registry=(
+                        loaded_registry.registry
+                    )
                 )
             ),
             evidence_classifier=(
@@ -236,12 +241,16 @@ class OfflineVerticalRunner:
                     rules=loaded_rules.rules
                 )
             ),
-            evidence_materializer=EvidenceMaterializer(
-                evidence_repository=(
-                    evidence_repository
+            evidence_materializer=(
+                EvidenceMaterializer(
+                    evidence_repository=(
+                        evidence_repository
+                    )
                 )
             ),
-            evidence_repository=evidence_repository,
+            evidence_repository=(
+                evidence_repository
+            ),
             evidence_contribution_builder=(
                 EvidenceContributionBuilder(
                     observation_repository=(
@@ -271,7 +280,9 @@ class OfflineVerticalRunner:
 
         collection_result = gmail_connector.collect(
             CollectionRequest(
-                connected_source_id=connected_source_id,
+                connected_source_id=(
+                    connected_source_id
+                ),
                 capability=(
                     SERVICE_DISCOVERY_METADATA
                 ),
@@ -282,64 +293,111 @@ class OfflineVerticalRunner:
             )
         )
 
-        outcomes: list[
-            DiscoveryOutcome
-        ] = []
+        if collection_result.status == "FAILED":
+            error_summary = "; ".join(
+                collection_result.errors
+            )
+
+            raise RuntimeError(
+                "Offline Gmail collection failed: "
+                f"{error_summary}"
+            )
 
         assessed_at = datetime.now(
             timezone.utc
         )
 
-        context = DiscoveryProcessingContext(
-            candidate_detection=(
-                CandidateDetectionContext(
-                    detector_version="1",
-                )
-            ),
-            resolution=ResolutionContext(
-                resolver_version="1",
-                registry_version=(
-                    loaded_registry.registry_version
+        processing_context = (
+            DiscoveryProcessingContext(
+                candidate_detection=(
+                    CandidateDetectionContext(
+                        detector_version="1",
+                    )
                 ),
-            ),
-            classification=ClassificationContext(
-                classifier_version=(
-                    loaded_rules.rule_set_version
+                resolution=ResolutionContext(
+                    resolver_version="1",
+                    registry_version=(
+                        loaded_registry
+                        .registry_version
+                    ),
                 ),
-            ),
-            aggregation=AggregationContext(
-                aggregator_version="1",
-            ),
-            assessment=(
-                RelationshipAssessmentContext(
-                    assessor_version="1",
-                    assessment_policy_version=(
-                        relationship_policy.policy_version
-                    ),
-                    assessed_at=assessed_at,
-                    currently_observed_window_days=(
-                        relationship_policy
-                        .currently_observed_window_days
-                    ),
-                )
-            ),
+                classification=(
+                    ClassificationContext(
+                        classifier_version=(
+                            loaded_rules
+                            .rule_set_version
+                        ),
+                    )
+                ),
+                aggregation=(
+                    AggregationContext(
+                        aggregator_version="1",
+                    )
+                ),
+                assessment=(
+                    RelationshipAssessmentContext(
+                        assessor_version="1",
+                        assessment_policy_version=(
+                            relationship_policy
+                            .policy_version
+                        ),
+                        assessed_at=assessed_at,
+                        currently_observed_window_days=(
+                            relationship_policy
+                            .currently_observed_window_days
+                        ),
+                    )
+                ),
+            )
         )
+
+        outcomes: list[
+            DiscoveryOutcome
+        ] = []
 
         for observation in (
             collection_result.observations
         ):
-            observation_repository.save(
-                observation
+            existing_observation = (
+                observation_repository
+                .find_by_source_reference(
+                    connected_source_id=(
+                        observation
+                        .connected_source_id
+                    ),
+                    source_reference=(
+                        observation
+                        .source_reference
+                    ),
+                )
             )
 
+            if existing_observation is not None:
+                effective_observation = (
+                    existing_observation
+                )
+            else:
+                observation_repository.save(
+                    observation
+                )
+
+                effective_observation = (
+                    observation
+                )
+
             outcome = (
-                discovery_service.process_observation(
+                discovery_service
+                .process_observation(
                     user_id=user_id,
-                    observation=observation,
+                    observation=(
+                        effective_observation
+                    ),
                     identity_seed_ids=(
                         identity_seed_id,
                     ),
-                    context=context,
+                    context=(
+                        processing_context
+                    ),
                 )
             )
 
@@ -351,16 +409,39 @@ class OfflineVerticalRunner:
             outcomes
         )
 
-        summary = self._build_summary(
-            result_outcomes
-        )
-
         return OfflineVerticalRunResult(
             collection_status=(
                 collection_result.status
             ),
             outcomes=result_outcomes,
-            summary=summary,
+            summary=self._build_summary(
+                result_outcomes
+            ),
+        )
+
+    @staticmethod
+    def _validate_configuration() -> None:
+        validation_result = (
+            ConfigurationValidator()
+            .validate()
+        )
+
+        if validation_result.valid:
+            return
+
+        error_summary = "; ".join(
+            validation_result.errors
+        )
+
+        if not error_summary:
+            error_summary = (
+                "Unknown configuration error."
+            )
+
+        raise ValueError(
+            "Discovery configuration "
+            "is invalid: "
+            f"{error_summary}"
         )
 
     @staticmethod
@@ -383,8 +464,8 @@ class OfflineVerticalRunner:
             str
         ] = Counter()
 
-        evidence_ids = set()
-        relationship_ids = set()
+        evidence_ids: set[str] = set()
+        relationship_ids: set[str] = set()
 
         for outcome in outcomes:
             candidate_status = (
@@ -426,7 +507,9 @@ class OfflineVerticalRunner:
                     candidate.evidence_type.value
                 ] += 1
 
-            for evidence_id in outcome.evidence_ids:
+            for evidence_id in (
+                outcome.evidence_ids
+            ):
                 evidence_ids.add(
                     evidence_id.value
                 )
@@ -475,7 +558,10 @@ class OfflineVerticalRunner:
     @staticmethod
     def _ordered_counts(
         counter: Counter[str],
-    ) -> tuple[tuple[str, int], ...]:
+    ) -> tuple[
+        tuple[str, int],
+        ...,
+    ]:
         return tuple(
             (
                 key,
