@@ -1,5 +1,8 @@
 """SQLite persistence infrastructure."""
 
+from personal_data_governance.infrastructure.persistence.sqlite.connected_source_repository import (
+    SQLiteConnectedSourceRepository,
+)
 from personal_data_governance.infrastructure.persistence.sqlite.database import (
     SQLiteDatabase,
 )
@@ -12,6 +15,9 @@ from personal_data_governance.infrastructure.persistence.sqlite.migrations impor
     UnsupportedSchemaVersionError,
     UnversionedDatabaseError,
 )
+from personal_data_governance.infrastructure.persistence.sqlite.observation_repository import (
+    SQLiteObservationRepository,
+)
 from personal_data_governance.infrastructure.persistence.sqlite.schema import (
     SCHEMA_NAME,
     SCHEMA_VERSION,
@@ -22,11 +28,13 @@ __all__ = [
     "MissingMigrationError",
     "SCHEMA_NAME",
     "SCHEMA_VERSION",
+    "SQLiteConnectedSourceRepository",
     "SQLiteDatabase",
     "SQLiteMigration",
     "SQLiteMigrationError",
     "SQLiteMigrationResult",
     "SQLiteMigrator",
+    "SQLiteObservationRepository",
     "UnsupportedSchemaVersionError",
     "UnversionedDatabaseError",
 ]
