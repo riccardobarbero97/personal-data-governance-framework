@@ -21,6 +21,10 @@ from personal_data_governance.application.services.evidence_materializer import 
 from personal_data_governance.application.services.relationship_materializer import (
     RelationshipMaterializer,
 )
+from personal_data_governance.config.loaders import (
+    load_classification_rules,
+    load_relationship_policy,
+)
 from personal_data_governance.config.service_registry import (
     build_initial_service_registry,
 )
@@ -195,8 +199,20 @@ class GmailVerticalRunner:
             connected_source
         )
 
-        service_registry = (
+        loaded_registry = (
             build_initial_service_registry()
+        )
+
+        service_registry = (
+            loaded_registry.registry
+        )
+
+        loaded_rules = (
+            load_classification_rules()
+        )
+
+        relationship_policy = (
+            load_relationship_policy()
         )
 
         gmail_connector = GmailConnector(
@@ -213,7 +229,9 @@ class GmailVerticalRunner:
                 )
             ),
             evidence_classifier=(
-                DeterministicEmailEvidenceClassifier()
+                DeterministicEmailEvidenceClassifier(
+                    rules=loaded_rules.rules
+                )
             ),
             evidence_materializer=EvidenceMaterializer(
                 evidence_repository=(
@@ -235,7 +253,9 @@ class GmailVerticalRunner:
                 DeterministicEvidenceAggregator()
             ),
             relationship_assessor=(
-                DeterministicRelationshipAssessor()
+                DeterministicRelationshipAssessor(
+                    policy=relationship_policy
+                )
             ),
             relationship_materializer=(
                 RelationshipMaterializer(
@@ -267,16 +287,17 @@ class GmailVerticalRunner:
             collection_result.observations
         ):
             existing_observation = (
-                observation_repository.find_by_source_reference(
+                observation_repository
+                .find_by_source_reference(
                     connected_source_id=(
-                        observation.connected_source_id
+                        observation
+                        .connected_source_id
                     ),
                     source_reference=(
-                        observation.source_reference
+                        observation
+                        .source_reference
                     ),
                 )
-                if observation.source_reference is not None
-                else None
             )
 
             if existing_observation is not None:
@@ -288,7 +309,9 @@ class GmailVerticalRunner:
                     observation
                 )
 
-                effective_observation = observation
+                effective_observation = (
+                    observation
+                )
 
             assessed_at = datetime.now(
                 timezone.utc
@@ -302,10 +325,18 @@ class GmailVerticalRunner:
                 ),
                 resolution=ResolutionContext(
                     resolver_version="1",
-                    registry_version="initial-1",
+                    registry_version=(
+                        loaded_registry
+                        .registry_version
+                    ),
                 ),
-                classification=ClassificationContext(
-                    classifier_version="1",
+                classification=(
+                    ClassificationContext(
+                        classifier_version=(
+                            loaded_rules
+                            .rule_set_version
+                        ),
+                    )
                 ),
                 aggregation=AggregationContext(
                     aggregator_version="1",
@@ -313,9 +344,15 @@ class GmailVerticalRunner:
                 assessment=(
                     RelationshipAssessmentContext(
                         assessor_version="1",
-                        assessment_policy_version="1",
+                        assessment_policy_version=(
+                            relationship_policy
+                            .policy_version
+                        ),
                         assessed_at=assessed_at,
-                        currently_observed_window_days=365,
+                        currently_observed_window_days=(
+                            relationship_policy
+                            .currently_observed_window_days
+                        ),
                     )
                 ),
             )
@@ -336,7 +373,9 @@ class GmailVerticalRunner:
             )
 
         return GmailVerticalRunResult(
-            collection_status=collection_result.status,
+            collection_status=(
+                collection_result.status
+            ),
             collected_observation_count=len(
                 collection_result.observations
             ),
