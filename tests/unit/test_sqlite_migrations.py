@@ -14,10 +14,11 @@ from personal_data_governance.infrastructure.persistence.sqlite.schema import (
 )
 
 
-EXPECTED_TABLES = (
+EXPECTED_V2_TABLES = (
     "connected_sources",
     "evidence",
     "evidence_lifecycle",
+    "evidence_observations",
     "observations",
     "relationships",
     "schema_metadata",
@@ -37,7 +38,7 @@ def build_connection(
     return connection
 
 
-def test_empty_database_is_migrated_to_v1() -> None:
+def test_empty_database_is_migrated_to_current_version() -> None:
     connection = build_connection()
 
     try:
@@ -52,13 +53,14 @@ def test_empty_database_is_migrated_to_v1() -> None:
 
         assert (
             result.final_version
-            == 1
+            == 2
         )
 
         assert (
             result.applied_versions
             == (
                 1,
+                2,
             )
         )
 
@@ -71,14 +73,14 @@ def test_empty_database_is_migrated_to_v1() -> None:
             list_schema_tables(
                 connection
             )
-            == EXPECTED_TABLES
+            == EXPECTED_V2_TABLES
         )
 
     finally:
         connection.close()
 
 
-def test_existing_v1_database_is_not_changed() -> None:
+def test_existing_current_database_is_not_changed() -> None:
     connection = build_connection()
 
     try:
@@ -93,20 +95,31 @@ def test_existing_v1_database_is_not_changed() -> None:
         )
 
         assert (
+            first_result.initial_version
+            is None
+        )
+
+        assert (
+            first_result.final_version
+            == 2
+        )
+
+        assert (
             first_result.applied_versions
             == (
                 1,
+                2,
             )
         )
 
         assert (
             second_result.initial_version
-            == 1
+            == 2
         )
 
         assert (
             second_result.final_version
-            == 1
+            == 2
         )
 
         assert (
