@@ -6,6 +6,9 @@ from personal_data_governance.infrastructure.persistence.sqlite.connected_source
 from personal_data_governance.infrastructure.persistence.sqlite.database import (
     SQLiteDatabase,
 )
+from personal_data_governance.infrastructure.persistence.sqlite.evidence_repository import (
+    SQLiteEvidenceRepository,
+)
 from personal_data_governance.infrastructure.persistence.sqlite.migrations import (
     MissingMigrationError,
     SQLiteMigration,
@@ -31,6 +34,7 @@ __all__ = [
     "SCHEMA_VERSION",
     "SQLiteConnectedSourceRepository",
     "SQLiteDatabase",
+    "SQLiteEvidenceRepository",
     "SQLiteMigration",
     "SQLiteMigrationError",
     "SQLiteMigrationResult",
