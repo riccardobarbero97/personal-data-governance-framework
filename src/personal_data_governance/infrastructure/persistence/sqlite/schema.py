@@ -7,7 +7,7 @@ SCHEMA_NAME: Final[str] = (
     "personal_data_governance"
 )
 
-SCHEMA_VERSION: Final[int] = 2
+SCHEMA_VERSION: Final[int] = 3
 
 SCHEMA_V1_RESOURCE_NAME: Final[str] = (
     "schema_v1.sql"
@@ -15,6 +15,10 @@ SCHEMA_V1_RESOURCE_NAME: Final[str] = (
 
 SCHEMA_V2_RESOURCE_NAME: Final[str] = (
     "schema_v2.sql"
+)
+
+SCHEMA_V3_RESOURCE_NAME: Final[str] = (
+    "schema_v3.sql"
 )
 
 
@@ -27,6 +31,12 @@ def read_schema_v1() -> str:
 def read_schema_v2() -> str:
     return _read_schema_resource(
         SCHEMA_V2_RESOURCE_NAME
+    )
+
+
+def read_schema_v3() -> str:
+    return _read_schema_resource(
+        SCHEMA_V3_RESOURCE_NAME
     )
 
 
@@ -110,7 +120,7 @@ def get_schema_version(
 
 def list_schema_tables(
     connection: sqlite3.Connection,
-) -> tuple[str, ...]:
+) -> tuple[str, ...\]:
     rows = connection.execute(
         """
         SELECT name
