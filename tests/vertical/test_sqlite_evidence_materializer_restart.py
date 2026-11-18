@@ -328,7 +328,7 @@ def test_materializer_reuses_evidence_after_database_restart(
 
     assert (
         migration_result.final_version
-        == 2
+        == 3
     )
 
     assert (
