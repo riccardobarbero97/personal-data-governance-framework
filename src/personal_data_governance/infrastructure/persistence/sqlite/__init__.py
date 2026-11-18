@@ -1,45 +1,46 @@
-"""SQLite persistence i*frastructure."""
+"""SQLite persistence infrastructure."""
 
-from personal_da*a_governance.infrastructure.persis*ence.sqlite.connected_source_repos*tory import (
-    SQLiteConnectedS*urceRepository,
+from personal_data_governance.infrastructure.persistence.sqlite.connected_source_repository import (
+    SQLiteConnectedSourceRepository,
 )
-from personal_da*a_governance.infrastructure.persis*ence.sqlite.database import (
-    *QLiteDatabase,
+from personal_data_governance.infrastructure.persistence.sqlite.database import (
+    SQLiteDatabase,
 )
-from personal_dat*_governance.infrastructure.persist*nce.sqlite.evidence_repository imp*rt (
-    SQLiteEvidenceRepository,*)
-from personal_data_governance.in*rastructure.persistence.sqlite.mig*ations import (
-    MissingMigrati*nError,
+from personal_data_governance.infrastructure.persistence.sqlite.evidence_repository import (
+    SQLiteEvidenceRepository,
+)
+from personal_data_governance.infrastructure.persistence.sqlite.migrations import (
+    MissingMigrationError,
     SQLiteMigration,
-    S*LiteMigrationError,
-    SQLiteMigr*tionResult,
+    SQLiteMigrationError,
+    SQLiteMigrationResult,
     SQLiteMigrator,
-  * UnsafeMigrationError,
-    Unsuppo*tedSchemaVersionError,
-    Unversi*nedDatabaseError,
+    UnsafeMigrationError,
+    UnsupportedSchemaVersionError,
+    UnversionedDatabaseError,
 )
-from personal_*ata_governance.infrastructure.pers*stence.sqlite.observation_reposito*y import (
-    SQLiteObservationRe*ository,
+from personal_data_governance.infrastructure.persistence.sqlite.observation_repository import (
+    SQLiteObservationRepository,
 )
-from personal_data_gove*nance.infrastructure.persistence.s*lite.schema import (
-    SCHEMA_NA*E,
+from personal_data_governance.infrastructure.persistence.sqlite.schema import (
+    SCHEMA_NAME,
     SCHEMA_VERSION,
 )
 
 
-__all__*= [
+__all__ = [
     "MissingMigrationError",
- *  "SCHEMA_NAME",
-    "SCHEMA_VERSI*N",
-    "SQLiteConnectedSourceRepo*itory",
+    "SCHEMA_NAME",
+    "SCHEMA_VERSION",
+    "SQLiteConnectedSourceRepository",
     "SQLiteDatabase",
-    *SQLiteEvidenceRepository",
-    "SQ*iteMigration",
-    "SQLiteMigratio*Error",
-    "SQLiteMigrationResult*,
+    "SQLiteEvidenceRepository",
+    "SQLiteMigration",
+    "SQLiteMigrationError",
+    "SQLiteMigrationResult",
     "SQLiteMigrator",
-    "SQLit*ObservationRepository",
-    "Unsaf*MigrationError",
-    "UnsupportedS*hemaVersionError",
-    "Unversione*DatabaseError",
+    "SQLiteObservationRepository",
+    "UnsafeMigrationError",
+    "UnsupportedSchemaVersionError",
+    "UnversionedDatabaseError",
 ]
