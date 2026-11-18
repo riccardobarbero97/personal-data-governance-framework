@@ -1,7 +1,6 @@
 import sqlite3
 
 from personal_data_governance.infrastructure.persistence.sqlite.schema import (
-    SCHEMA_VERSION,
     create_schema_v1,
     get_schema_version,
     list_schema_tables,
@@ -9,7 +8,7 @@ from personal_data_governance.infrastructure.persistence.sqlite.schema import (
 )
 
 
-EXPECTED_TABLES = (
+EXPECTED_V1_TABLES = (
     "connected_sources",
     "evidence",
     "evidence_lifecycle",
@@ -65,14 +64,14 @@ def test_schema_v1_creates_expected_tables() -> None:
             list_schema_tables(
                 connection
             )
-            == EXPECTED_TABLES
+            == EXPECTED_V1_TABLES
         )
 
     finally:
         connection.close()
 
 
-def test_schema_version_is_recorded() -> None:
+def test_schema_v1_records_version_one() -> None:
     connection = build_connection()
 
     try:
@@ -91,14 +90,14 @@ def test_schema_version_is_recorded() -> None:
             get_schema_version(
                 connection
             )
-            == SCHEMA_VERSION
+            == 1
         )
 
     finally:
         connection.close()
 
 
-def test_schema_creation_is_idempotent() -> None:
+def test_schema_v1_creation_is_idempotent() -> None:
     connection = build_connection()
 
     try:
@@ -121,7 +120,7 @@ def test_schema_creation_is_idempotent() -> None:
             list_schema_tables(
                 connection
             )
-            == EXPECTED_TABLES
+            == EXPECTED_V1_TABLES
         )
 
     finally:
