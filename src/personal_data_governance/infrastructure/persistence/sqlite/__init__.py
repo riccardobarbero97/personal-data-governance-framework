@@ -12,6 +12,7 @@ from personal_data_governance.infrastructure.persistence.sqlite.migrations impor
     SQLiteMigrationError,
     SQLiteMigrationResult,
     SQLiteMigrator,
+    UnsafeMigrationError,
     UnsupportedSchemaVersionError,
     UnversionedDatabaseError,
 )
@@ -35,6 +36,7 @@ __all__ = [
     "SQLiteMigrationResult",
     "SQLiteMigrator",
     "SQLiteObservationRepository",
+    "UnsafeMigrationError",
     "UnsupportedSchemaVersionError",
     "UnversionedDatabaseError",
 ]
