@@ -1,45 +1,37 @@
-import sqlite3
 from pathlib import Path
 
 from personal_data_governance.infrastructure.persistence.sqlite.database import (
     SQLiteDatabase,
 )
+from personal_data_governance.infrastructure.persistence.sqlite.migrations import (
+    SQLiteMigrator,
+)
 from personal_data_governance.infrastructure.persistence.sqlite.schema import (
-    SCHEMA_VERSION,
     get_schema_version,
 )
 
 
-def test_current_schema_version_is_two() -> None:
-    assert SCHEMA_VERSION == 2
+def build_v2_database(
+    database_file: Path,
+) -> SQLiteDatabase:
+    database = SQLiteDatabase(
+        database_file=database_file,
+        migrator=SQLiteMigrator(
+            supported_version=2
+        ),
+    )
+
+    database.initialize()
+
+    return database
 
 
-def test_new_database_is_initialized_directly_through_all_migrations(
+def test_database_can_be_initialized_to_schema_v2(
     tmp_path: Path,
 ) -> None:
-    database = SQLiteDatabase(
+    database = build_v2_database(
         tmp_path
         / "state.db"
-    )
-
-    result = database.initialize()
-
-    assert (
-        result.initial_version
-        is None
-    )
-
-    assert (
-        result.final_version
-        == 2
-    )
-
-    assert (
-        result.applied_versions
-        == (
-            1,
-            2,
-        )
     )
 
     with database.connection() as connection:
@@ -51,15 +43,40 @@ def test_new_database_is_initialized_directly_through_all_migrations(
         )
 
 
-def test_schema_v2_contains_evidence_observations_table(
+def test_schema_v2_applies_first_two_migrations(
     tmp_path: Path,
 ) -> None:
     database = SQLiteDatabase(
+        database_file=(
+            tmp_path
+            / "state.db"
+        ),
+        migrator=SQLiteMigrator(
+            supported_version=2
+        ),
+    )
+
+    result = database.initialize()
+
+    assert result.initial_version is None
+    assert result.final_version == 2
+
+    assert (
+        result.applied_versions
+        == (
+            1,
+            2,
+        )
+    )
+
+
+def test_schema_v2_contains_evidence_observations_table(
+    tmp_path: Path,
+) -> None:
+    database = build_v2_database(
         tmp_path
         / "state.db"
     )
-
-    database.initialize()
 
     with database.connection() as connection:
         row = connection.execute(
@@ -78,12 +95,10 @@ def test_schema_v2_contains_evidence_observations_table(
 def test_evidence_contains_domain_required_columns(
     tmp_path: Path,
 ) -> None:
-    database = SQLiteDatabase(
+    database = build_v2_database(
         tmp_path
         / "state.db"
     )
-
-    database.initialize()
 
     with database.connection() as connection:
         rows = connection.execute(
@@ -128,12 +143,10 @@ def test_evidence_contains_domain_required_columns(
 def test_lifecycle_contains_actor_and_superseded_by(
     tmp_path: Path,
 ) -> None:
-    database = SQLiteDatabase(
+    database = build_v2_database(
         tmp_path
         / "state.db"
     )
-
-    database.initialize()
 
     with database.connection() as connection:
         rows = connection.execute(
@@ -165,12 +178,10 @@ def test_lifecycle_contains_actor_and_superseded_by(
 def test_schema_v2_supports_multiple_observations_per_evidence(
     tmp_path: Path,
 ) -> None:
-    database = SQLiteDatabase(
+    database = build_v2_database(
         tmp_path
         / "state.db"
     )
-
-    database.initialize()
 
     with database.transaction() as connection:
         connection.execute(
