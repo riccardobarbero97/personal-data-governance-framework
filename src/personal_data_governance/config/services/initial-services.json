@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "registry_version": "initial-1",
+  "registry_version": "initial-2",
   "services": [
     {
       "service_id": "service_spotify",
@@ -77,6 +77,32 @@
         {
           "type": "DOMAIN",
           "value": "dropbox.com"
+        }
+      ]
+    },
+    {
+      "service_id": "service_google",
+      "canonical_name": "Google",
+      "identifiers": [
+        {
+          "type": "EMAIL_DOMAIN",
+          "value": "google.com"
+        },
+        {
+          "type": "DOMAIN",
+          "value": "google.com"
+        },
+        {
+          "type": "HOSTNAME",
+          "value": "google.com"
+        },
+        {
+          "type": "EMAIL_DOMAIN",
+          "value": "accounts.google.com"
+        },
+        {
+          "type": "HOSTNAME",
+          "value": "accounts.google.com"
         }
       ]
     }
