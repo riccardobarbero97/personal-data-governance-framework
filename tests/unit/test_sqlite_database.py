@@ -12,6 +12,9 @@ from personal_data_governance.infrastructure.persistence.sqlite.schema import (
 )
 
 
+CURRENT_SCHEMA_VERSION = 3
+
+
 def test_initialize_creates_database_and_schema(
     tmp_path: Path,
 ) -> None:
@@ -29,14 +32,11 @@ def test_initialize_creates_database_and_schema(
 
     assert database_file.exists()
 
-    assert (
-        result.initial_version
-        is None
-    )
+    assert result.initial_version is None
 
     assert (
         result.final_version
-        == 2
+        == CURRENT_SCHEMA_VERSION
     )
 
     assert (
@@ -44,6 +44,7 @@ def test_initialize_creates_database_and_schema(
         == (
             1,
             2,
+            3,
         )
     )
 
@@ -52,7 +53,7 @@ def test_initialize_creates_database_and_schema(
             get_schema_version(
                 connection
             )
-            == 2
+            == CURRENT_SCHEMA_VERSION
         )
 
 
@@ -71,14 +72,11 @@ def test_initialize_existing_database_is_idempotent(
     first = database.initialize()
     second = database.initialize()
 
-    assert (
-        first.initial_version
-        is None
-    )
+    assert first.initial_version is None
 
     assert (
         first.final_version
-        == 2
+        == CURRENT_SCHEMA_VERSION
     )
 
     assert (
@@ -86,17 +84,18 @@ def test_initialize_existing_database_is_idempotent(
         == (
             1,
             2,
+            3,
         )
     )
 
     assert (
         second.initial_version
-        == 2
+        == CURRENT_SCHEMA_VERSION
     )
 
     assert (
         second.final_version
-        == 2
+        == CURRENT_SCHEMA_VERSION
     )
 
     assert (
@@ -104,10 +103,7 @@ def test_initialize_existing_database_is_idempotent(
         == ()
     )
 
-    assert (
-        second.changed
-        is False
-    )
+    assert second.changed is False
 
 
 def test_connection_enables_foreign_keys(
@@ -162,7 +158,7 @@ def test_connection_uses_row_factory(
             row[
                 "schema_version"
             ]
-            == 2
+            == CURRENT_SCHEMA_VERSION
         )
 
 
