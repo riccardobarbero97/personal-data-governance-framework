@@ -9,6 +9,7 @@ from personal_data_governance.infrastructure.persistence.sqlite.schema import (
     SCHEMA_VERSION,
     get_schema_version,
     read_schema_v1,
+    read_schema_v2,
 )
 
 
@@ -27,19 +28,25 @@ class SQLiteMigrationError(
 class UnsupportedSchemaVersionError(
     SQLiteMigrationError
 ):
-    """Raised when the database schema is newer than the application."""
+    """Database schema is newer than the app."""
 
 
 class UnversionedDatabaseError(
     SQLiteMigrationError
 ):
-    """Raised when application tables exist without schema metadata."""
+    """Application tables exist without metadata."""
 
 
 class MissingMigrationError(
     SQLiteMigrationError
 ):
-    """Raised when no migration path exists for a required version."""
+    """No migration path exists."""
+
+
+class UnsafeMigrationError(
+    SQLiteMigrationError
+):
+    """Migration would risk existing data."""
 
 
 @dataclass(frozen=True, slots=True)
@@ -79,10 +86,70 @@ class SQLiteMigrationResult:
 def apply_schema_v1(
     connection: sqlite3.Connection,
 ) -> None:
+    _execute_migration_script(
+        connection,
+        read_schema_v1(),
+    )
+
+
+def apply_schema_v2(
+    connection: sqlite3.Connection,
+) -> None:
+    evidence_count = connection.execute(
+        """
+        SELECT COUNT(*)
+        FROM evidence
+        """
+    ).fetchone()
+
+    lifecycle_count = connection.execute(
+        """
+        SELECT COUNT(*)
+        FROM evidence_lifecycle
+        """
+    ).fetchone()
+
+    if (
+        evidence_count is None
+        or lifecycle_count is None
+    ):
+        raise SQLiteMigrationError(
+            "Could not inspect v1 Evidence tables."
+        )
+
+    if (
+        int(
+            evidence_count[0]
+        )
+        > 0
+        or int(
+            lifecycle_count[0]
+        )
+        > 0
+    ):
+        raise UnsafeMigrationError(
+            "Schema v1 contains persisted "
+            "Evidence data. Automatic migration "
+            "to schema v2 was refused because "
+            "schema v1 cannot represent all "
+            "fields required by the current "
+            "Evidence Domain Model."
+        )
+
+    _execute_migration_script(
+        connection,
+        read_schema_v2(),
+    )
+
+
+def _execute_migration_script(
+    connection: sqlite3.Connection,
+    schema_sql: str,
+) -> None:
     script = "\n".join(
         (
             "BEGIN IMMEDIATE;",
-            read_schema_v1(),
+            schema_sql,
             "COMMIT;",
         )
     )
@@ -104,6 +171,11 @@ DEFAULT_MIGRATIONS = (
         target_version=1,
         name="create_initial_schema",
         apply=apply_schema_v1,
+    ),
+    SQLiteMigration(
+        target_version=2,
+        name="normalize_evidence_persistence",
+        apply=apply_schema_v2,
     ),
 )
 
@@ -181,6 +253,7 @@ class SQLiteMigrator:
             )
 
             current_version = 0
+
         else:
             current_version = (
                 initial_version
@@ -207,16 +280,17 @@ class SQLiteMigrator:
                 current_version + 1
             )
 
-            migration = (
-                self._find_migration(
-                    target_version
-                )
+            migration = self._find_migration(
+                target_version
             )
 
             try:
                 migration.apply(
                     connection
                 )
+
+            except UnsafeMigrationError:
+                raise
 
             except Exception as error:
                 if connection.in_transaction:
