@@ -88,8 +88,8 @@ def apply_schema_v1(
     connection: sqlite3.Connection,
 ) -> None:
     _execute_migration_script(
-        connection,
-        read_schema_v1(),
+        connection=connection,
+        schema_sql=read_schema_v1(),
     )
 
 
@@ -138,8 +138,8 @@ def apply_schema_v2(
         )
 
     _execute_migration_script(
-        connection,
-        read_schema_v2(),
+        connection=connection,
+        schema_sql=read_schema_v2(),
     )
 
 
@@ -150,278 +150,288 @@ def apply_schema_v3(
         """
         SELECT COUNT(*)
         FROM relationships
-     *  """
+        """
     ).fetchone()
 
-    if rel*tionship_count is None:
-        ra*se SQLiteMigrationError(
-         *  "Could not inspect the v2 "
-    *       "Relationship table."
-     *  )
-
-    if int(
-        relations*ip_count[0]
-    ) > 0:
-        rai*e UnsafeMigrationError(
-          * "Schema v2 contains persisted "
- *          "Relationship data. Auto*atic "
-            "migration to s*hema v3 was "
-            "refused*because schema v2 does "
-         *  "not preserve assessment_method.*
+    if relationship_count is None:
+        raise SQLiteMigrationError(
+            "Could not inspect the v2 "
+            "Relationship table."
         )
 
-    _execute_migration*script(
-        connection,
-      * read_schema_v3(),
+    if int(
+        relationship_count[0]
+    ) > 0:
+        raise UnsafeMigrationError(
+            "Schema v2 contains persisted "
+            "Relationship data. Automatic "
+            "migration to schema v3 was "
+            "refused because schema v2 does "
+            "not preserve assessment_method."
+        )
+
+    _execute_migration_script(
+        connection=connection,
+        schema_sql=read_schema_v3(),
     )
 
 
-def _ex*cute_migration_script(
-    connect*on: sqlite3.Connection,
-    schema*sql: str,
+def _execute_migration_script(
+    connection: sqlite3.Connection,
+    schema_sql: str,
 ) -> None:
-    script = *\n".join(
+    script = "\n".join(
         (
-            "B*GIN IMMEDIATE;",
-            schem*_sql,
+            "BEGIN IMMEDIATE;",
+            schema_sql,
             "COMMIT;",
-     *  )
+        )
     )
 
     try:
-        connec*ion.executescript(
-            scr*pt
+        connection.executescript(
+            script
         )
 
-    except Exception*
-        if connection.in_transact*on:
-            connection.rollbac*()
+    except Exception:
+        if connection.in_transaction:
+            connection.rollback()
 
         raise
 
 
-DEFAULT_MIGRAT*ONS = (
+DEFAULT_MIGRATIONS = (
     SQLiteMigration(
-     *  target_version=1,
-        name="*reate_initial_schema",
-        app*y=apply_schema_v1,
+        target_version=1,
+        name="create_initial_schema",
+        apply=apply_schema_v1,
     ),
-    SQLi*eMigration(
-        target_version*2,
-        name="normalize_evidenc*_persistence",
-        apply=apply*schema_v2,
+    SQLiteMigration(
+        target_version=2,
+        name="normalize_evidence_persistence",
+        apply=apply_schema_v2,
     ),
-    SQLiteMigrat*on(
+    SQLiteMigration(
         target_version=3,
-    *   name=(
-            "add_relatio*ship_assessment_method"
-        ),*        apply=apply_schema_v3,
-   *),
+        name=(
+            "add_relationship_assessment_method"
+        ),
+        apply=apply_schema_v3,
+    ),
 )
 
 
 class SQLiteMigrator:
-    d*f __init__(
+    def __init__(
         self,
-        *igrations: tuple[
+        migrations: tuple[
             SQLiteMigration,
             ...,
         ] = DEFAULT_MIGRATIONS,
-        *upported_version: int = SCHEMA_VER*ION,
+        supported_version: int = SCHEMA_VERSION,
     ) -> None:
-        if sup*orted_version < 1:
-            rai*e ValueError(
-                "Sup*orted schema version "
-           *    "must be at least one."
-      *     )
+        if supported_version < 1:
+            raise ValueError(
+                "Supported schema version "
+                "must be at least one."
+            )
 
         versions = tuple(
-*           migration.target_versio*
-            for migration in migr*tions
+            migration.target_version
+            for migration in migrations
         )
 
         if len(
- *          versions
-        ) != le*(
+            versions
+        ) != len(
             set(
-               *versions
+                versions
             )
         ):
-*           raise ValueError(
-     *          "Migration target versio*s "
-                "must be uniqu*."
+            raise ValueError(
+                "Migration target versions "
+                "must be unique."
             )
 
-        if tuple*
+        if tuple(
             sorted(
-             *  versions
+                versions
             )
-        )*!= versions:
-            raise Val*eError(
-                "Migration* must be ordered "
-               *"by target version."
-            )*
-        self._migrations = migrat*ons
-        self._supported_versio* = (
-            supported_version*        )
+        ) != versions:
+            raise ValueError(
+                "Migrations must be ordered "
+                "by target version."
+            )
+
+        self._migrations = migrations
+        self._supported_version = (
+            supported_version
+        )
 
     @property
-    def s*pported_version(
+    def supported_version(
         self,
-   *) -> int:
-        return self._sup*orted_version
+    ) -> int:
+        return self._supported_version
 
     def migrate(
-  *     self,
-        connection: sql*te3.Connection,
-    ) -> SQLiteMig*ationResult:
-        connection.ex*cute(
-            "PRAGMA foreign_*eys = ON"
+        self,
+        connection: sqlite3.Connection,
+    ) -> SQLiteMigrationResult:
+        connection.execute(
+            "PRAGMA foreign_keys = ON"
         )
 
-        initi*l_version = (
-            get_sche*a_version(
-                connect*on
+        initial_version = (
+            get_schema_version(
+                connection
             )
         )
 
-      * if initial_version is None:
-     *      self._validate_unversioned_d*tabase(
-                connection*            )
+        if initial_version is None:
+            self._validate_unversioned_database(
+                connection
+            )
 
-            current*version = 0
+            current_version = 0
 
         else:
-       *    current_version = (
-          *     initial_version
-            )*
-        if (
-            current_*ersion
-            > self._support*d_version
-        ):
-            r*ise UnsupportedSchemaVersionError(*                "Database schema v*rsion "
-                f"{current*version} is newer than "
-         *      "the maximum supported versi*n "
-                f"{self._suppo*ted_version}."
+            current_version = (
+                initial_version
             )
 
-    *   applied_versions: list[int] = []
+        if (
+            current_version
+            > self._supported_version
+        ):
+            raise UnsupportedSchemaVersionError(
+                "Database schema version "
+                f"{current_version} is newer than "
+                "the maximum supported version "
+                f"{self._supported_version}."
+            )
+
+        applied_versions: list[int] = []
 
         while (
-            curr*nt_version
-            < self._sup*orted_version
+            current_version
+            < self._supported_version
         ):
-         *  target_version = (
-             *  current_version + 1
-            *
-
-            migration = self._fi*d_migration(
-                targe*_version
+            target_version = (
+                current_version + 1
             )
 
-          * try:
-                migration.ap*ly(
-                    connection*                )
+            migration = self._find_migration(
+                target_version
+            )
 
-            exc*pt UnsafeMigrationError:
-         *      raise
-
-            except Ex*eption as error:
-                i* connection.in_transaction:
-      *             connection.rollback()*
-                raise SQLiteMigra*ionError(
-                    "SQL*te migration failed: "
-           *        f"{migration.name} "
-     *              f"(version {target_v*rsion})."
-                ) from e*ror
-
-            actual_version = *
-                get_schema_versio*(
+            try:
+                migration.apply(
                     connection
- *              )
+                )
+
+            except UnsafeMigrationError:
+                raise
+
+            except Exception as error:
+                if connection.in_transaction:
+                    connection.rollback()
+
+                raise SQLiteMigrationError(
+                    "SQLite migration failed: "
+                    f"{migration.name} "
+                    f"(version {target_version})."
+                ) from error
+
+            actual_version = (
+                get_schema_version(
+                    connection
+                )
             )
 
-   *        if (
-                actua*_version
-                != target*version
+            if (
+                actual_version
+                != target_version
             ):
-           *    raise SQLiteMigrationError(
-  *                 "Migration did no* record "
-                    "the*expected schema version. "
-       *            f"Expected {target_ver*ion}, "
-                    f"foun* {actual_version}."
-              * )
+                raise SQLiteMigrationError(
+                    "Migration did not record "
+                    "the expected schema version. "
+                    f"Expected {target_version}, "
+                    f"found {actual_version}."
+                )
 
-            applied_versions.a*pend(
-                target_versi*n
+            applied_versions.append(
+                target_version
             )
 
-            curre*t_version = (
-                targ*t_version
+            current_version = (
+                target_version
             )
 
-        r*turn SQLiteMigrationResult(
-      *     initial_version=(
-           *    initial_version
-            ),*            final_version=(
-      *         current_version
-         *  ),
-            applied_versions=*uple(
-                applied_vers*ons
+        return SQLiteMigrationResult(
+            initial_version=(
+                initial_version
+            ),
+            final_version=(
+                current_version
+            ),
+            applied_versions=tuple(
+                applied_versions
             ),
         )
 
-    *ef _find_migration(
+    def _find_migration(
         self,
-*       target_version: int,
-    ) *> SQLiteMigration:
-        for mig*ation in self._migrations:
-       *    if (
-                migration*target_version
-                == *arget_version
+        target_version: int,
+    ) -> SQLiteMigration:
+        for migration in self._migrations:
+            if (
+                migration.target_version
+                == target_version
             ):
-     *          return migration
+                return migration
 
-      * raise MissingMigrationError(
-    *       "No SQLite migration regist*red "
-            f"for schema ver*ion {target_version}."
+        raise MissingMigrationError(
+            "No SQLite migration registered "
+            f"for schema version {target_version}."
         )
 
-*   @staticmethod
-    def _validate*unversioned_database(
-        conn*ction: sqlite3.Connection,
-    ) -* None:
-        rows = connection.e*ecute(
+    @staticmethod
+    def _validate_unversioned_database(
+        connection: sqlite3.Connection,
+    ) -> None:
+        rows = connection.execute(
             """
-           *SELECT name
-            FROM sqlit*_master
+            SELECT name
+            FROM sqlite_master
             WHERE
-        *       type = 'table'
-            *   AND name NOT LIKE 'sqlite_%'
-  *             AND name != ?
-       *    ORDER BY name
-            """,*            (
-                "sch*ma_metadata",
+                type = 'table'
+                AND name NOT LIKE 'sqlite_%'
+                AND name != ?
+            ORDER BY name
+            """,
+            (
+                "schema_metadata",
             ),
-     *  ).fetchall()
+        ).fetchall()
 
-        existing_t*bles = tuple(
+        existing_tables = tuple(
             str(
-   *            row[0]
+                row[0]
             )
- *          for row in rows
-        *
+            for row in rows
+        )
 
         if not existing_tables:
-*           return
+            return
 
-        raise U*versionedDatabaseError(
-          * "The SQLite database contains "
- *          "application tables but *as no "
-            f"{SCHEMA_NAME* schema version. "
-            "Au*omatic migration was refused. "
-  *         "Existing tables: "
-     *      + ", ".join(
-               *existing_tables
+        raise UnversionedDatabaseError(
+            "The SQLite database contains "
+            "application tables but has no "
+            f"{SCHEMA_NAME} schema version. "
+            "Automatic migration was refused. "
+            "Existing tables: "
+            + ", ".join(
+                existing_tables
             )
-    *   )
+        )
