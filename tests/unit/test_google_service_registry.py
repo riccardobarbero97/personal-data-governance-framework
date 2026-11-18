@@ -1,64 +1,65 @@
-impor* pytest
+import pytest
 
-from personal_data_govern*nce.config.loaders import (
-    lo*d_service_registry,
+from personal_data_governance.config.loaders import (
+    load_service_registry,
 )
-from persona*_data_governance.domain.enums.proc*ssing import (
-    ServiceIdentifi*rType,
+from personal_data_governance.domain.enums.processing import (
+    ServiceIdentifierType,
 )
-from personal_data_govern*nce.domain.values.identifiers impo*t (
+from personal_data_governance.domain.values.identifiers import (
     ObservationId,
-    Service*d,
+    ServiceId,
 )
-from personal_data_governance*domain.values.service_identifier i*port (
+from personal_data_governance.domain.values.service_identifier import (
     ServiceIdentifier,
 )
 
 
-*OOGLE_SERVICE_ID = ServiceId(
-    *service_google"
+GOOGLE_SERVICE_ID = ServiceId(
+    "service_google"
 )
 
-OBSERVATION_ID * ObservationId(
-    "observation_g*ogle_001"
+OBSERVATION_ID = ObservationId(
+    "observation_google_001"
 )
 
 
-def build_identifier*
+def build_identifier(
     *,
-    identifier_type: Servi*eIdentifierType,
+    identifier_type: ServiceIdentifierType,
     value: str,
-)*-> ServiceIdentifier:
-    return S*rviceIdentifier(
-        type=iden*ifier_type,
-        original_value*value,
-        observation_id=OBSE*VATION_ID,
+) -> ServiceIdentifier:
+    return ServiceIdentifier(
+        type=identifier_type,
+        original_value=value,
+        observation_id=OBSERVATION_ID,
     )
 
 
-def test_google*service_is_loaded() -> None:
-    l*aded = load_service_registry()
+def test_google_service_is_loaded() -> None:
+    loaded = load_service_registry()
 
-  * google = loaded.registry.get(
-   *    GOOGLE_SERVICE_ID
+    google = loaded.registry.get(
+        GOOGLE_SERVICE_ID
     )
 
-    a*sert google is not None
+    assert google is not None
 
-    asser* (
+    assert (
         google.canonical_name
- *      == "Google"
+        == "Google"
     )
 
-    asser* (
-        loaded.registry_version*        == "initial-2"
+    assert (
+        loaded.registry_version
+        == "initial-2"
     )
 
 
-@py*est.mark.parametrize(
+@pytest.mark.parametrize(
     (
-      * "identifier_type",
-        "ident*fier_value",
+        "identifier_type",
+        "identifier_value",
     ),
     [
         (
@@ -66,50 +67,51 @@ def test_google*service_is_loaded() -> None:
             "google.com",
         ),
         (
-        *   ServiceIdentifierType.DOMAIN,
- *          "google.com",
-        ),*        (
-            ServiceIdent*fierType.HOSTNAME,
-            "go*gle.com",
+            ServiceIdentifierType.DOMAIN,
+            "google.com",
         ),
         (
-   *        ServiceIdentifierType.EMAI*_DOMAIN,
-            "accounts.goo*le.com",
+            ServiceIdentifierType.HOSTNAME,
+            "google.com",
         ),
         (
-    *       ServiceIdentifierType.HOSTN*ME,
-            "accounts.google.c*m",
+            ServiceIdentifierType.EMAIL_DOMAIN,
+            "accounts.google.com",
+        ),
+        (
+            ServiceIdentifierType.HOSTNAME,
+            "accounts.google.com",
         ),
     ],
 )
-def test_g*ogle_identifiers_resolve_to_google*
-    identifier_type: ServiceIdent*fierType,
-    identifier_value: st*,
+def test_google_identifiers_resolve_to_google(
+    identifier_type: ServiceIdentifierType,
+    identifier_value: str,
 ) -> None:
-    loaded = load_ser*ice_registry()
+    loaded = load_service_registry()
 
-    google = loade*.registry.get(
-        GOOGLE_SERV*CE_ID
+    google = loaded.registry.get(
+        GOOGLE_SERVICE_ID
     )
 
-    assert google is *ot None
+    assert google is not None
 
-    matches = loaded.regi*try.resolve(
-        build_identif*er(
+    matches = loaded.registry.resolve(
+        build_identifier(
             identifier_type=(
-*               identifier_type
-   *        ),
-            value=ident*fier_value,
+                identifier_type
+            ),
+            value=identifier_value,
         )
     )
 
-    a*sert matches == (
+    assert matches == (
         google,
-*   )
+    )
 
 
 @pytest.mark.parametrize(
- *  "identifier_value",
+    "identifier_value",
     [
         "GOOGLE.COM",
         "  google.com  ",
@@ -117,67 +119,70 @@ def test_g*ogle_identifiers_resolve_to_google*
         "  accounts.google.com  ",
     ],
 )
-def test_google_email_d*mains_are_normalized(
-    identifi*r_value: str,
+def test_google_email_domains_are_normalized(
+    identifier_value: str,
 ) -> None:
-    loade* = load_service_registry()
+    loaded = load_service_registry()
 
-    go*gle = loaded.registry.get(
-       *GOOGLE_SERVICE_ID
+    google = loaded.registry.get(
+        GOOGLE_SERVICE_ID
     )
 
-    asser* google is not None
+    assert google is not None
 
-    matches =*loaded.registry.resolve(
-        b*ild_identifier(
-            identi*ier_type=(
-                Service*dentifierType
-                .EMA*L_DOMAIN
-            ),
-          * value=identifier_value,
-        )*    )
-
-    assert matches == (
-   *    google,
-    )
-
-
-def test_unreg*stered_google_subdomain_is_not_res*lved() -> None:
-    loaded = load_*ervice_registry()
-
-    matches = l*aded.registry.resolve(
-        bui*d_identifier(
-            identifi*r_type=(
-                ServiceId*ntifierType
-                .EMAIL*DOMAIN
-            ),
-            *alue=(
-                "unregister*d.google.com"
-            ),
-     *  )
-    )
-
-    assert matches == (*
-
-
-def test_google_identifier_does*not_resolve_to_other_services() ->*None:
-    loaded = load_service_re*istry()
-
-    matches = loaded.regi*try.resolve(
-        build_identif*er(
+    matches = loaded.registry.resolve(
+        build_identifier(
             identifier_type=(
-*               ServiceIdentifierTy*e
+                ServiceIdentifierType
                 .EMAIL_DOMAIN
-  *         ),
-            value=(
-  *             "accounts.google.com"*            ),
+            ),
+            value=identifier_value,
         )
     )
 
-  * assert len(
+    assert matches == (
+        google,
+    )
+
+
+def test_unregistered_google_subdomain_is_not_resolved() -> None:
+    loaded = load_service_registry()
+
+    matches = loaded.registry.resolve(
+        build_identifier(
+            identifier_type=(
+                ServiceIdentifierType
+                .EMAIL_DOMAIN
+            ),
+            value=(
+                "unregistered.google.com"
+            ),
+        )
+    )
+
+    assert matches == ()
+
+
+def test_google_identifier_does_not_resolve_to_other_services() -> None:
+    loaded = load_service_registry()
+
+    matches = loaded.registry.resolve(
+        build_identifier(
+            identifier_type=(
+                ServiceIdentifierType
+                .EMAIL_DOMAIN
+            ),
+            value=(
+                "accounts.google.com"
+            ),
+        )
+    )
+
+    assert len(
         matches
-    )*== 1
+    ) == 1
 
     assert (
-        matches*0].id
-        == GOOGLE_SERVICE_ID*    )
+        matches[0].id
+        == GOOGLE_SERVICE_ID
+    )
