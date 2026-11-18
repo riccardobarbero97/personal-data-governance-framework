@@ -14,7 +14,9 @@ from personal_data_governance.infrastructure.persistence.sqlite.schema import (
 )
 
 
-EXPECTED_V2_TABLES = (
+CURRENT_SCHEMA_VERSION = 3
+
+EXPECTED_CURRENT_TABLES = (
     "connected_sources",
     "evidence",
     "evidence_lifecycle",
@@ -46,14 +48,11 @@ def test_empty_database_is_migrated_to_current_version() -> None:
             connection
         )
 
-        assert (
-            result.initial_version
-            is None
-        )
+        assert result.initial_version is None
 
         assert (
             result.final_version
-            == 2
+            == CURRENT_SCHEMA_VERSION
         )
 
         assert (
@@ -61,19 +60,17 @@ def test_empty_database_is_migrated_to_current_version() -> None:
             == (
                 1,
                 2,
+                3,
             )
         )
 
-        assert (
-            result.changed
-            is True
-        )
+        assert result.changed is True
 
         assert (
             list_schema_tables(
                 connection
             )
-            == EXPECTED_V2_TABLES
+            == EXPECTED_CURRENT_TABLES
         )
 
     finally:
@@ -94,14 +91,11 @@ def test_existing_current_database_is_not_changed() -> None:
             connection
         )
 
-        assert (
-            first_result.initial_version
-            is None
-        )
+        assert first_result.initial_version is None
 
         assert (
             first_result.final_version
-            == 2
+            == CURRENT_SCHEMA_VERSION
         )
 
         assert (
@@ -109,17 +103,18 @@ def test_existing_current_database_is_not_changed() -> None:
             == (
                 1,
                 2,
+                3,
             )
         )
 
         assert (
             second_result.initial_version
-            == 2
+            == CURRENT_SCHEMA_VERSION
         )
 
         assert (
             second_result.final_version
-            == 2
+            == CURRENT_SCHEMA_VERSION
         )
 
         assert (
@@ -127,10 +122,7 @@ def test_existing_current_database_is_not_changed() -> None:
             == ()
         )
 
-        assert (
-            second_result.changed
-            is False
-        )
+        assert second_result.changed is False
 
     finally:
         connection.close()
