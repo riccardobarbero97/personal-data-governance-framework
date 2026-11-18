@@ -7,14 +7,32 @@ SCHEMA_NAME: Final[str] = (
     "personal_data_governance"
 )
 
-SCHEMA_VERSION: Final[int] = 1
+SCHEMA_VERSION: Final[int] = 2
 
-SCHEMA_RESOURCE_NAME: Final[str] = (
+SCHEMA_V1_RESOURCE_NAME: Final[str] = (
     "schema_v1.sql"
+)
+
+SCHEMA_V2_RESOURCE_NAME: Final[str] = (
+    "schema_v2.sql"
 )
 
 
 def read_schema_v1() -> str:
+    return _read_schema_resource(
+        SCHEMA_V1_RESOURCE_NAME
+    )
+
+
+def read_schema_v2() -> str:
+    return _read_schema_resource(
+        SCHEMA_V2_RESOURCE_NAME
+    )
+
+
+def _read_schema_resource(
+    resource_name: str,
+) -> str:
     schema_resource = (
         files(
             "personal_data_governance"
@@ -23,7 +41,7 @@ def read_schema_v1() -> str:
             ".sqlite"
         )
         .joinpath(
-            SCHEMA_RESOURCE_NAME
+            resource_name
         )
     )
 
@@ -33,7 +51,9 @@ def read_schema_v1() -> str:
 
     if not schema_sql.strip():
         raise ValueError(
-            "SQLite schema v1 must not be empty."
+            "SQLite schema resource "
+            "must not be empty: "
+            f"{resource_name}"
         )
 
     return schema_sql
