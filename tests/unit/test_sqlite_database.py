@@ -36,13 +36,14 @@ def test_initialize_creates_database_and_schema(
 
     assert (
         result.final_version
-        == 1
+        == 2
     )
 
     assert (
         result.applied_versions
         == (
             1,
+            2,
         )
     )
 
@@ -51,7 +52,7 @@ def test_initialize_creates_database_and_schema(
             get_schema_version(
                 connection
             )
-            == 1
+            == 2
         )
 
 
@@ -71,20 +72,41 @@ def test_initialize_existing_database_is_idempotent(
     second = database.initialize()
 
     assert (
+        first.initial_version
+        is None
+    )
+
+    assert (
+        first.final_version
+        == 2
+    )
+
+    assert (
         first.applied_versions
         == (
             1,
+            2,
         )
     )
 
     assert (
         second.initial_version
-        == 1
+        == 2
+    )
+
+    assert (
+        second.final_version
+        == 2
     )
 
     assert (
         second.applied_versions
         == ()
+    )
+
+    assert (
+        second.changed
+        is False
     )
 
 
@@ -140,7 +162,7 @@ def test_connection_uses_row_factory(
             row[
                 "schema_version"
             ]
-            == 1
+            == 2
         )
 
 
