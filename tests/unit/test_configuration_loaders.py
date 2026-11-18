@@ -49,7 +49,7 @@ def test_default_service_registry_is_loaded() -> None:
 
     assert (
         loaded.registry_version
-        == "initial-1"
+        == "initial-2"
     )
 
 
