@@ -120,7 +120,7 @@ def get_schema_version(
 
 def list_schema_tables(
     connection: sqlite3.Connection,
-) -> tuple[str, ...\]:
+) -> tuple[str, ...]:
     rows = connection.execute(
         """
         SELECT name
